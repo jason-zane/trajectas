@@ -2,9 +2,10 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireCampaignAccess } from '@/lib/auth/authorization'
+import { requireCampaignManage } from '@/lib/auth/authorization'
 import { revalidatePath } from 'next/cache'
 import { throwActionError } from '@/lib/security/action-errors'
+import { byDisplayOrder } from '@/lib/taxonomy-order'
 import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
 import {
   getFactorSelectionSchema,
@@ -52,6 +53,7 @@ export async function getFactorsForAssessment(assessmentId: string): Promise<
   Array<{
     dimensionId: string | null
     dimensionName: string | null
+    displayOrder: number
     factors: Array<{
       factorId: string
       factorName: string
@@ -87,7 +89,7 @@ export async function getFactorsForAssessment(assessmentId: string): Promise<
   ] = await Promise.all([
     db
       .from('factors')
-      .select('id, name, description, dimension_id, dimensions(id, name)')
+      .select('id, name, description, dimension_id, dimensions(id, name, display_order)')
       .in('id', factorIds)
       .is('deleted_at', null)
       .order('name'),
@@ -119,6 +121,7 @@ export async function getFactorsForAssessment(assessmentId: string): Promise<
     {
       dimensionId: string | null
       dimensionName: string | null
+      displayOrder: number
       factors: Array<{
         factorId: string
         factorName: string
@@ -130,13 +133,16 @@ export async function getFactorsForAssessment(assessmentId: string): Promise<
 
   for (const row of factorRows ?? []) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const dim = (row as any).dimensions as { id: string; name: string } | null
+    const dim = (row as any).dimensions as
+      | { id: string; name: string; display_order: number | null }
+      | null
     const dimKey = dim?.id ?? '__none__'
 
     if (!grouped.has(dimKey)) {
       grouped.set(dimKey, {
         dimensionId: dim?.id ?? null,
         dimensionName: dim?.name ?? null,
+        displayOrder: dim?.display_order ?? 0,
         factors: [],
       })
     }
@@ -149,7 +155,16 @@ export async function getFactorsForAssessment(assessmentId: string): Promise<
     })
   }
 
-  return Array.from(grouped.values())
+  // Framework order, so the picker and the client-facing factor list read the
+  // same way as the report. Ungrouped factors trail.
+  return Array.from(grouped.values()).sort((a, b) => {
+    if (a.dimensionId === null) return 1
+    if (b.dimensionId === null) return -1
+    return byDisplayOrder(
+      { displayOrder: a.displayOrder, name: a.dimensionName },
+      { displayOrder: b.displayOrder, name: b.dimensionName },
+    )
+  })
 }
 
 // =============================================================================
@@ -175,7 +190,7 @@ export async function saveFactorSelection(
   }
 
   // Auth check
-  await requireCampaignAccess(ca.campaign_id)
+  await requireCampaignManage(ca.campaign_id)
 
   // Verify assessment has min_custom_factors set
   const { data: assessment, error: assessmentError } = await admin
@@ -266,7 +281,7 @@ export async function clearFactorSelection(
     throwActionError('clearFactorSelection', 'Campaign assessment not found.', caError)
   }
 
-  await requireCampaignAccess(ca.campaign_id)
+  await requireCampaignManage(ca.campaign_id)
 
   const { error: deleteError } = await admin
     .from('campaign_assessment_factors')

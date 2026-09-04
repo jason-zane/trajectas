@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getCampaignHeader, getFavoriteCampaignIds } from "@/app/actions/campaigns";
 import { getPartnerBrandingEnabled } from "@/app/actions/partner-entitlements";
 import { CampaignDetailShell } from "@/app/(dashboard)/campaigns/[id]/campaign-detail-shell";
-import { canAccessClient, resolveAuthorizedScope } from "@/lib/auth/authorization";
+import { AuthorizationError, requireCampaignManage } from "@/lib/auth/authorization";
 import { resolvePartnerOrg } from "@/lib/auth/resolve-partner-org";
 import { ForceLightTheme } from "@/components/force-light-theme";
 
@@ -15,20 +15,24 @@ export default async function PartnerCampaignDetailLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [{ partnerId }, campaign, favoriteIds, scope] = await Promise.all([
+  const [{ partnerId }, campaign, favoriteIds] = await Promise.all([
     resolvePartnerOrg(`/partner/campaigns/${id}`),
     getCampaignHeader(id),
     getFavoriteCampaignIds(),
-    resolveAuthorizedScope(),
   ]);
 
   if (!campaign || !partnerId) notFound();
-  // The campaign must belong to a client this partner reaches. `canAccessClient`
-  // rather than `canManageClient`: partner members may view the campaign, and
-  // each write inside it carries its own `canManageCampaign` check.
-  if (!campaign.clientId || !canAccessClient(scope, campaign.clientId)) notFound();
 
-  // D11: the Branding tab appears only while the partner's own flag is on.
+  // This console is a management surface: every tab under it renders mutation
+  // controls, so entry requires the same right the mutations themselves demand.
+  // Ordinary (non-admin) partner members keep the read-only campaign list.
+  try {
+    await requireCampaignManage(id);
+  } catch (error) {
+    if (error instanceof AuthorizationError) notFound();
+    throw error;
+  }
+
   const canCustomizeBranding = await getPartnerBrandingEnabled(partnerId);
 
   return (

@@ -118,20 +118,47 @@ describe('row metrics', () => {
 })
 
 describe('orderEntities', () => {
+  // Unauthored: every displayOrder at the column default, so name decides.
   const entities: CanvasEntity[] = [
-    { id: 'b', name: 'Bravo', level: 'dimension', parentId: null },
-    { id: 'a', name: 'Alpha', level: 'dimension', parentId: null },
-    { id: 'c', name: 'Charlie', level: 'dimension', parentId: null },
+    { id: 'b', name: 'Bravo', level: 'dimension', parentId: null, displayOrder: 0 },
+    { id: 'a', name: 'Alpha', level: 'dimension', parentId: null, displayOrder: 0 },
+    { id: 'c', name: 'Charlie', level: 'dimension', parentId: null, displayOrder: 0 },
   ]
   const metric = (id: string) => ({ a: 5, b: 20, c: 11 })[id as 'a' | 'b' | 'c']
 
-  it('standard order is alphabetical', () => {
+  it('standard order falls back to alphabetical when nothing is authored', () => {
     expect(orderEntities(entities, metric, 'standard').map((e) => e.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('standard order follows display_order once it is authored', () => {
+    // The 5Brains case: framework order must beat the alphabet.
+    const brains: CanvasEntity[] = [
+      { id: 'blue', name: 'BlueBrain', level: 'dimension', parentId: null, displayOrder: 4 },
+      { id: 'red', name: 'RedBrain', level: 'dimension', parentId: null, displayOrder: 1 },
+      { id: 'green', name: 'GreenBrain', level: 'dimension', parentId: null, displayOrder: 3 },
+      { id: 'pink', name: 'PinkBrain', level: 'dimension', parentId: null, displayOrder: 5 },
+      { id: 'orange', name: 'OrangeBrain', level: 'dimension', parentId: null, displayOrder: 2 },
+    ]
+    expect(orderEntities(brains, () => 0, 'standard').map((e) => e.id)).toEqual([
+      'red',
+      'orange',
+      'green',
+      'blue',
+      'pink',
+    ])
   })
 
   it('change and difference orders sort by the metric, descending', () => {
     expect(orderEntities(entities, metric, 'change').map((e) => e.id)).toEqual(['b', 'c', 'a'])
     expect(orderEntities(entities, metric, 'difference').map((e) => e.id)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('breaks a metric tie on framework order, not the alphabet', () => {
+    const tied: CanvasEntity[] = [
+      { id: 'pink', name: 'PinkBrain', level: 'dimension', parentId: null, displayOrder: 5 },
+      { id: 'red', name: 'RedBrain', level: 'dimension', parentId: null, displayOrder: 1 },
+    ]
+    expect(orderEntities(tied, () => 7, 'change').map((e) => e.id)).toEqual(['red', 'pink'])
   })
 
   it('does not mutate the input array', () => {

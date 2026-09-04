@@ -16,6 +16,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import {
   applyTenantClientFilter,
   AuthorizationError,
+  canManageClient,
   requireParticipantAccess,
   resolveAuthorizedScope,
   resolveTenantClientFilter,
@@ -439,8 +440,7 @@ export async function linkParticipantsToSamePerson(
   }
 
   // Admin-role guard: client_admin of that client or platform_admin
-  const canManage =
-    scope.isPlatformAdmin || scope.clientAdminIds.includes(target.clientId)
+  const canManage = canManageClient(scope, target.clientId)
   if (!canManage) {
     throw new AuthorizationError(
       'Only a client admin or platform admin can merge participants.',
@@ -504,8 +504,7 @@ export async function unlinkParticipant(
   const scope = await resolveAuthorizedScope()
   const identity = await loadParticipantIdentity(campaignParticipantId)
 
-  const canManage =
-    scope.isPlatformAdmin || scope.clientAdminIds.includes(identity.clientId)
+  const canManage = canManageClient(scope, identity.clientId)
   if (!canManage) {
     throw new AuthorizationError(
       'Only a client admin or platform admin can unlink participants.',

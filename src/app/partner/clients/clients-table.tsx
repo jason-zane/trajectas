@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import type { ClientWithCounts } from "@/app/actions/clients";
@@ -18,7 +19,13 @@ function getStatus(client: ClientWithCounts): PartnerClientRow["status"] {
   return client.isActive ? "active" : "inactive";
 }
 
-const columns: ColumnDef<PartnerClientRow>[] = [
+/**
+ * Ordinary partner members see the portfolio but cannot open the management
+ * console — `requirePartnerClient` turns them away. Linking every row would
+ * advertise a door that always slams, so the name is plain text for them.
+ */
+function buildColumns(manageableIds: Set<string>): ColumnDef<PartnerClientRow>[] {
+  return [
   {
     accessorKey: "name",
     header: ({ column }) => (
@@ -26,13 +33,19 @@ const columns: ColumnDef<PartnerClientRow>[] = [
     ),
     cell: ({ row }) => (
       <div>
-        <DataTableRowLink
-          href={`/partner/clients/${row.original.slug}/overview`}
-          ariaLabel={`Open ${row.original.name}`}
-          className="font-semibold text-foreground hover:text-primary"
-        >
-          {row.original.name}
-        </DataTableRowLink>
+        {manageableIds.has(row.original.id) ? (
+          <DataTableRowLink
+            href={`/partner/clients/${row.original.slug}/overview`}
+            ariaLabel={`Open ${row.original.name}`}
+            className="font-semibold text-foreground hover:text-primary"
+          >
+            {row.original.name}
+          </DataTableRowLink>
+        ) : (
+          <span className="font-semibold text-foreground">
+            {row.original.name}
+          </span>
+        )}
         <div className="text-xs text-muted-foreground">{row.original.slug}</div>
       </div>
     ),
@@ -99,13 +112,25 @@ const columns: ColumnDef<PartnerClientRow>[] = [
       </Badge>
     ),
   },
-];
+  ];
+}
 
-export function ClientsTable({ clients }: { clients: ClientWithCounts[] }) {
+export function ClientsTable({
+  clients,
+  manageableClientIds,
+}: {
+  clients: ClientWithCounts[];
+  manageableClientIds: string[];
+}) {
   const rows: PartnerClientRow[] = clients.map((client) => ({
     ...client,
     status: getStatus(client),
   }));
+  const manageableIds = useMemo(
+    () => new Set(manageableClientIds),
+    [manageableClientIds]
+  );
+  const columns = useMemo(() => buildColumns(manageableIds), [manageableIds]);
 
   return (
     <DataTable

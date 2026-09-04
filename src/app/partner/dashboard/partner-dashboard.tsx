@@ -177,9 +177,11 @@ export function PartnerDashboard({
     return d != null && d >= 0 && d <= 7;
   });
 
+  // Keyed by id, not name: only the slug is unique, so two clients sharing a
+  // display name would otherwise collapse into one.
   const clientsWithActive = useMemo(() => {
-    const names = new Set(activeCampaigns.map((c) => c.clientName).filter(Boolean));
-    return names.size;
+    const ids = new Set(activeCampaigns.map((c) => c.clientId).filter(Boolean));
+    return ids.size;
   }, [activeCampaigns]);
 
   // Favourites first, then closing soonest — the same ranking the client
@@ -215,16 +217,16 @@ export function PartnerDashboard({
   const clientsNeedingAttention = useMemo(() => {
     const campaignCountByClient = new Map<string, number>();
     for (const campaign of campaigns) {
-      if (!campaign.clientName) continue;
+      if (!campaign.clientId) continue;
       campaignCountByClient.set(
-        campaign.clientName,
-        (campaignCountByClient.get(campaign.clientName) ?? 0) + 1,
+        campaign.clientId,
+        (campaignCountByClient.get(campaign.clientId) ?? 0) + 1,
       );
     }
     return [...clients]
       .map((client) => ({
         client,
-        campaignCount: campaignCountByClient.get(client.name) ?? 0,
+        campaignCount: campaignCountByClient.get(client.id) ?? 0,
       }))
       .sort((a, b) => {
         if (a.campaignCount !== b.campaignCount) return a.campaignCount - b.campaignCount;

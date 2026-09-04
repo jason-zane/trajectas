@@ -3,6 +3,11 @@ import type { CompletionTimelinePoint } from "@/app/actions/campaigns";
 /**
  * Pure mappers for the partner dashboard. Split out from the DAL so the shapes
  * can be unit-tested without a database (see src/lib/dal/README.md).
+ *
+ * Both panels are aggregated and ordered in Postgres (see the
+ * `partner_dashboard_*` functions), so these mappers only rename fields and
+ * pad the series — they never sort or truncate. Doing either here is what made
+ * the pre-aggregation version wrong past PostgREST's 1000-row cap.
  */
 
 /** A dense day-by-day series, so a sparkline never shows a gap as a gap. */
@@ -22,16 +27,17 @@ export function zeroFilledTimeline(
   return out;
 }
 
-/** Completions per UTC day, keyed YYYY-MM-DD. */
-export function bucketCompletionsByDay(
-  rows: Array<{ completed_at?: string | null }>,
+/** Per-day totals from the timeline projection, keyed YYYY-MM-DD. */
+export function mapCompletionTimelineRows(
+  rows: Array<{ day?: string | null; completions?: number | string | null }>,
 ): Map<string, number> {
   const counts = new Map<string, number>();
   for (const row of rows) {
-    const ts = row.completed_at;
-    if (!ts) continue;
-    const day = ts.slice(0, 10);
-    counts.set(day, (counts.get(day) ?? 0) + 1);
+    if (!row.day) continue;
+    // `count(*)` arrives as bigint, which the driver hands back as a string.
+    const total = Number(row.completions ?? 0);
+    if (!Number.isFinite(total)) continue;
+    counts.set(String(row.day).slice(0, 10), total);
   }
   return counts;
 }
@@ -48,70 +54,35 @@ export type PartnerRecentResult = {
   lastActivity: string;
 };
 
-function displayName(row: {
-  first_name?: string | null;
-  last_name?: string | null;
-  email: string;
-}) {
-  const name = `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim();
-  return name || row.email;
-}
-
-function related(value: unknown): Record<string, unknown> | null {
-  const record = Array.isArray(value) ? value[0] : value;
-  return record && typeof record === "object" ? (record as Record<string, unknown>) : null;
-}
+type RecentResultRow = {
+  participant_id?: string | null;
+  participant_name?: string | null;
+  participant_email?: string | null;
+  campaign_id?: string | null;
+  campaign_title?: string | null;
+  client_name?: string | null;
+  latest_session_id?: string | null;
+  status?: string | null;
+  last_activity?: string | null;
+};
 
 /**
- * Participant rows → recent-activity entries, newest first. Mirrors the client
- * portal's shape and adds the client name, which is what makes the list legible
- * when it spans a whole portfolio.
+ * Recent-activity rows → DTOs. The projection already returns them newest
+ * first and limited, so the order that arrives is the order that renders.
  */
 export function mapRecentResultRows(rows: unknown[]): PartnerRecentResult[] {
-  const results = rows.map((raw) => {
-    const row = raw as Record<string, unknown>;
-    const sessions = Array.isArray(row.participant_sessions)
-      ? [...(row.participant_sessions as Array<Record<string, unknown>>)]
-      : [];
-
-    sessions.sort((a, b) => {
-      const aTime = new Date(
-        (a.completed_at as string) ?? (a.started_at as string) ?? 0,
-      ).getTime();
-      const bTime = new Date(
-        (b.completed_at as string) ?? (b.started_at as string) ?? 0,
-      ).getTime();
-      return bTime - aTime;
-    });
-
-    const latestSession = sessions[0];
-    const campaign = related(row.campaigns);
-    const client = related(campaign?.clients);
-
-    const lastActivity =
-      (latestSession?.completed_at as string) ??
-      (latestSession?.started_at as string) ??
-      (row.completed_at as string) ??
-      (row.started_at as string) ??
-      (row.created_at as string);
-
+  return rows.map((raw) => {
+    const row = (raw ?? {}) as RecentResultRow;
     return {
-      participantId: String(row.id),
-      participantName: displayName(
-        row as { first_name?: string | null; last_name?: string | null; email: string },
-      ),
-      participantEmail: String(row.email),
-      campaignId: String(row.campaign_id),
-      campaignTitle: campaign?.title ? String(campaign.title) : "Unknown",
-      clientName: client?.name ? String(client.name) : "Unknown client",
-      latestSessionId: latestSession?.id ? String(latestSession.id) : undefined,
-      status: String(row.status),
-      lastActivity: String(lastActivity),
+      participantId: String(row.participant_id ?? ""),
+      participantName: String(row.participant_name ?? row.participant_email ?? ""),
+      participantEmail: String(row.participant_email ?? ""),
+      campaignId: String(row.campaign_id ?? ""),
+      campaignTitle: row.campaign_title ? String(row.campaign_title) : "Unknown",
+      clientName: row.client_name ? String(row.client_name) : "Unknown client",
+      latestSessionId: row.latest_session_id ? String(row.latest_session_id) : undefined,
+      status: String(row.status ?? ""),
+      lastActivity: String(row.last_activity ?? ""),
     } satisfies PartnerRecentResult;
   });
-
-  results.sort(
-    (a, b) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime(),
-  );
-  return results;
 }
