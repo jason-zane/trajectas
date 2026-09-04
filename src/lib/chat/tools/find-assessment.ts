@@ -29,10 +29,10 @@ export const findAssessmentTool = defineChatTool({
       .optional()
       .describe('Part of the assessment title. Omit to list all visible assessments.'),
   }),
-  async execute({ query }, { db }) {
+  async execute({ query }, { db, scope }) {
     let assessments
     try {
-      assessments = await searchAssessments(db, { term: query })
+      assessments = await searchAssessments(db, scope, { term: query })
     } catch (error) {
       const message = error instanceof ChatSearchError ? error.message : 'lookup failed'
       return toolFail('unavailable', `Assessment lookup failed: ${message}`)

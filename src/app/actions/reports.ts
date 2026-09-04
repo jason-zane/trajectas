@@ -1508,7 +1508,7 @@ export async function getTemplateUsage(templateId: string): Promise<TemplateUsag
   const access = await requireReportTemplateAccess(templateId)
   const db = createAdminClient()
   const accessibleCampaignIds = await getAccessibleCampaignIds(access.scope)
-  if (!access.scope.isPlatformAdmin && (!accessibleCampaignIds || accessibleCampaignIds.length === 0)) {
+  if (accessibleCampaignIds && accessibleCampaignIds.length === 0) {
     return []
   }
 
@@ -1518,7 +1518,7 @@ export async function getTemplateUsage(templateId: string): Promise<TemplateUsag
     .eq('template_id', templateId)
     .order('created_at', { ascending: false })
 
-  if (!access.scope.isPlatformAdmin && accessibleCampaignIds) {
+  if (accessibleCampaignIds) {
     query = query.in('campaign_id', accessibleCampaignIds)
   }
 
@@ -1541,7 +1541,7 @@ export async function getTemplateUsageCounts(): Promise<Record<string, number>> 
   const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
   const accessibleCampaignIds = await getAccessibleCampaignIds(scope)
-  if (!scope.isPlatformAdmin && (!accessibleCampaignIds || accessibleCampaignIds.length === 0)) {
+  if (accessibleCampaignIds && accessibleCampaignIds.length === 0) {
     return {}
   }
 
@@ -1549,7 +1549,7 @@ export async function getTemplateUsageCounts(): Promise<Record<string, number>> 
     .from('campaign_report_templates')
     .select('template_id')
 
-  if (!scope.isPlatformAdmin && accessibleCampaignIds) {
+  if (accessibleCampaignIds) {
     query = query.in('campaign_id', accessibleCampaignIds)
   }
 
@@ -1575,7 +1575,7 @@ export async function getAllCampaigns(): Promise<{ id: string; title: string }[]
   const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
   const accessibleCampaignIds = await getAccessibleCampaignIds(scope)
-  if (!scope.isPlatformAdmin && (!accessibleCampaignIds || accessibleCampaignIds.length === 0)) {
+  if (accessibleCampaignIds && accessibleCampaignIds.length === 0) {
     return []
   }
 
@@ -1585,7 +1585,7 @@ export async function getAllCampaigns(): Promise<{ id: string; title: string }[]
     .is('deleted_at', null)
     .order('title')
 
-  if (!scope.isPlatformAdmin && accessibleCampaignIds) {
+  if (accessibleCampaignIds) {
     query = query.in('id', accessibleCampaignIds)
   }
 

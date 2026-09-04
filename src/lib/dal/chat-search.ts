@@ -6,13 +6,18 @@
 // INJECTED rather than opened here, and callers pass the requesting user's
 // RLS-scoped client (createServerSupabaseClient()), never the admin client.
 //
-// That is the whole isolation model for chat. None of these queries carries a
-// tenant predicate because none needs one — the SELECT policies on campaigns,
-// campaign_participants and assessments already scope through
-// auth_user_client_ids(), with is_platform_admin() short-circuiting to
-// everything. One query therefore serves a platform admin broadly and a client
-// member narrowly, and the narrow path cannot be forgotten because it is the
-// default.
+// That gives MEMBERSHIP-level isolation for free: the SELECT policies on
+// campaigns, campaign_participants and assessments scope through
+// auth_user_client_ids(), so one query serves a client member narrowly without
+// the caller having to remember a predicate.
+//
+// It does not give WORKSPACE-level isolation, and these functions used to
+// assume it did. auth_user_client_ids() spans every membership regardless of
+// which workspace the caller is standing in, and is_platform_admin() is
+// role-only — both the active context and any support session live in a signed
+// cookie that never reaches Postgres. So a platform admin inside one client's
+// portal was served every tenant's people, campaigns and assessments. Hence the
+// explicit `scope` argument below: RLS is the floor, not the boundary.
 //
 // Client injection follows the established pattern here (see careless.ts and
 // participants.ts, which take `db` as their first parameter).
@@ -36,6 +41,20 @@ import {
   type AssessmentSearchResult,
   type PersonSearchResult,
 } from './chat-search-mappers'
+
+/**
+ * The caller's workspace boundary, resolved once per request and passed to
+ * every lookup. `null` on a field means unrestricted; an EMPTY ARRAY means
+ * restricted to nothing and must yield no rows.
+ */
+export interface ChatSearchScope {
+  /** From resolveTenantClientFilter(scope). */
+  clientIds: string[] | null
+  /** From getAccessibleCampaignIds(scope). */
+  campaignIds: string[] | null
+  /** The partners in scope; empty for a caller with no partner reach. */
+  partnerIds: string[]
+}
 
 /** Every chat lookup caps its DISPLAYED result set at this many entries. */
 export const CHAT_SEARCH_LIMIT = 20
@@ -68,11 +87,13 @@ export class ChatSearchError extends Error {
  */
 export async function searchParticipants(
   db: SupabaseClient,
+  scope: ChatSearchScope,
   term: string,
   limit = PARTICIPATION_SCAN_LIMIT,
 ): Promise<ParticipantSearchResult[]> {
   const tokens = searchTokens(term)
   if (tokens.length === 0) return []
+  if (scope.campaignIds && scope.campaignIds.length === 0) return []
 
   let builder = db
     .from('campaign_participants')
@@ -81,6 +102,10 @@ export async function searchParticipants(
     )
     .is('deleted_at', null)
     .is('campaign_rater_id', null)
+
+  if (scope.campaignIds) {
+    builder = builder.in('campaign_id', scope.campaignIds)
+  }
 
   for (const token of tokens) {
     const pattern = buildSearchPattern(token)
@@ -105,10 +130,11 @@ export async function searchParticipants(
  */
 export async function searchPeople(
   db: SupabaseClient,
+  scope: ChatSearchScope,
   term: string,
   limit = CHAT_SEARCH_LIMIT,
 ): Promise<{ people: PersonSearchResult[]; truncated: boolean }> {
-  const rows = await searchParticipants(db, term)
+  const rows = await searchParticipants(db, scope, term)
   const people = groupParticipantsByPerson(rows)
   return {
     people: people.slice(0, limit),
@@ -119,12 +145,19 @@ export async function searchPeople(
 /** Campaigns matching a title fragment, optionally filtered by status. */
 export async function searchCampaigns(
   db: SupabaseClient,
+  scope: ChatSearchScope,
   params: { term?: string; status?: string; limit?: number } = {},
 ): Promise<CampaignSearchResult[]> {
+  if (scope.campaignIds && scope.campaignIds.length === 0) return []
+
   let builder = db
     .from('campaigns')
     .select('id, title, status, kind, opens_at, closes_at, clients(id, name)')
     .is('deleted_at', null)
+
+  if (scope.campaignIds) {
+    builder = builder.in('id', scope.campaignIds)
+  }
 
   const term = params.term?.trim()
   if (term) builder = builder.ilike('title', buildSearchPattern(term))
@@ -143,12 +176,28 @@ export async function searchCampaigns(
 /** Assessments matching a title fragment. */
 export async function searchAssessments(
   db: SupabaseClient,
+  scope: ChatSearchScope,
   params: { term?: string; limit?: number } = {},
 ): Promise<AssessmentSearchResult[]> {
   let builder = db
     .from('assessments')
     .select('id, title, slug, status, scoring_method, clients(id, name)')
     .is('deleted_at', null)
+
+  if (scope.clientIds) {
+    // Mirrors the assessments SELECT policy, but against the workspace rather
+    // than every membership: the caller's clients, their partners' assessments,
+    // and the shared library (both owner columns null), which is not tenant
+    // data and stays visible everywhere.
+    const clauses = ['and(client_id.is.null,partner_id.is.null)']
+    if (scope.clientIds.length > 0) {
+      clauses.push(`client_id.in.(${scope.clientIds.join(',')})`)
+    }
+    if (scope.partnerIds.length > 0) {
+      clauses.push(`partner_id.in.(${scope.partnerIds.join(',')})`)
+    }
+    builder = builder.or(clauses.join(','))
+  }
 
   const term = params.term?.trim()
   if (term) builder = builder.ilike('title', buildSearchPattern(term))

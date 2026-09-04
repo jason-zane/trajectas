@@ -2,10 +2,16 @@
 // src/lib/chat/registry.ts
 //
 // The tool registry. A chat tool is a named, zod-validated function over the
-// REQUESTING USER'S Supabase client — never the admin client. Tenancy is not a
-// parameter and not a predicate the tool author has to remember: it comes from
-// the RLS policies attached to that connection, so the same tool body answers
-// broadly for a platform admin and narrowly for a client member.
+// REQUESTING USER'S Supabase client — never the admin client. Membership-level
+// tenancy comes from the RLS policies attached to that connection, so the same
+// tool body answers broadly for a platform admin and narrowly for a client
+// member.
+//
+// RLS is not the whole boundary, though. It scopes by MEMBERSHIP: policies call
+// auth_user_client_ids(), and is_platform_admin() is role-only, so neither
+// knows which workspace the caller is standing in — the active context and any
+// support session live in a signed cookie that never reaches Postgres. A tool
+// that reads tenant-scoped rows must therefore also apply ctx.scope.
 //
 // tests/architecture/chat-rls-client.test.ts fails CI if anything under
 // src/lib/chat/ imports the admin client (src/lib/chat/audit.ts is the single
@@ -17,6 +23,7 @@ import 'server-only'
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type OpenAI from 'openai'
+import type { ChatSearchScope } from '@/lib/dal/chat-search'
 import type { ChatBlock, ToolEnvelope } from './envelope'
 
 /** What a tool may do with the request beyond querying. */
@@ -25,6 +32,12 @@ export interface ChatToolContext {
   db: SupabaseClient
   /** True only for platform admins — used for data-source policy, not access. */
   isPlatformAdmin: boolean
+  /**
+   * The caller's active workspace boundary, resolved once per request. `null`
+   * on a field means unrestricted; an EMPTY ARRAY means restricted to nothing
+   * and must yield no rows — see resolveTenantClientFilter.
+   */
+  scope: ChatSearchScope
 }
 
 export interface ChatTool<TParams extends z.ZodTypeAny = z.ZodTypeAny, TData = unknown> {

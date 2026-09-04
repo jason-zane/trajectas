@@ -262,7 +262,14 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
     await admin.from('clients').delete().in('id', [ids.clientA, ids.clientB])
   })
 
-  const ctx = (db: SupabaseClient, isPlatformAdmin: boolean) => ({ db, isPlatformAdmin })
+  // `scope` all-null = unrestricted, matching how these tests exercise the RLS
+  // boundary itself. Workspace confinement is covered separately in
+  // tests/unit/authorization-rules.test.ts.
+  const ctx = (db: SupabaseClient, isPlatformAdmin: boolean) => ({
+    db,
+    isPlatformAdmin,
+    scope: { clientIds: null, campaignIds: null, partnerIds: [] },
+  })
 
   describe('find_participant', () => {
     it('a platform admin sees participants across every tenant', async () => {

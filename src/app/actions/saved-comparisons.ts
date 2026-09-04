@@ -2,6 +2,10 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { resolveSessionActor } from '@/lib/auth/actor'
+import {
+  resolveAuthorizedScope,
+  resolveTenantClientFilter,
+} from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { revalidatePath } from 'next/cache'
 import type {
@@ -66,11 +70,32 @@ export async function listSavedComparisons(): Promise<SavedComparisonSummary[]> 
   const supabase = await createClient()
   const actor = await resolveSessionActor()
   if (!actor) return []
-  const { data, error } = await supabase
+
+  // The SELECT policy scopes team-shared comparisons by auth_user_client_ids(),
+  // which spans every membership and knows nothing about the active workspace.
+  // Confine them here: inside a client's portal only that client's saved
+  // comparisons belong on the list, alongside the caller's own.
+  const scope = await resolveAuthorizedScope()
+  const clientFilter = resolveTenantClientFilter(scope)
+
+  let query = supabase
     .from('comparisons')
     .select('id, name, share_scope, owner_id, created_at, updated_at, entries, assessment_ids')
     .order('updated_at', { ascending: false })
     .limit(50)
+
+  if (clientFilter) {
+    const clauses = [`owner_id.eq.${actor.id}`]
+    if (clientFilter.length > 0) {
+      clauses.push(`client_id.in.(${clientFilter.join(',')})`)
+    }
+    if (scope.partnerIds.length > 0) {
+      clauses.push(`partner_id.in.(${scope.partnerIds.join(',')})`)
+    }
+    query = query.or(clauses.join(','))
+  }
+
+  const { data, error } = await query
   if (error) throw new Error(error.message)
   return (data ?? []).map((r) => ({
     id: r.id as string,
@@ -93,7 +118,22 @@ export async function getSavedComparison(id: string): Promise<SavedComparison | 
     .eq('id', id)
     .maybeSingle()
   if (error) throw new Error(error.message)
-  return data ? toComparison(data as Row) : null
+  if (!data) return null
+
+  // The id arrives from the client and RLS alone would hand a platform admin
+  // any comparison on the platform, including from inside a client's portal.
+  const scope = await resolveAuthorizedScope()
+  const clientFilter = resolveTenantClientFilter(scope)
+  if (clientFilter) {
+    const row = data as Row & { client_id: string | null; partner_id: string | null }
+    const inWorkspace =
+      row.owner_id === scope.actor?.id ||
+      (row.client_id != null && clientFilter.includes(row.client_id)) ||
+      (row.partner_id != null && scope.partnerIds.includes(row.partner_id))
+    if (!inWorkspace) return null
+  }
+
+  return toComparison(data as Row)
 }
 
 export async function saveComparison(input: {

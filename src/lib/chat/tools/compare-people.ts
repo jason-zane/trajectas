@@ -43,13 +43,13 @@ export const comparePeopleTool = defineChatTool({
         'Optional assessment title, when the user named a particular instrument. Without it the most recently sat shared assessment is used.',
       ),
   }),
-  async execute({ people, assessment }, { db }) {
+  async execute({ people, assessment }, { db, scope }) {
     try {
       const resolved: Array<{ personKey: string; name: string; participantIds: string[] }> = []
       const unresolved: string[] = []
 
       for (const term of people) {
-        const { people: matches } = await searchPeople(db, term)
+        const { people: matches } = await searchPeople(db, scope, term)
         if (matches.length === 0) {
           unresolved.push(term)
           continue
@@ -94,7 +94,7 @@ export const comparePeopleTool = defineChatTool({
       // Honour a named instrument when the user asked for one.
       let preferredAssessmentId: string | undefined
       if (assessment?.trim()) {
-        const found = await searchAssessments(db, { term: assessment })
+        const found = await searchAssessments(db, scope, { term: assessment })
         if (found.length === 0) {
           return toolFail(
             'not_found',

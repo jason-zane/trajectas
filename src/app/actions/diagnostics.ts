@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import {
+  applyTenantClientFilter,
   requireAdminScope,
   requireClientAccess,
   resolveAuthorizedScope,
@@ -250,9 +251,9 @@ export async function getDiagnosticSessions(): Promise<DiagnosticSessionWithMeta
     .select('*, clients(name), diagnostic_templates(name), diagnostic_respondents(count)')
     .order('created_at', { ascending: false })
 
-  if (!scope.isPlatformAdmin) {
-    query = query.in('client_id', scope.clientIds)
-  }
+  const scopedQuery = applyTenantClientFilter(query, scope, 'client_id')
+  if (!scopedQuery) return []
+  query = scopedQuery
 
   const { data, error } = await query
 
@@ -505,12 +506,9 @@ export async function getClientsForDiagnosticSelect(): Promise<SelectOption[]> {
     .is('deleted_at', null)
     .order('name', { ascending: true })
 
-  if (!scope.isPlatformAdmin) {
-    if (scope.clientIds.length === 0) {
-      return []
-    }
-    query = query.in('id', scope.clientIds)
-  }
+  const scopedQuery = applyTenantClientFilter(query, scope, 'id')
+  if (!scopedQuery) return []
+  query = scopedQuery
 
   const { data, error } = await query
 
