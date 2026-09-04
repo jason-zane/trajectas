@@ -15,6 +15,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { mapReportSnapshotRow, mapReportTemplateRow } from '@/lib/supabase/mappers'
 import { isDeferredBlockType, parseBlocks } from './registry'
 import { resolveBand } from './band-resolution'
+import { byDisplayOrder } from '@/lib/taxonomy-order'
 import { DEFAULT_3_BAND_SCHEME, type BandScheme } from './band-scheme'
 import { resolveTemplateBandScheme } from './resolve-template-band-scheme'
 import { buildDerivedNarrative, buildDevelopmentSuggestion, resolvePersonToken } from './narrative'
@@ -740,7 +741,7 @@ function filterScoredEntities(
 /**
  * Build the per-dimension entries shared by contents + dimension_chapter:
  * every dimension that has (or derives) a score, with its child factor IDs.
- * Sorted by name for deterministic output.
+ * Ordered by the framework's authored `display_order`, name as the tiebreak.
  */
 function collectScoredDimensions(
   scoreMap: ScoreMap,
@@ -748,8 +749,12 @@ function collectScoredDimensions(
   taxonomyMap: Map<string, any>,
   dimensionChildFactors: Map<string, string[]>,
   scheme: BandScheme,
-): Array<ContentsDimension & { factorIds: string[]; summary: string | null }> {
-  const dims: Array<ContentsDimension & { factorIds: string[]; summary: string | null }> = []
+): Array<
+  ContentsDimension & { displayOrder: number; factorIds: string[]; summary: string | null }
+> {
+  const dims: Array<
+    ContentsDimension & { displayOrder: number; factorIds: string[]; summary: string | null }
+  > = []
   for (const [dimId, factorIds] of dimensionChildFactors) {
     const entity = taxonomyMap.get(dimId)
     if (!entity) continue
@@ -758,13 +763,14 @@ function collectScoredDimensions(
     dims.push({
       id: dimId,
       name: String(entity.name ?? dimId),
+      displayOrder: typeof entity.display_order === 'number' ? entity.display_order : 0,
       pompScore: Math.round(pompScore),
       bandResult: resolveBand(pompScore, scheme),
       factorIds,
       summary: (entity.description as string | null) || (entity.definition as string | null) || null,
     })
   }
-  return dims.sort((a, b) => a.name.localeCompare(b.name))
+  return dims.sort(byDisplayOrder)
 }
 
 async function resolveBlockData(
