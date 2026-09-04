@@ -14,7 +14,9 @@ env:
 jobs:
   security:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 20 rather than 15: the audit step now retries a slow registry instead of
+    # failing on it, and its worst case is ~11 minutes of attempts and backoff.
+    timeout-minutes: 20
 
     permissions:
       contents: read
@@ -34,8 +36,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Node 20 bundles npm 10, which asks the bulk advisory endpoint first and
+      # then silently falls back to /-/npm/v1/security/audits/quick — retired,
+      # and answers 400 "Invalid package tree", which reads as a lockfile bug
+      # when it is really a network one. npm 11 dropped the fallback. Pinned
+      # rather than floating so the audit's behaviour does not drift under us.
+      # Best-effort: if the pin cannot be fetched the audit still runs, and the
+      # wrapper below classifies the quick endpoint's answers as transport too.
+      - name: Pin npm 11 for the audit
+        continue-on-error: true
+        run: npm install -g npm@11.19.1
+
+      # Wraps `npm audit --omit=dev --audit-level=high`. Same threshold — the
+      # wrapper exists to tell a high-severity advisory (fail) apart from an
+      # unreachable registry (retry, then warn), which npm's exit code alone
+      # cannot. See the script header and AGENTS.md.
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
+        run: node scripts/audit-production-deps.mjs
 
       - name: Scan for committed secrets
         uses: gitleaks/gitleaks-action@v2
