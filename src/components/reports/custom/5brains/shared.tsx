@@ -20,6 +20,7 @@ export function A4Page({
 }) {
   return (
     <div
+      className="fb-page"
       style={{
         width: PAGE_W,
         height: PAGE_H,
