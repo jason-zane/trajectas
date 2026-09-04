@@ -3,7 +3,11 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireAdminScope, resolveAuthorizedScope } from '@/lib/auth/authorization'
+import {
+  applyTenantClientFilter,
+  requireAdminScope,
+  resolveAuthorizedScope,
+} from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
 import {
   getSessionsForMatchingSelectSchema,
@@ -90,9 +94,9 @@ export async function getWorkspaceMatchingRuns(): Promise<WorkspaceMatchingRunWi
     .select('*, clients(name), diagnostic_sessions(name), matching_results(count)')
     .order('created_at', { ascending: false })
 
-  if (!scope.isPlatformAdmin) {
-    query = query.in('client_id', scope.clientIds)
-  }
+  const scopedQuery = applyTenantClientFilter(query, scope, 'client_id')
+  if (!scopedQuery) return []
+  query = scopedQuery
 
   const { data, error } = await query
   if (error) {

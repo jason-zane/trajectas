@@ -3,7 +3,11 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { requireClientAccess } from '@/lib/auth/authorization'
+import {
+  requireClientAccess,
+  resolveAuthorizedScope,
+  resolveTenantClientFilter,
+} from '@/lib/auth/authorization'
 import { logAuditEventSafe } from '@/lib/auth/support-sessions'
 import { throwActionError } from '@/lib/security/action-errors'
 import { estimateAssessmentDurationMinutes } from '@/lib/assessments/duration'
@@ -922,6 +926,9 @@ export async function isClientBrandingEnabled(clientId: string): Promise<boolean
   const parsed = clientIdSchema.safeParse({ clientId })
   if (!parsed.success) return false
   const db = await createClient()
+
+  const clientFilter = resolveTenantClientFilter(await resolveAuthorizedScope())
+  if (clientFilter !== null && !clientFilter.includes(clientId)) return false
 
   const { data: client, error: clientError } = await db
     .from('clients')

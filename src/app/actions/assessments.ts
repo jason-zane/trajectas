@@ -9,11 +9,13 @@ import {
   canManageAssessment,
   canManageAssessmentLibrary,
   getAccessibleCampaignIds,
+  getAccessiblePartnerIds,
   getPreferredPartnerIdForAssessmentCreation,
   redirectToLoginOnDeadSession,
   requireAdminScope,
   requireAssessmentAccess,
   resolveAuthorizedScope,
+  resolveTenantClientFilter,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
@@ -268,12 +270,11 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
   const scope = await resolveAuthorizedScope()
   const db = await createClient()
 
-  let accessibleCampaignIds: string[] | null = null
-  if (!scope.isPlatformAdmin) {
-    accessibleCampaignIds = await getAccessibleCampaignIds(scope)
-    if (!accessibleCampaignIds || accessibleCampaignIds.length === 0) {
-      return []
-    }
+  // `null` here means unrestricted, which getAccessibleCampaignIds now grants
+  // only outside a tenant workspace; an empty list means nothing is visible.
+  const accessibleCampaignIds = await getAccessibleCampaignIds(scope)
+  if (accessibleCampaignIds && accessibleCampaignIds.length === 0) {
+    return []
   }
 
   let query = db
@@ -429,8 +430,17 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
 export async function getPartnerAssessmentLibrary(): Promise<AssessmentLibrarySummary[]> {
   const scope = await resolveAuthorizedScope()
 
-  if (!scope.isPlatformAdmin && scope.partnerIds.length === 0) {
-    return []
+  // Partner-owned assessments, plus the shared library. `null` = unrestricted,
+  // which only holds outside every workspace: a platform admin standing in one
+  // sees that workspace's partners, not the whole platform's.
+  let partnerFilter: string[] | null = null
+  if (resolveTenantClientFilter(scope) !== null) {
+    partnerFilter = scope.isPlatformAdmin
+      ? await getAccessiblePartnerIds(scope)
+      : scope.partnerIds
+    if (partnerFilter.length === 0) {
+      return []
+    }
   }
 
   const db = createAdminClient()
@@ -440,9 +450,9 @@ export async function getPartnerAssessmentLibrary(): Promise<AssessmentLibrarySu
     .is('deleted_at', null)
     .is('client_id', null)
 
-  if (!scope.isPlatformAdmin) {
+  if (partnerFilter) {
     query = query.or(
-      `partner_id.in.(${scope.partnerIds.join(',')}),and(partner_id.is.null,client_id.is.null)`
+      `partner_id.in.(${partnerFilter.join(',')}),and(partner_id.is.null,client_id.is.null)`
     )
   }
 
@@ -458,9 +468,7 @@ export async function getPartnerAssessmentLibrary(): Promise<AssessmentLibrarySu
   }
 
   const assessmentIds = assessmentRows.map((row) => String(row.id))
-  const accessibleCampaignIds = scope.isPlatformAdmin
-    ? null
-    : await getAccessibleCampaignIds(scope)
+  const accessibleCampaignIds = await getAccessibleCampaignIds(scope)
 
   let deploymentRows:
     | Array<Record<string, unknown>>

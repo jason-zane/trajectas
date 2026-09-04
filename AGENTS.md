@@ -40,6 +40,36 @@ Hard rule (enforced by `tests/architecture/no-db-in-components.test.ts`):
 or `@/lib/supabase/server`.** They receive data as props or call a DAL function.
 Pages (`src/app/**/page.tsx`) may fetch, preferably via the DAL.
 
+## RLS is not the workspace boundary
+
+RLS scopes by **membership**. It does not know which workspace the caller is
+standing in: the active context and any support session live in a signed cookie
+(`tf_active_context`) that never reaches Postgres, and `is_platform_admin()` is
+role-only — so for a platform admin, including mid support session, RLS is not a
+tenant boundary at all.
+
+**Any read of a tenant-scoped table must carry its own predicate.** Derive it
+from the resolved scope:
+
+```ts
+const scope = await resolveAuthorizedScope()
+const scoped = applyTenantClientFilter(query, scope, 'client_id')
+if (!scoped) return []            // confined to nothing — NOT unrestricted
+const { data } = await scoped
+```
+
+For campaign-scoped reads, `getAccessibleCampaignIds(scope)` returns the same
+shape: `null` only when genuinely unrestricted, an id list otherwise.
+
+Do **not** write `if (!scope.isPlatformAdmin) { …narrow… }` — that skips the
+predicate for an admin inside a client's workspace, which is exactly how the
+Compare picker served one client's portal every tenant's participants.
+
+Enforced by `tests/architecture/tenant-scope-predicates.test.ts`, which has a
+vetted allowlist for genuinely cross-tenant platform-administration screens.
+Background and the deferred database-side work:
+`docs/superpowers/specs/2026-09-04-workspace-tenant-boundary.md`.
+
 ## Cognitive item bank — review gates delivery
 
 Cognitive items (anything with a `cognitive_item_specs` row) may not be placed

@@ -18,6 +18,7 @@ import 'server-only'
 
 import type OpenAI from 'openai'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { ChatSearchScope } from '@/lib/dal/chat-search'
 import { encodeFrame, type ChatBlock, type ChatFrame } from './envelope'
 import { toOpenAITools, type ChatToolRegistry } from './registry'
 import { recordChatToolCall } from './audit'
@@ -42,6 +43,8 @@ export interface RunDataChatOptions {
   registry: ChatToolRegistry
   db: SupabaseClient
   isPlatformAdmin: boolean
+  /** See ChatToolContext.scope — the active workspace boundary. */
+  scope: ChatSearchScope
   actorProfileId: string | null
   maxTokens: number
   temperature?: number
@@ -100,6 +103,7 @@ export function runDataChat(options: RunDataChatOptions): ReadableStream<Uint8Ar
     registry,
     db,
     isPlatformAdmin,
+    scope,
     actorProfileId,
     maxTokens,
     temperature,
@@ -200,7 +204,7 @@ export function runDataChat(options: RunDataChatOptions): ReadableStream<Uint8Ar
                   message: `Invalid arguments for ${tool.name}: ${validated.error.message}`,
                 }
               } else {
-                const result = await tool.execute(validated.data, { db, isPlatformAdmin })
+                const result = await tool.execute(validated.data, { db, isPlatformAdmin, scope })
                 if (result.ok) {
                   const data = result.data as Record<string, unknown> | null
                   const count = data && typeof data === 'object' ? data.matchCount : null

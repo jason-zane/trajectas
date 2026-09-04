@@ -45,7 +45,7 @@ export const getSessionScoresTool = defineChatTool({
       .optional()
       .describe("A participant id — their latest result within that one campaign."),
   }),
-  async execute({ session_id, participant_id, person_name_or_email }, { db }) {
+  async execute({ session_id, participant_id, person_name_or_email }, { db, scope }) {
     if (!session_id && !participant_id && !person_name_or_email) {
       return toolFail(
         'invalid_input',
@@ -60,7 +60,7 @@ export const getSessionScoresTool = defineChatTool({
       if (!sessionId && person_name_or_email) {
         // A person is not a participant row: campaign_participants holds one
         // per campaign, so "their latest result" has to span all of them.
-        const { people } = await searchPeople(db, person_name_or_email)
+        const { people } = await searchPeople(db, scope, person_name_or_email)
         if (people.length === 0) {
           return toolFail(
             'not_found',
@@ -81,7 +81,7 @@ export const getSessionScoresTool = defineChatTool({
           )
         }
         personParticipantIds = people[0].participantIds
-        const resolved = await getLatestScoredSession(db, people[0].participantIds)
+        const resolved = await getLatestScoredSession(db, scope, people[0].participantIds)
         sessionId = resolved.sessionId
         skippedMoreRecent = resolved.skippedMoreRecent
         if (!sessionId) {
@@ -93,7 +93,7 @@ export const getSessionScoresTool = defineChatTool({
       }
 
       if (!sessionId && participant_id) {
-        const resolved = await getLatestScoredSession(db, [participant_id])
+        const resolved = await getLatestScoredSession(db, scope, [participant_id])
         sessionId = resolved.sessionId
         skippedMoreRecent = resolved.skippedMoreRecent
         if (!sessionId) {
@@ -104,7 +104,7 @@ export const getSessionScoresTool = defineChatTool({
         }
       }
 
-      const scores = await getSessionScores(db, sessionId as string)
+      const scores = await getSessionScores(db, scope, sessionId as string)
       if (!scores) {
         return toolFail(
           'not_found',

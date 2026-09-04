@@ -26,9 +26,9 @@ export const getPersonTimelineTool = defineChatTool({
       .max(160)
       .describe("The person's name or email address."),
   }),
-  async execute({ person_name_or_email }, { db }) {
+  async execute({ person_name_or_email }, { db, scope }) {
     try {
-      const { people } = await searchPeople(db, person_name_or_email)
+      const { people } = await searchPeople(db, scope, person_name_or_email)
       if (people.length === 0) {
         return toolFail(
           'not_found',

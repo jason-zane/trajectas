@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createSupabaseClient } from '@/lib/supabase/server'
 import { mapClientRow, toClientInsert } from '@/lib/supabase/mappers'
 import {
+  applyTenantClientFilter,
   AuthorizationError,
   canManageClient,
   canManageClientAssignment,
@@ -90,12 +91,9 @@ export async function getClients(): Promise<ClientWithCounts[]> {
     .is('assessments.deleted_at', null)
     .order('name', { ascending: true })
 
-  if (!scope.isPlatformAdmin) {
-    if (scope.clientIds.length === 0) {
-      return []
-    }
-    query = query.in('id', scope.clientIds)
-  }
+  const scopedQuery = applyTenantClientFilter(query, scope, 'id')
+  if (!scopedQuery) return []
+  query = scopedQuery
 
   const { data, error } = await query
 
@@ -115,12 +113,9 @@ export async function getClientDirectoryEntries(): Promise<ClientWithCounts[]> {
     .is('assessments.deleted_at', null)
     .order('name', { ascending: true })
 
-  if (!scope.isPlatformAdmin) {
-    if (scope.clientIds.length === 0) {
-      return []
-    }
-    query = query.in('id', scope.clientIds)
-  }
+  const scopedQuery = applyTenantClientFilter(query, scope, 'id')
+  if (!scopedQuery) return []
+  query = scopedQuery
 
   const { data, error } = await query
 

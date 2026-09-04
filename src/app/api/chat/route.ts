@@ -2,7 +2,9 @@ import OpenAI from 'openai'
 import {
   AuthenticationRequiredError,
   AuthorizationError,
+  getAccessibleCampaignIds,
   requireAdminScope,
+  resolveTenantClientFilter,
 } from '@/lib/auth/authorization'
 import { getModelForTask } from '@/lib/ai/model-config'
 import { getActiveSystemPrompt } from '@/lib/ai/prompt-config'
@@ -156,6 +158,11 @@ export async function POST(request: Request) {
         registry: chatToolRegistry,
         db,
         isPlatformAdmin: scope.isPlatformAdmin,
+        scope: {
+          clientIds: resolveTenantClientFilter(scope),
+          campaignIds: await getAccessibleCampaignIds(scope),
+          partnerIds: scope.partnerIds,
+        },
         actorProfileId,
         maxTokens,
         temperature: taskConfig.config.temperature,

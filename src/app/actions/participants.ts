@@ -141,9 +141,9 @@ export async function getParticipants(filters?: {
       }
       throw error
     }
-  } else if (!scope.isPlatformAdmin) {
+  } else {
     scopedCampaignIds = await getAccessibleCampaignIds(scope)
-    if (!scopedCampaignIds || scopedCampaignIds.length === 0) {
+    if (scopedCampaignIds && scopedCampaignIds.length === 0) {
       return { data: [], total: 0 }
     }
   }
@@ -170,13 +170,11 @@ export async function getUniqueParticipants(filters?: {
   const page = filters?.page ?? 1
   const perPage = filters?.perPage ?? 50
   const offset = (page - 1) * perPage
-  let scopedCampaignIds: string[] | null = null
-
-  if (!scope.isPlatformAdmin) {
-    scopedCampaignIds = await getAccessibleCampaignIds(scope)
-    if (!scopedCampaignIds || scopedCampaignIds.length === 0) {
-      return { data: [], total: 0 }
-    }
+  // `null` = unrestricted, which getAccessibleCampaignIds grants only outside
+  // every tenant workspace; an empty list = nothing visible.
+  const scopedCampaignIds = await getAccessibleCampaignIds(scope)
+  if (scopedCampaignIds && scopedCampaignIds.length === 0) {
+    return { data: [], total: 0 }
   }
 
   return dalListUniqueParticipants(db, {
