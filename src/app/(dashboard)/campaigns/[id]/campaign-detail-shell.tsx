@@ -67,7 +67,13 @@ export function CampaignDetailShell({
 
   const showAssessmentsAlert = campaign.assessmentCount === 0;
   const tabs = allTabs(showAssessmentsAlert, campaign.kind).filter((tab) => {
-    if (tab.segment === "branding" && portal === "client" && !canCustomizeBranding) {
+    // Branding is feature-gated on both tenant portals: the client's own flag
+    // for the client portal, the partner's flag for the partner portal (D11).
+    if (
+      tab.segment === "branding" &&
+      (portal === "client" || portal === "partner") &&
+      !canCustomizeBranding
+    ) {
       return false;
     }
     // 360 rater management is an admin-only test-bed surface — the route only

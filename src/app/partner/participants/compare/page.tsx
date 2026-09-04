@@ -1,15 +1,15 @@
-import { redirect } from 'next/navigation'
 import { ComparisonWorkspace } from '@/components/comparison/comparison-workspace'
 import {
   getComparisonMatrix,
   getEligibleAssessmentsForParticipants,
 } from '@/app/actions/comparison'
-import { getCampaignById } from '@/app/actions/campaigns'
 import {
   getSavedComparison,
   listSavedComparisons,
 } from '@/app/actions/saved-comparisons'
+import { getPartnerBandScheme } from '@/app/actions/partners'
 import { getPlatformBandScheme } from '@/app/actions/platform-settings'
+import { resolvePartnerOrg } from '@/lib/auth/resolve-partner-org'
 import { resolveSessionActor } from '@/lib/auth/actor'
 import {
   decodeDeltaParam,
@@ -20,32 +20,22 @@ import { isLongitudinal } from '@/lib/comparison/display'
 import { PageHeader } from '@/components/page-header'
 import type { ComparisonRequest, EntryRequest } from '@/lib/comparison/types'
 
-type Surface = "admin" | "client" | "partner";
+const BASE_PATH = '/partner/participants/compare'
 
-interface CampaignComparePageProps {
-  campaignId: string;
-  surface: Surface;
-  searchParams: {
+export default async function PartnerComparePage({
+  searchParams,
+}: {
+  searchParams: Promise<{
     entries?: string
     assessments?: string
     levels?: string
     delta?: string
     ids?: string
     saved?: string
-  }
-  basePath: string;
-  fallbackPath: string;
-}
-
-export async function CampaignComparePageComponent({
-  campaignId,
-  surface,
-  searchParams: sp,
-  basePath,
-  fallbackPath,
-}: CampaignComparePageProps) {
-  const campaign = await getCampaignById(campaignId)
-  if (!campaign) redirect(fallbackPath)
+  }>
+}) {
+  const { partnerId } = await resolvePartnerOrg(BASE_PATH)
+  const sp = await searchParams
 
   const saved = sp.saved ? await getSavedComparison(sp.saved) : null
 
@@ -64,10 +54,12 @@ export async function CampaignComparePageComponent({
     : (saved?.visibleLevels ?? decodeLevelsParam(undefined))
   const deltaMode = sp.delta !== undefined ? decodeDeltaParam(sp.delta) : (saved?.deltaMode ?? false)
 
-  const [eligible, savedList, actor] = await Promise.all([
+  const [eligible, savedList, actor, partnerBandScheme] = await Promise.all([
     getEligibleAssessmentsForParticipants(entries.map((e) => e.campaignParticipantId)),
     listSavedComparisons(),
     resolveSessionActor(),
+    // A partner's own band scheme, when it has one, frames its clients' scores.
+    partnerId ? getPartnerBandScheme(partnerId) : Promise.resolve(null),
   ])
 
   const effectiveRequest: ComparisonRequest = {
@@ -86,26 +78,21 @@ export async function CampaignComparePageComponent({
   const personName = result.rows[0]?.participantName ?? null
   const aCount = effectiveRequest.assessmentIds.length
   const aLabel = `${aCount} assessment${aCount === 1 ? '' : 's'}`
-  const subject =
-    result.rows.length === 0
-      ? `Pick participants in ${campaign.title} to begin.`
-      : longitudinal && personName
-        ? `${result.rows.length} sessions across ${aLabel} · ${campaign.title}`
-        : `${result.rows.length} ${result.rows.length === 1 ? 'participant' : 'participants'} across ${aLabel} · ${campaign.title}`
-
-  // Parameterized header: the tenant portals show saved-comparison metadata when
-  // present; the admin console labels it by campaign instead.
-  const headerEyebrow = saved
-    ? (surface === "admin" ? 'Insights · Campaign' : `Insights · ${saved.shareScope === 'team' ? 'Shared' : 'Private'}`)
-    : 'Insights · Campaign'
-  const headerTitle = saved?.name ?? (longitudinal && personName ? personName : campaign.title)
+  const subject = (() => {
+    if (result.rows.length === 0) return 'Pick a participant to start a new comparison, or open a saved one.'
+    if (longitudinal && personName) {
+      return `${result.rows.length} sessions across ${aLabel}`
+    }
+    const count = result.rows.length
+    return `${count} ${count === 1 ? 'participant' : 'participants'} across ${aLabel}`
+  })()
 
   return (
     <div className="space-y-4 max-w-[1600px] min-w-0">
       <div className="px-4 pt-4">
         <PageHeader
-          eyebrow={headerEyebrow}
-          title={headerTitle}
+          eyebrow={saved ? `Insights · ${saved.shareScope === 'team' ? 'Shared' : 'Private'}` : 'Insights'}
+          title={saved?.name ?? (longitudinal && personName ? personName : 'Compare')}
           description={subject}
         />
       </div>
@@ -118,11 +105,10 @@ export async function CampaignComparePageComponent({
           saved,
           savedList,
         }}
-        basePath={basePath}
-        campaignSlug={campaign.slug}
-        partnerBandScheme={null}
+        basePath={BASE_PATH}
+        partnerBandScheme={partnerBandScheme}
         platformBandScheme={platformBandScheme}
-        pickerScope={{ kind: 'campaign', campaignId }}
+        pickerScope={{ kind: 'workspace' }}
         currentUserId={actor?.id ?? null}
       />
     </div>

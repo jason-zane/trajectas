@@ -17,7 +17,7 @@ import { notFound } from "next/navigation";
 import { CampaignStatusActions } from "@/app/(dashboard)/campaigns/[id]/overview/campaign-status-actions";
 import { CampaignAccessLinks } from "@/app/(dashboard)/campaigns/[id]/settings/campaign-access-links";
 
-type Surface = "admin" | "client";
+type Surface = "admin" | "client" | "partner";
 
 interface CampaignOverviewPageProps {
   campaignId: string;

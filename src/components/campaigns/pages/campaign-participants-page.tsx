@@ -6,7 +6,7 @@ import { CampaignParticipantManager } from "@/app/(dashboard)/campaigns/[id]/par
 import { CampaignAccessLinks } from "@/app/(dashboard)/campaigns/[id]/settings/campaign-access-links";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-type Surface = "admin" | "client";
+type Surface = "admin" | "client" | "partner";
 
 interface CampaignParticipantsPageProps {
   campaignId: string;
@@ -21,14 +21,15 @@ export async function CampaignParticipantsPageComponent({
   if (!campaign) notFound();
   const sessions = await getCampaignSessions(campaignId);
 
-  // Check quota status for client surface only
+  // Quota status on the tenant portals (client and partner); the admin console
+  // has its own view of quota.
   let quotaWarnings: {
     assessmentId: string;
     quotaLimit: number;
     quotaUsed: number;
   }[] = [];
 
-  if (surface === "client" && campaign.clientId && campaign.assessments.length > 0) {
+  if (surface !== "admin" && campaign.clientId && campaign.assessments.length > 0) {
     const assessmentIds = campaign.assessments.map((a) => a.assessmentId);
     const quotaResult = await checkQuotaAvailability(
       campaign.clientId,
@@ -41,8 +42,8 @@ export async function CampaignParticipantsPageComponent({
 
   return (
     <div className="space-y-6">
-      {/* Quota warning banner — client surface only */}
-      {surface === "client" && quotaWarnings.length > 0 && (
+      {/* Quota warning banner — tenant portals only */}
+      {surface !== "admin" && quotaWarnings.length > 0 && (
         <Alert variant="warning">
           <AlertTriangle />
           <AlertTitle>Assessment quota limit reached</AlertTitle>
