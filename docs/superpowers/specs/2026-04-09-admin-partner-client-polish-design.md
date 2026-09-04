@@ -224,7 +224,11 @@ Via row actions dropdown → "Unassign from partner":
 
 ### Permissions
 
-Platform admins see Assign button and Unassign action. Partner admins see the table read-only (no assign button, no actions column).
+**Superseded 2026-09-04** — see `2026-09-04-partner-self-service-design.md`. Partner
+admins now assign and unassign assessments for their own clients, within their
+allocation and its quota cap. Platform admins are unchanged.
+
+~~Platform admins see Assign button and Unassign action. Partner admins see the table read-only (no assign button, no actions column).~~
 
 ---
 
@@ -400,7 +404,13 @@ New file `src/app/actions/partner-taxonomy.ts`:
 
 ### Permissions
 
-Platform admins: full CRUD. Partner admins: read-only view (can see what's assigned, can't change it).
+**Superseded 2026-09-04** for client-level entitlements — see
+`2026-09-04-partner-self-service-design.md`. Partner-level allocation (this
+Library tab) stays read-only for partners: the platform decides what a partner
+may sell. What changed is the level below it — a partner now manages its own
+clients' assignments.
+
+~~Platform admins: full CRUD. Partner admins: read-only view (can see what's assigned, can't change it).~~
 
 ---
 

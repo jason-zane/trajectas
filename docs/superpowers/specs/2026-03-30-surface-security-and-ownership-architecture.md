@@ -187,11 +187,17 @@ Primary users:
 - partner operators
 
 Responsibilities:
-- manage assigned clients
+- manage assigned clients, including their details, branding, entitlements and users
 - manage assigned campaigns
 - monitor engagement and outcomes
 - access permitted reports and exports
 - perform limited partner-scoped administration
+
+Updated 2026-09-04 (`2026-09-04-partner-self-service-design.md`): a partner admin
+now runs its own clients end to end — client details, branding, assessment and
+report-template assignment with quotas, client users, and the full campaign
+console. What stays with the platform: the partner's own allocation, quotas,
+branding flag and taxonomy; moving a client between partners; billing.
 
 Must not expose:
 - unrelated clients
@@ -447,6 +453,19 @@ Minimum compliance-friendly capabilities:
 - environment and configuration clarity
 - evidence-friendly operational logs
 
+## Service-layer authorization: the managed-client set
+
+`resolveAuthorizedScope()` resolves `managedClientIds` — the clients an actor may
+*manage*, as distinct from `clientIds`, which is what they may *see*. It is the
+union of direct client-admin memberships and every client owned by a partner the
+actor administers, narrowed by the active workspace context and by support
+sessions exactly like `clientIds`. `canManageClient(scope, clientId)` reads it, so
+no caller has to know a client's partner to ask the question.
+
+Entitlements are a level above that: `canManageClientEntitlements` admits the
+platform, or an admin of the partner that owns the client — never the client's
+own admins, who may run their workspace but not decide what it is entitled to.
+
 ## Actor / Surface Matrix
 
 | Actor | Home Surface | Active Context | Tenant Scope | Can View | Can Edit | Can Export | Can Cross-Launch | Audit Required |
@@ -455,7 +474,7 @@ Minimum compliance-friendly capabilities:
 | Participant | `assess` | invitation/runtime token | invitation, campaign, participant session | assigned runtime and allowed report pages | own responses within active session | only explicitly granted outputs | no | medium |
 | Platform staff | `admin` | platform | global operational scope, subject to service checks | admin workspaces and assigned operational views | non-destructive operational actions only | yes where allowed | yes, audited launch to client or partner | high |
 | Platform admin | `admin` | platform | global | all platform data and workspaces | platform settings, assessment authoring, psychometrics, tenant management, support actions | yes | yes, audited launch to client or partner | highest |
-| Partner admin | `partner` | selected partner context | one partner and assigned clients/campaigns | partner workspace, assigned clients, assigned campaigns, permitted reports | partner-scoped campaign operations and partner users | yes for assigned scope | no by default | high |
+| Partner admin | `partner` | selected partner context | one partner and assigned clients/campaigns | partner workspace, assigned clients, assigned campaigns, permitted reports | client details, branding, entitlements and users for assigned clients; campaign operations; partner users | yes for assigned scope | no by default | high |
 | Partner user | `partner` | selected partner context | one partner and assigned clients/campaigns | assigned client and campaign data only | limited operational edits | limited exports | no | medium |
 | Client admin | `client` | selected client context | one client and its campaigns | client workspace, campaigns, participants, reports, client settings | client settings, campaign operations, client user management where allowed | yes for own client | no | high |
 | Client member | `client` | selected client context | one client and permitted campaigns | assigned client and campaign data only | limited operational updates | limited exports if allowed | no | medium |

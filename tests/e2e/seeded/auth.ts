@@ -16,10 +16,26 @@ export const SEEDED_ADMIN = {
   email: "seed-admin@seeded-client-co.test",
 } as const;
 
+/**
+ * The seeded PARTNER admin (see supabase/seed.sql). Admin of "Seeded Advisory
+ * Group", which owns "Seeded Client Co" — so this actor reaches the client
+ * console through its partner membership rather than a client one, which is
+ * exactly what the partner-portal journey needs to prove.
+ */
+export const SEEDED_PARTNER_ADMIN = {
+  id: "10000000-0000-0000-0000-000000000112",
+  email: "seed-partner-admin@seeded-advisory-group.test",
+} as const;
+
 /** Where the minted Playwright storageState is written. Gitignored. */
 export const ADMIN_STORAGE_STATE = resolve(
   process.cwd(),
   "tests/e2e/seeded/.auth/admin.json"
+);
+
+export const PARTNER_STORAGE_STATE = resolve(
+  process.cwd(),
+  "tests/e2e/seeded/.auth/partner.json"
 );
 
 const DEFAULT_SUPABASE_URL = "http://127.0.0.1:54321";
@@ -170,6 +186,15 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
  * stack and writes a local file.
  */
 export async function mintAdminStorageState(): Promise<void> {
+  await mintStorageState(SEEDED_ADMIN.email, ADMIN_STORAGE_STATE);
+}
+
+/** Same flow for the seeded partner admin. */
+export async function mintPartnerStorageState(): Promise<void> {
+  await mintStorageState(SEEDED_PARTNER_ADMIN.email, PARTNER_STORAGE_STATE);
+}
+
+async function mintStorageState(email: string, outputPath: string): Promise<void> {
   const { url, anonKey, serviceKey } = resolveSupabaseEnv();
 
   const admin = createClient(url, serviceKey, {
@@ -179,12 +204,12 @@ export async function mintAdminStorageState(): Promise<void> {
   const { data: linkData, error: linkError } =
     await admin.auth.admin.generateLink({
       type: "magiclink",
-      email: SEEDED_ADMIN.email,
+      email,
     });
 
   if (linkError || !linkData?.properties?.hashed_token) {
     throw new Error(
-      `[seeded-auth] generateLink failed for ${SEEDED_ADMIN.email}: ` +
+      `[seeded-auth] generateLink failed for ${email}: ` +
         `${linkError?.message ?? "no hashed_token returned"}`
     );
   }
@@ -224,7 +249,7 @@ export async function mintAdminStorageState(): Promise<void> {
   }
   if (verifyError) {
     throw new Error(
-      `[seeded-auth] verifyOtp failed for ${SEEDED_ADMIN.email}: ${verifyError.message}`
+      `[seeded-auth] verifyOtp failed for ${email}: ${verifyError.message}`
     );
   }
 
@@ -257,6 +282,6 @@ export async function mintAdminStorageState(): Promise<void> {
     origins: [] as never[],
   };
 
-  mkdirSync(dirname(ADMIN_STORAGE_STATE), { recursive: true });
-  writeFileSync(ADMIN_STORAGE_STATE, JSON.stringify(storageState, null, 2));
+  mkdirSync(dirname(outputPath), { recursive: true });
+  writeFileSync(outputPath, JSON.stringify(storageState, null, 2));
 }

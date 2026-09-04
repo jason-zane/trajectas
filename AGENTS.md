@@ -122,6 +122,35 @@ These are enforced by `tests/architecture/passwordless-only.test.ts` (fails CI) 
 
 MFA, HIBP leaked-password protection, password-strength rules, and password-reset flows are all N/A under this model.
 
+## Partner-managed clients
+
+A partner admin manages its own clients — details, branding, entitlements, users,
+campaigns. Three rules keep that safe; see
+`docs/superpowers/specs/2026-09-04-partner-self-service-design.md` for the full
+model.
+
+1. **`canManageClient(scope, clientId)` is the only way to ask "may this actor
+   manage this client".** It reads `scope.managedClientIds`, which already unions
+   direct client-admin memberships with the clients of partners the actor
+   administers, and is already narrowed by workspace context and support
+   sessions. Never compare against `clientAdminIds` directly — that set excludes
+   partner admins by construction, which is the bug this replaced.
+2. **Entitlements are a level up.** Assessment assignments and quotas, report
+   template assignments and the client branding flag use
+   `canManageClientEntitlements(scope, clientId, partnerId)`: the platform, or an
+   admin of the partner that owns the client. A client's own admins run their
+   workspace; they do not decide what it is entitled to.
+3. **RLS write policies on the entitlement tables stay platform-admin-only.**
+   Partner writes go through Server Actions on the service role, where the pool
+   rule, the quota cap and the audit log apply. Widening those policies would let
+   a partner write the rows directly and skip all three. The pool invariant lives
+   in database triggers (`enforce_client_assignment_in_partner_pool`,
+   `enforce_client_partner_change_pool`, `enforce_pool_row_removal`) so it binds
+   every actor, service role included.
+
+Brand writes carry one extra gate: `assertCanEditClientBrand`, at every write
+site, not only on the flag toggle.
+
 ## Naming Conventions
 
 The schema has been through several renames. **Use the canonical names below**; the old names appear in historical migrations but must NOT be used in new code, migrations, or types.
