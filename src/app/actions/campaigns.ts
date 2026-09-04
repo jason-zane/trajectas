@@ -47,6 +47,7 @@ import {
   resolveAuthorizedScope,
   resolveTenantClientFilter,
 } from '@/lib/auth/authorization'
+import { getAllocatedAssessmentIds } from '@/lib/auth/partner-allocations'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { zeroFilledTimeline } from '@/lib/dal/partner-dashboard-mappers'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
@@ -2271,7 +2272,10 @@ export async function getActiveAssessments(): Promise<CampaignAssessmentOption[]
   }
 
   const db = await createClient()
-  return listActiveAssessments(db, { partnerIds: partnerScope })
+  return listActiveAssessments(db, {
+    partnerIds: partnerScope,
+    allocatedAssessmentIds: await getAllocatedAssessmentIds(scope),
+  })
 }
 
 async function assertCanManageCampaigns(

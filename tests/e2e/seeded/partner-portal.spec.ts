@@ -15,7 +15,7 @@ import { seededIds } from "./fixtures";
 test.describe("seeded partner portal", () => {
   test.use({ storageState: PARTNER_STORAGE_STATE });
 
-  test("dashboard reads as a portfolio, with the partner's allocation", async ({
+  test("dashboard leads with campaigns, then activity, then clients", async ({
     page,
   }) => {
     await page.goto("/partner/dashboard");
@@ -24,13 +24,25 @@ test.describe("seeded partner portal", () => {
       page.getByRole("heading", { name: /What.s moving across your portfolio/i })
     ).toBeVisible();
 
-    // The allocation section is the number a partner runs their business on.
-    await expect(page.getByText("Your allocation")).toBeVisible();
-    await expect(
-      page.getByText("Seeded Leadership Assessment", { exact: true }).first()
-    ).toBeVisible();
-    // Seeded allocation is capped at 25; usage comes from the seeded campaign.
-    await expect(page.getByText(/of 25 used/)).toBeVisible();
+    // Order is the point: a partner opens this to see what is moving, not to
+    // audit their allocation. Read the section eyebrows in DOM order and check
+    // the sequence rather than each one in isolation.
+    // Match on each section's title sentence, which is unique to the dashboard
+    // body — the eyebrows alone also match the sidebar nav.
+    const sections = await page
+      .locator(
+        "text=/^(Favourites first, then closing soonest\\.|Latest participant movements\\.|Where attention goes next\\.)$/"
+      )
+      .allTextContents();
+    expect(sections).toEqual([
+      "Favourites first, then closing soonest.",
+      "Latest participant movements.",
+      "Where attention goes next.",
+    ]);
+
+    // Allocation moved off the dashboard entirely — it lives with entitlements.
+    await expect(page.getByText("Your allocation")).toHaveCount(0);
+    await expect(page.getByText(/of 25 used/)).toHaveCount(0);
   });
 
   test("client list links into the console, which has no Billing tab", async ({

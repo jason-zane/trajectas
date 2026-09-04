@@ -11,7 +11,6 @@ import type {
 } from "@/app/actions/campaigns";
 import type { ClientWithCounts } from "@/app/actions/clients";
 import type { PartnerRecentResult } from "@/lib/dal/partner-dashboard-mappers";
-import type { PartnerAssessmentAssignmentWithUsage } from "@/types/database";
 import { EmptyState } from "@/components/empty-state";
 import { FavoriteCampaignButton } from "@/components/campaigns/favorite-campaign-button";
 import { LaunchCampaignButton } from "@/components/campaigns/launch-campaign-button";
@@ -20,14 +19,11 @@ import { RefreshOnFocus } from "@/components/refresh-on-focus";
 import { Sparkline } from "@/components/sparkline";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 interface PartnerDashboardProps {
-  partnerName: string;
   clients: ClientWithCounts[];
   campaigns: CampaignWithMeta[];
-  allocation: PartnerAssessmentAssignmentWithUsage[];
   launchAssessments: CampaignAssessmentOption[];
   recentResults: PartnerRecentResult[];
   favoriteCampaignIds?: string[];
@@ -151,10 +147,8 @@ function SectionHeading({
 // ---------------------------------------------------------------------------
 
 export function PartnerDashboard({
-  partnerName,
   clients,
   campaigns,
-  allocation,
   launchAssessments,
   recentResults,
   favoriteCampaignIds = [],
@@ -370,55 +364,6 @@ export function PartnerDashboard({
         </div>
       </section>
 
-      {/* ===== ALLOCATION ===== */}
-      <section className="space-y-5">
-        <SectionHeading eyebrow="Your allocation" title="What you can deploy." />
-
-        {allocation.length === 0 ? (
-          <EmptyState
-            size="sm"
-            eyebrow="Allocation"
-            title="No assessments allocated yet."
-            description={`Trajectas allocates assessments to ${partnerName}. Contact Trajectas to get started.`}
-          />
-        ) : (
-          <ul className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
-            {allocation.map((entry) => {
-              const capped = entry.quotaLimit != null;
-              const pct = capped
-                ? Math.min(100, Math.round((entry.quotaUsed / Math.max(1, entry.quotaLimit!)) * 100))
-                : 0;
-              const nearlyUsed = capped && entry.quotaUsed / Math.max(1, entry.quotaLimit!) >= 0.8;
-
-              return (
-                <li key={entry.id} className="flex items-center gap-5 px-6 py-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-sans text-[0.9375rem] font-semibold tracking-[-0.01em] text-foreground">
-                      {entry.assessmentName}
-                    </p>
-                    <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
-                      {capped
-                        ? `${entry.quotaUsed} of ${entry.quotaLimit} used`
-                        : `${entry.quotaUsed} used · unlimited`}
-                    </p>
-                  </div>
-                  {capped && (
-                    <div className="hidden w-40 shrink-0 sm:block">
-                      <Progress value={pct} />
-                    </div>
-                  )}
-                  {nearlyUsed && (
-                    <Badge variant="outline" className={cn("shrink-0", WARNING_BADGE)}>
-                      Nearly used
-                    </Badge>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
       {/* ===== TOP THREE TO WATCH ===== */}
       <section className="space-y-5">
         <SectionHeading
@@ -530,59 +475,8 @@ export function PartnerDashboard({
         )}
       </section>
 
-      {/* ===== CLIENTS ===== */}
-      <section className="space-y-5">
-        <SectionHeading
-          eyebrow="Clients"
-          title="Where attention goes next."
-          href="/partner/clients"
-          linkLabel="All clients"
-        />
-
-        {clients.length === 0 ? (
-          <EmptyState
-            size="sm"
-            eyebrow="No clients yet"
-            title="Your portfolio is empty."
-            description="Create your first client to assign assessments and launch campaigns."
-            actionLabel="New client"
-            actionHref="/partner/clients/create"
-          />
-        ) : (
-          <ul className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
-            {clientsNeedingAttention.map(({ client, campaignCount }) => (
-              <li
-                key={client.id}
-                className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[var(--cream)]/60"
-              >
-                <div className="min-w-0 flex-1">
-                  <Link
-                    href={`/partner/clients/${client.slug}/overview`}
-                    className="truncate font-sans text-[0.9375rem] font-semibold tracking-[-0.01em] text-foreground transition-colors group-hover:text-[var(--emerald)]"
-                  >
-                    {client.name}
-                  </Link>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    {client.assessmentCount === 0 && (
-                      <Badge variant="outline" className={WARNING_BADGE}>
-                        No assessments assigned
-                      </Badge>
-                    )}
-                    {campaignCount === 0 && <Badge variant="outline">No campaigns</Badge>}
-                    <span className="font-mono tabular-nums">
-                      {client.sessionCount} session{client.sessionCount === 1 ? "" : "s"}
-                    </span>
-                  </div>
-                </div>
-                <ArrowRight className="size-4 shrink-0 text-muted-foreground/60 transition-all duration-200 group-hover:translate-x-1 group-hover:text-[var(--emerald)]" />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
       {/* ===== RECENT ACTIVITY ===== */}
-      <section className="space-y-4 pb-16">
+      <section className="space-y-4">
         <SectionHeading
           eyebrow="Recent activity"
           title="Latest participant movements."
@@ -637,6 +531,57 @@ export function PartnerDashboard({
           </ul>
         )}
       </section>
+      {/* ===== CLIENTS ===== */}
+      <section className="space-y-5 pb-16">
+        <SectionHeading
+          eyebrow="Clients"
+          title="Where attention goes next."
+          href="/partner/clients"
+          linkLabel="All clients"
+        />
+
+        {clients.length === 0 ? (
+          <EmptyState
+            size="sm"
+            eyebrow="No clients yet"
+            title="Your portfolio is empty."
+            description="Create your first client to assign assessments and launch campaigns."
+            actionLabel="New client"
+            actionHref="/partner/clients/create"
+          />
+        ) : (
+          <ul className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
+            {clientsNeedingAttention.map(({ client, campaignCount }) => (
+              <li
+                key={client.id}
+                className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-[var(--cream)]/60"
+              >
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/partner/clients/${client.slug}/overview`}
+                    className="truncate font-sans text-[0.9375rem] font-semibold tracking-[-0.01em] text-foreground transition-colors group-hover:text-[var(--emerald)]"
+                  >
+                    {client.name}
+                  </Link>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    {client.assessmentCount === 0 && (
+                      <Badge variant="outline" className={WARNING_BADGE}>
+                        No assessments assigned
+                      </Badge>
+                    )}
+                    {campaignCount === 0 && <Badge variant="outline">No campaigns</Badge>}
+                    <span className="font-mono tabular-nums">
+                      {client.sessionCount} session{client.sessionCount === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                </div>
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground/60 transition-all duration-200 group-hover:translate-x-1 group-hover:text-[var(--emerald)]" />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
     </div>
   );
 }

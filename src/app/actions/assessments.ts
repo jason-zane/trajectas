@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getAllocatedAssessmentIds } from '@/lib/auth/partner-allocations'
 import { createClient } from '@/lib/supabase/server'
 import {
   AuthenticationRequiredError,
@@ -451,9 +452,18 @@ export async function getPartnerAssessmentLibrary(): Promise<AssessmentLibrarySu
     .is('client_id', null)
 
   if (partnerFilter) {
-    query = query.or(
-      `partner_id.in.(${partnerFilter.join(',')}),and(partner_id.is.null,client_id.is.null)`
-    )
+    // Partner-owned assessments are theirs outright. Platform-owned ones are
+    // visible only where the platform has allocated them — a partner is a
+    // separate business, and an unallocated instrument is not their product to
+    // see. `null` = unrestricted (platform admin on the admin surface).
+    const allocatedIds = await getAllocatedAssessmentIds(scope)
+    const clauses = [`partner_id.in.(${partnerFilter.join(',')})`]
+    if (allocatedIds === null) {
+      clauses.push('and(partner_id.is.null,client_id.is.null)')
+    } else if (allocatedIds.length > 0) {
+      clauses.push(`and(partner_id.is.null,id.in.(${allocatedIds.join(',')}))`)
+    }
+    query = query.or(clauses.join(','))
   }
 
   const { data, error } = await query.order('updated_at', { ascending: false })

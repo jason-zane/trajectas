@@ -126,7 +126,18 @@ export async function getCampaignSessions(
  */
 export async function listActiveAssessments(
   db: DbClient,
-  { partnerIds }: { partnerIds: string[] | null },
+  {
+    partnerIds,
+    allocatedAssessmentIds,
+  }: {
+    partnerIds: string[] | null;
+    /**
+     * Platform-owned assessments the caller is allocated, or `null` for
+     * unrestricted. A partner is not entitled to the platform's whole library
+     * just because a row has no owner.
+     */
+    allocatedAssessmentIds?: string[] | null;
+  },
 ): Promise<CampaignAssessmentOption[]> {
   let query = db
     .from("assessments")
@@ -151,9 +162,15 @@ export async function listActiveAssessments(
     .order("title", { ascending: true });
 
   if (partnerIds) {
-    query = query.or(
-      `partner_id.in.(${partnerIds.join(",")}),partner_id.is.null`,
-    );
+    const clauses = [`partner_id.in.(${partnerIds.join(",")})`];
+    if (allocatedAssessmentIds === null || allocatedAssessmentIds === undefined) {
+      clauses.push("partner_id.is.null");
+    } else if (allocatedAssessmentIds.length > 0) {
+      clauses.push(
+        `and(partner_id.is.null,id.in.(${allocatedAssessmentIds.join(",")}))`,
+      );
+    }
+    query = query.or(clauses.join(","));
   }
 
   const { data, error } = await query;

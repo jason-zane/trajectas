@@ -52,6 +52,8 @@ const queryBuilder = vi.hoisted(() => {
   return builder;
 });
 
+const allocatedReportTemplateIds = vi.hoisted(() => vi.fn());
+
 const supabase = vi.hoisted(() => ({
   createAdminClient: vi.fn(() => ({
     from: vi.fn(() => queryBuilder),
@@ -76,6 +78,11 @@ vi.mock("@/lib/auth/authorization", () => ({
   requireReportSnapshotAccess: auth.requireReportSnapshotAccess,
   requireReportTemplateAccess: auth.requireReportTemplateAccess,
   resolveAuthorizedScope: auth.resolveAuthorizedScope,
+}));
+
+vi.mock("@/lib/auth/partner-allocations", () => ({
+  getAllocatedAssessmentIds: vi.fn(async () => null),
+  getAllocatedReportTemplateIds: allocatedReportTemplateIds,
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -191,26 +198,33 @@ describe("report template actions", () => {
     );
   });
 
-  it("filters the template list to platform plus accessible partner templates", async () => {
+  it("filters the template list to allocated platform plus own partner templates", async () => {
+    // A platform template is NOT automatically shared: it appears only where
+    // the platform allocated it through partner_report_template_assignments.
+    // "allocated-platform-template" is; "unallocated-platform-template" is not,
+    // and a partner has no business seeing the latter.
     auth.resolveAuthorizedScope.mockResolvedValueOnce({
       isPlatformAdmin: false,
+      partnerIds: ["partner-a"],
       partnerAdminIds: ["partner-a"],
       activeContext: { tenantType: "partner", tenantId: "partner-a" },
     });
     auth.getAccessiblePartnerIds.mockResolvedValueOnce(["partner-a"]);
     queryBuilder.order.mockResolvedValueOnce({
       data: [
-        reportTemplateRow({ id: "platform-template", partner_id: null }),
+        reportTemplateRow({ id: "allocated-platform-template", partner_id: null }),
+        reportTemplateRow({ id: "unallocated-platform-template", partner_id: null }),
         reportTemplateRow({ id: "partner-template", partner_id: "partner-a" }),
         reportTemplateRow({ id: "other-template", partner_id: "partner-b" }),
       ],
       error: null,
     });
+    allocatedReportTemplateIds.mockResolvedValueOnce(["allocated-platform-template"]);
 
     const templates = await getReportTemplates();
 
     expect(templates.map((template) => template.id)).toEqual([
-      "platform-template",
+      "allocated-platform-template",
       "partner-template",
     ]);
   });

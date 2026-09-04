@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getAllocatedReportTemplateIds } from '@/lib/auth/partner-allocations'
 import { createClient } from '@/lib/supabase/server'
 import { getEffectiveBrand } from '@/app/actions/brand'
 import {
@@ -73,7 +74,7 @@ import type {
   PersonReferenceType,
 } from '@/types/database'
 
-async function filterTemplatesForScope<T extends { partnerId?: string }>(
+async function filterTemplatesForScope<T extends { id: string; partnerId?: string }>(
   scope: Awaited<ReturnType<typeof resolveAuthorizedScope>>,
   templates: T[],
 ) {
@@ -82,10 +83,18 @@ async function filterTemplatesForScope<T extends { partnerId?: string }>(
   }
 
   const accessiblePartnerIds = await getAccessiblePartnerIds(scope)
-  return templates.filter(
-    (template) =>
-      !template.partnerId || accessiblePartnerIds.includes(template.partnerId),
-  )
+  // A platform-owned template (no partner_id) is not automatically shared: the
+  // platform allocates it through partner_report_template_assignments. Without
+  // this a partner saw every template the platform had ever built. `null` means
+  // the caller is not confined to a partner — a client admin, say — and keeps
+  // the previous behaviour.
+  const allocatedTemplateIds = await getAllocatedReportTemplateIds(scope)
+
+  return templates.filter((template) => {
+    if (template.partnerId) return accessiblePartnerIds.includes(template.partnerId)
+    if (allocatedTemplateIds === null) return true
+    return allocatedTemplateIds.includes(template.id)
+  })
 }
 
 function ensureReportTemplateLibraryAccess(

@@ -7,10 +7,8 @@ import {
 } from "@/app/actions/campaigns";
 import { getClients } from "@/app/actions/clients";
 import { getPartnerDashboardData } from "@/app/actions/partner-dashboard";
-import { getPartnerAssessmentAssignments } from "@/app/actions/partner-entitlements";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
-import { getPartnerName } from "@/lib/dal/partners";
 import { resolvePartnerOrg } from "@/lib/auth/resolve-partner-org";
 import { PartnerDashboard } from "./partner-dashboard";
 
@@ -40,27 +38,21 @@ export default async function PartnerDashboardPage() {
   const [
     clients,
     campaigns,
-    allocation,
     launchAssessments,
     favoriteCampaignIds,
     { completionTimeline, recentResults },
-    partnerName,
   ] = await Promise.all([
     getClients(),
     getCampaigns(),
-    getPartnerAssessmentAssignments(partnerId),
     getActiveAssessments(),
     getFavoriteCampaignIds(),
     getPartnerDashboardData(partnerId),
-    getPartnerName(partnerId),
   ]);
 
   return (
     <PartnerDashboard
-      partnerName={partnerName ?? "your partner organisation"}
       clients={clients}
       campaigns={campaigns}
-      allocation={allocation}
       launchAssessments={launchAssessments}
       recentResults={recentResults}
       favoriteCampaignIds={favoriteCampaignIds}
