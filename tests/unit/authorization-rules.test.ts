@@ -32,6 +32,8 @@ function createScope(
     partnerAdminIds: [],
     clientIds: [],
     clientAdminIds: [],
+    managedClientIds: [],
+    isLocalDevelopment: false,
     supportSession: null,
     ...overrides,
   };
@@ -48,8 +50,7 @@ describe("authorization rules", () => {
 
       expect(canAccessClient(scope, "client-1")).toBe(true);
       expect(canAccessClient(scope, "client-999")).toBe(true);
-      expect(canManageClient(scope, "client-1", null)).toBe(true);
-      expect(canManageClient(scope, "client-1", "partner-1")).toBe(true);
+      expect(canManageClient(scope, "client-1")).toBe(true);
       expect(canManageClientDirectory(scope)).toBe(true);
       expect(canManageClientAssignment(scope)).toBe(true);
       expect(canManageCampaign(scope, "partner-1", "client-1")).toBe(true);
@@ -118,6 +119,7 @@ describe("authorization rules", () => {
       partnerIds: ["partner-a"],
       partnerAdminIds: ["partner-a"],
       clientIds: ["client-a1", "client-a2"],
+      managedClientIds: ["client-a1", "client-a2"],
       activeContext: {
         surface: "partner",
         tenantType: "partner",
@@ -143,7 +145,22 @@ describe("authorization rules", () => {
     });
 
     it("can manage clients belonging to their partner", () => {
-      expect(canManageClient(partnerAScope, "client-a1", "partner-a")).toBe(true);
+      expect(canManageClient(partnerAScope, "client-a1")).toBe(true);
+      expect(canManageClient(partnerAScope, "client-a2")).toBe(true);
+    });
+
+    it("manages only what the workspace narrowing left in the managed set", () => {
+      // Entering client-a1's workspace narrows managedClientIds to that client.
+      const narrowed = createScope({ ...partnerAScope, managedClientIds: ["client-a1"] });
+      expect(canManageClient(narrowed, "client-a1")).toBe(true);
+      expect(canManageClient(narrowed, "client-a2")).toBe(false);
+    });
+
+    it("does not manage a client that merely appears in clientIds", () => {
+      // Member of partner-a (can see its clients) but admin of nothing.
+      const seesOnly = createScope({ ...partnerAScope, managedClientIds: [] });
+      expect(canAccessClient(seesOnly, "client-a1")).toBe(true);
+      expect(canManageClient(seesOnly, "client-a1")).toBe(false);
     });
 
     it("can manage campaigns and report templates for their own partner", () => {
@@ -153,7 +170,7 @@ describe("authorization rules", () => {
     });
 
     it("cannot manage clients belonging to other partners", () => {
-      expect(canManageClient(partnerAScope, "client-b1", "partner-b")).toBe(false);
+      expect(canManageClient(partnerAScope, "client-b1")).toBe(false);
     });
 
     it("cannot manage campaigns for other partners", () => {
@@ -162,7 +179,6 @@ describe("authorization rules", () => {
 
     it("cannot manage clients with unknown partner relationship", () => {
       expect(canManageClient(partnerAScope, "client-x")).toBe(false);
-      expect(canManageClient(partnerAScope, "client-x", null)).toBe(false);
     });
 
     it("can manage client directory but not assignments", () => {
@@ -195,7 +211,7 @@ describe("authorization rules", () => {
     });
 
     it("cannot manage any client", () => {
-      expect(canManageClient(memberScope, "client-a1", "partner-a")).toBe(false);
+      expect(canManageClient(memberScope, "client-a1")).toBe(false);
     });
 
     it("cannot manage campaigns or report templates", () => {
@@ -245,6 +261,7 @@ describe("authorization rules", () => {
     const clientA1Scope = createScope({
       clientIds: ["client-a1"],
       clientAdminIds: ["client-a1"],
+      managedClientIds: ["client-a1"],
     });
 
     it("can access their own client", () => {
@@ -257,7 +274,7 @@ describe("authorization rules", () => {
     });
 
     it("can manage their own client", () => {
-      expect(canManageClient(clientA1Scope, "client-a1", null)).toBe(true);
+      expect(canManageClient(clientA1Scope, "client-a1")).toBe(true);
     });
 
     it("can manage campaigns for their own client", () => {
@@ -265,8 +282,10 @@ describe("authorization rules", () => {
     });
 
     it("cannot manage other clients", () => {
-      expect(canManageClient(clientA1Scope, "client-a2", null)).toBe(false);
-      expect(canManageClient(clientA1Scope, "client-b1", "partner-b")).toBe(false);
+      expect(canManageClient(clientA1Scope, "client-a2")).toBe(false);
+      expect(canManageClient(clientA1Scope, "client-b1")).toBe(false);
+      // A client admin's managed set never grows through a partner.
+      expect(clientA1Scope.managedClientIds).toEqual(["client-a1"]);
     });
 
     it("cannot manage client directory or assignments", () => {
@@ -291,7 +310,7 @@ describe("authorization rules", () => {
     });
 
     it("cannot manage their own client", () => {
-      expect(canManageClient(memberScope, "client-a1", null)).toBe(false);
+      expect(canManageClient(memberScope, "client-a1")).toBe(false);
     });
   });
 
@@ -339,8 +358,7 @@ describe("authorization rules", () => {
     });
 
     it("cannot manage any client", () => {
-      expect(canManageClient(emptyScope, "client-1", null)).toBe(false);
-      expect(canManageClient(emptyScope, "client-1", "partner-1")).toBe(false);
+      expect(canManageClient(emptyScope, "client-1")).toBe(false);
     });
 
     it("cannot access any partner", () => {

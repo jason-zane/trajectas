@@ -112,7 +112,7 @@ function generateWebhookSigningSecret() {
 
 async function requireManageableClient(clientId: string) {
   const access = await requireClientAccess(clientId)
-  const canManage = canManageClient(access.scope, access.clientId, access.partnerId)
+  const canManage = canManageClient(access.scope, access.clientId)
   if (!canManage) {
     throw new AuthorizationError('You do not have permission to manage integration settings for this client.')
   }
@@ -175,7 +175,7 @@ export async function getClientInternalIntegrationSettings(
   clientId: string
 ): Promise<ClientInternalIntegrationSettings> {
   const access = await requireClientAccess(clientId)
-  const canManage = canManageClient(access.scope, access.clientId, access.partnerId)
+  const canManage = canManageClient(access.scope, access.clientId)
 
   if (!canManage) {
     return {

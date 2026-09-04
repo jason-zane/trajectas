@@ -11,7 +11,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Resolution order:
  * 1. Active context tenantId (if set)
  * 2. First client membership (if any)
- * 3. First org in database (platform admin / local dev fallback)
+ * 3. First client in database — local development only. On production hosts a
+ *    platform admin with no client membership reaches the client portal only
+ *    through an audited support session ("Enter portal"); anyone else lands on
+ *    /unauthorized rather than on an arbitrary client.
  */
 export async function resolveClientOrg(
   redirectPath: string
@@ -45,8 +48,12 @@ export async function resolveClientOrg(
     clientId = scope.clientIds[0];
   }
 
-  // 3. Platform admin / local dev fallback — pick first org
-  if (!clientId && (hasPlatformAdminRole || scope.isLocalDevelopmentBypass)) {
+  // 3. Local development fallback — pick the first client
+  if (
+    !clientId &&
+    (scope.isLocalDevelopmentBypass ||
+      (hasPlatformAdminRole && scope.isLocalDevelopment))
+  ) {
     const db = createAdminClient();
     const { data } = await db
       .from("clients")
@@ -56,6 +63,10 @@ export async function resolveClientOrg(
       .limit(1)
       .single();
     clientId = data?.id;
+  }
+
+  if (!clientId && hasPlatformAdminRole && !scope.isLocalDevelopment) {
+    redirect("/unauthorized?reason=membership");
   }
 
   return { clientId: clientId ?? null };
