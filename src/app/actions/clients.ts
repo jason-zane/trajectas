@@ -446,10 +446,8 @@ export async function getRecentClientCampaigns(clientId: string): Promise<
   const db = await createSupabaseClient()
 
   const { data, error } = await db
-    .from('campaigns')
-    .select('id, title, status, campaign_participants(count)')
-    // Exclude 360 rater taking-rows from the participant count.
-    .is('campaign_participants.campaign_rater_id', null)
+    .from('campaigns_with_counts')
+    .select('id, title, status, participant_count')
     .eq('client_id', clientId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -458,9 +456,7 @@ export async function getRecentClientCampaigns(clientId: string): Promise<
   if (error) return []
 
   return (data ?? []).map((row) => {
-    const participantCount = row.campaign_participants
-      ? ((row.campaign_participants as { count: number }[])[0]?.count ?? 0)
-      : 0
+    const participantCount = Number(row.participant_count ?? 0)
     return {
       id: row.id,
       title: row.title,

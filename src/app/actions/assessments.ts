@@ -219,11 +219,6 @@ function getRelatedRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
 }
 
-function getRelatedCount(value: unknown) {
-  const record = getRelatedRecord(value)
-  return record?.count ? Number(record.count) : 0
-}
-
 function revalidateAssessmentPaths() {
   revalidatePath('/assessments')
   revalidatePath('/partner/assessments')
@@ -280,7 +275,7 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
   let query = db
     .from('campaign_assessments')
     .select(
-      'campaign_id, assessment_id, campaigns(id, title, status, client_id, clients(name), campaign_participants(count)), assessments(id, title, description, status, client_id, updated_at)'
+      'campaign_id, assessment_id, campaigns:campaigns_with_counts(id, title, status, client_id, clients(name), participant_count), assessments(id, title, description, status, client_id, updated_at)'
     )
     .order('created_at', { ascending: false })
 
@@ -345,7 +340,7 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
     const campaignTitle = campaignRow?.title ? String(campaignRow.title) : null
     const clientRow = getRelatedRecord(campaignRow?.clients)
     const clientName = clientRow?.name ? String(clientRow.name) : undefined
-    const participantCount = getRelatedCount(campaignRow?.campaign_participants)
+    const participantCount = Number(campaignRow?.participant_count ?? 0)
 
     const existing = summaries.get(assessmentId)
     if (existing) {
@@ -479,7 +474,7 @@ export async function getPartnerAssessmentLibrary(): Promise<AssessmentLibrarySu
     let deploymentQuery = db
       .from('campaign_assessments')
       .select(
-        'assessment_id, campaign_id, campaigns(id, title, client_id, clients(name), campaign_participants(count))'
+        'assessment_id, campaign_id, campaigns:campaigns_with_counts(id, title, client_id, clients(name), participant_count)'
       )
       .in('assessment_id', assessmentIds)
 
@@ -560,7 +555,7 @@ export async function getPartnerAssessmentLibrary(): Promise<AssessmentLibrarySu
     const campaignTitle = campaignRow?.title ? String(campaignRow.title) : null
     const clientRow = getRelatedRecord(campaignRow?.clients)
     const clientName = clientRow?.name ? String(clientRow.name) : null
-    const participantCount = getRelatedCount(campaignRow?.campaign_participants)
+    const participantCount = Number(campaignRow?.participant_count ?? 0)
 
     summary.campaignCount += campaignId ? 1 : 0
     summary.participantCount += participantCount
