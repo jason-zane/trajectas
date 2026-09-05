@@ -131,6 +131,7 @@ const adminNav: NavSection[] = [
     items: [
       { title: "Compare", href: "/participants/compare", icon: Scale },
       { title: "Trajectory", href: "/participants/trajectory", icon: TrendingUp },
+      { title: "Trajectory studio", href: "/participants/studio", icon: Layers },
       { title: "Reports", href: "/reports", icon: FileText },
     ],
   },
