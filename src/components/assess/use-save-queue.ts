@@ -43,6 +43,7 @@ async function postBatch(
   token: string,
   sessionId: string,
   rows: ResponseRecord[],
+  sessionProof?: string,
 ): Promise<{
   ok: boolean;
   status?: number;
@@ -54,7 +55,7 @@ async function postBatch(
   try {
     const res = await globalThis.fetch("/api/assess/save-batch", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(sessionProof ? { "x-assess-session-proof": sessionProof } : {}) },
       body: JSON.stringify({
         token,
         sessionId,
@@ -64,6 +65,7 @@ async function postBatch(
           responseData: r.data,
           responseTimeMs: r.responseTimeMs,
           idempotencyKey: r.idempotencyKey,
+          revision: r.revision,
         })),
       }),
       keepalive: true,
@@ -125,7 +127,7 @@ async function postBatch(
  * participant who had unsynced rows last session resumes with their work
  * visible, not lost).
  */
-export function useSaveQueue(config: { token: string; sessionId: string }) {
+export function useSaveQueue(config: { token: string; sessionId: string; sessionProof?: string; initialRevisions?: Record<string, number> }) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [saveError, setSaveError] = useState(false);
   const [localResponses, setLocalResponses] = useState<LocalResponses | null>(null);
@@ -200,7 +202,7 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
           return true;
         }
         setSaveStatus("saving");
-        const result = await postBatch(token, sessionId, rows);
+        const result = await postBatch(token, sessionId, rows, configRef.current.sessionProof);
         // Mark ONLY the ids the server confirmed saved — and only when the
         // IDB row is still the exact write we sent (idempotency-key match
         // inside markSynced). An answer changed while this POST was in
@@ -319,6 +321,7 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
             value: entry.value,
             data: entry.data,
             responseTimeMs: entry.responseTimeMs,
+            serverRevision: configRef.current.initialRevisions?.[entry.itemId],
           });
           const pending = await countPending(sessionId).catch(() => 0);
           if (pending >= FLUSH_PENDING_THRESHOLD) {
@@ -346,7 +349,7 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
               synced: 0,
               updatedAt: Date.now(),
             },
-          ]);
+          ], configRef.current.sessionProof);
           if (!result.ok || !result.savedItemIds?.includes(entry.itemId)) {
             setSaveError(true);
           }
@@ -414,11 +417,13 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
               responseData: r.data,
               responseTimeMs: r.responseTimeMs,
               idempotencyKey: r.idempotencyKey,
+              revision: r.revision,
             })),
           });
           if (typeof navigator !== "undefined" && navigator.sendBeacon) {
             const blob = new Blob([body], { type: "application/json" });
-            navigator.sendBeacon("/api/assess/save-batch", blob);
+            const proof = configRef.current.sessionProof;
+            navigator.sendBeacon(`/api/assess/save-batch${proof ? `?sessionProof=${encodeURIComponent(proof)}` : ""}`, blob);
           }
         } catch {
           // Best-effort.

@@ -1,30 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
-  buildSurfaceUrl,
   getRoutePrefixForSurface,
   isLocalDevelopmentHost,
 } from "@/lib/hosts";
-import { requireParticipantAccess } from "@/lib/auth/authorization";
+import { assertIndividualResultsAccess, requireParticipantAccess } from "@/lib/auth/authorization";
 import { logAuditEvent } from "@/lib/auth/support-sessions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AuthorizedScope } from "@/lib/auth/authorization";
-
-function buildParticipantReportUrl(
-  request: NextRequest,
-  token: string
-) {
-  const pathname = `/assess/${token}/report`;
-  return buildSurfaceUrl("assess", pathname) ?? new URL(pathname, request.url);
-}
-
-function buildParticipantExportUrl(
-  request: NextRequest,
-  token: string
-) {
-  const pathname = `/assess/${token}/report/export`;
-  return buildSurfaceUrl("assess", pathname) ?? new URL(pathname, request.url);
-}
 
 function buildWorkspaceHomeUrl(
   request: NextRequest,
@@ -63,21 +46,23 @@ function canExportParticipantReport(
 
 async function getParticipantLaunchContext(participantId: string) {
   const access = await requireParticipantAccess(participantId);
+  // Gate before retrieving the participant bearer token: redirecting to the
+  // participant surface must never bypass the staff confidentiality policy.
+  assertIndividualResultsAccess(access.scope, access.confidentialityMode);
   const db = createAdminClient();
   const { data: participant, error } = await db
     .from("campaign_participants")
-    .select("id, access_token, status")
+    .select("id, status")
     .eq("id", participantId)
     .single();
 
-  if (error || !participant?.access_token) {
+  if (error || !participant) {
     return null;
   }
 
   return {
     access,
     participant,
-    accessToken: String(participant.access_token),
   };
 }
 
@@ -151,10 +136,7 @@ export async function launchParticipantReport(
     );
   }
 
-  // Fall back to the participant runtime report page
-  return NextResponse.redirect(
-    buildParticipantReportUrl(request, context.accessToken)
-  );
+  return NextResponse.redirect(buildWorkspaceHomeUrl(request, surface));
 }
 
 export async function launchParticipantExport(
@@ -197,7 +179,8 @@ export async function launchParticipantExport(
     },
   });
 
-  return NextResponse.redirect(
-    buildParticipantExportUrl(request, context.accessToken)
-  );
+  const snapshotId = await findSnapshotForParticipant(participantId);
+  return NextResponse.redirect(snapshotId
+    ? new URL(`/api/reports/${snapshotId}/pdf`, request.url)
+    : buildWorkspaceHomeUrl(request, surface));
 }

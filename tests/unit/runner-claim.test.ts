@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { makeMockDb } from './helpers/supabase-mock'
 
 // -----------------------------------------------------------------------------
 // processSnapshot claim guard. The pending→generating update must atomically
@@ -35,17 +34,16 @@ function makeChain(overrides: {
 }
 
 const fromSpy = vi.fn()
+const rpcSpy = vi.fn()
 
 vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: () => ({ from: fromSpy }),
+  createAdminClient: () => ({ from: fromSpy, rpc: rpcSpy }),
 }))
 
 describe('claimSnapshotForGeneration', () => {
   it('returns true when the pending→generating update claims a row', async () => {
     const { claimSnapshotForGeneration } = await import('@/lib/reports/runner')
-    const { db } = makeMockDb({
-      report_snapshots: { data: [{ id: 'snap-1' }] },
-    })
+    const db = { rpc: vi.fn(async () => ({ data: true, error: null })) }
 
     await expect(
       claimSnapshotForGeneration(db as never, 'snap-1'),
@@ -54,9 +52,7 @@ describe('claimSnapshotForGeneration', () => {
 
   it('returns false when no row was pending (already claimed)', async () => {
     const { claimSnapshotForGeneration } = await import('@/lib/reports/runner')
-    const { db } = makeMockDb({
-      report_snapshots: { data: [] },
-    })
+    const db = { rpc: vi.fn(async () => ({ data: false, error: null })) }
 
     await expect(
       claimSnapshotForGeneration(db as never, 'snap-1'),
@@ -65,9 +61,7 @@ describe('claimSnapshotForGeneration', () => {
 
   it('returns false when the claim update errors', async () => {
     const { claimSnapshotForGeneration } = await import('@/lib/reports/runner')
-    const { db } = makeMockDb({
-      report_snapshots: { data: null, error: { message: 'boom' } },
-    })
+    const db = { rpc: vi.fn(async () => ({ data: null, error: { message: 'boom' } })) }
 
     await expect(
       claimSnapshotForGeneration(db as never, 'snap-1'),
@@ -78,12 +72,14 @@ describe('claimSnapshotForGeneration', () => {
 describe('processSnapshot claim guard', () => {
   beforeEach(() => {
     fromSpy.mockReset()
+    rpcSpy.mockReset()
   })
 
   it('skips the pipeline entirely when the snapshot is not claimable', async () => {
     const { processSnapshot } = await import('@/lib/reports/runner')
 
     const singleSpy = vi.fn(async () => ({ data: null, error: null }))
+    rpcSpy.mockResolvedValue({ data: false, error: null })
     // Claim resolves with zero rows → not claimable.
     fromSpy.mockImplementation(() =>
       makeChain({ result: { data: [], error: null }, single: singleSpy }),
@@ -94,14 +90,15 @@ describe('processSnapshot claim guard', () => {
     // Only the claim touched the db — the snapshot fetch (.single) never ran
     // and no failed-status write happened.
     expect(singleSpy).not.toHaveBeenCalled()
-    expect(fromSpy).toHaveBeenCalledTimes(1)
-    expect(fromSpy).toHaveBeenCalledWith('report_snapshots')
+    expect(fromSpy).not.toHaveBeenCalled()
+    expect(rpcSpy).toHaveBeenCalledWith('claim_report_snapshot_for_generation', { p_snapshot_id: 'snap-1' })
   })
 
   it('proceeds into the pipeline when the claim succeeds', async () => {
     const { processSnapshot } = await import('@/lib/reports/runner')
 
     const updateSpy = vi.fn()
+    rpcSpy.mockResolvedValue({ data: true, error: null })
     // Claim succeeds; the subsequent snapshot fetch fails, which proves we
     // passed the guard. The catch path marks the snapshot failed and then
     // RETHROWS so callers (sweep, generate route) record a failure instead

@@ -55,12 +55,16 @@ export async function withOpenRouterRetry<T>(
   operation: () => Promise<T>,
   options?: {
     maxAttempts?: number
+    deadlineAt?: number
   },
 ): Promise<T> {
   const maxAttempts = options?.maxAttempts ?? DEFAULT_MAX_ATTEMPTS
   let lastError: unknown
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    if (options?.deadlineAt !== undefined && Date.now() >= options.deadlineAt) {
+      throw new Error('OpenRouter request deadline exceeded')
+    }
     try {
       return await operation()
     } catch (error) {
@@ -76,6 +80,11 @@ export async function withOpenRouterRetry<T>(
       )
       const jitterMs = Math.floor(Math.random() * 250)
       const delayMs = Math.max(retryAfterMs ?? 0, exponentialDelayMs + jitterMs)
+
+      // Respect Retry-After without waiting beyond the owning worker's budget.
+      if (options?.deadlineAt !== undefined && Date.now() + delayMs >= options.deadlineAt) {
+        throw error
+      }
 
       await new Promise((resolve) => setTimeout(resolve, delayMs))
     }

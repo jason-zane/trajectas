@@ -750,7 +750,7 @@ export function mapCampaignParticipantRow(row: any): CampaignParticipant {
     lastName: row.last_name ?? undefined,
     jobTitle: row.job_title ?? undefined,
     company: row.company ?? undefined,
-    accessToken: row.access_token,
+    accessToken: row.access_token ?? '',
     status: row.status,
     invitedAt: row.invited_at,
     startedAt: row.started_at ?? undefined,

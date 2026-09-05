@@ -41,13 +41,18 @@ export async function requestNewReportLink(input: {
     const { data: snapshot } = await db
       .from("report_snapshots")
       .select(
-        "id, campaign_id, participant_sessions!inner(campaign_participant_id, campaign_participants!inner(id, email, first_name)), campaigns(id, title, client_id, partner_id)",
+        "id, campaign_id, audience_type, sent_to_participant_at, participant_sessions!inner(campaign_participant_id, campaign_participants!inner(id, email, first_name)), campaigns(id, title, client_id, partner_id)",
       )
       .eq("id", snapshotId)
       .eq("status", "released")
       .maybeSingle();
 
     if (!snapshot) return { ok: true };
+    // A participant may self-serve their own audience, or renew a legacy
+    // report that staff explicitly sent to them. Knowing an HR/consultant
+    // report UUID and one's email alone must not create a new access grant.
+    if (snapshot.audience_type != null && snapshot.audience_type !== "participant"
+      && !snapshot.sent_to_participant_at) return { ok: true };
 
     const sessionRow = Array.isArray(snapshot.participant_sessions)
       ? snapshot.participant_sessions[0]

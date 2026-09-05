@@ -84,6 +84,7 @@ function makeSweepDb(opts: {
 
   const db = {
     from: () => buildChain({ kind: null }),
+    rpc: vi.fn(async () => ({ data: opts.stuckPdfRows?.length ?? 0, error: null })),
   }
 
   return { db, calls }
@@ -128,6 +129,19 @@ describe('processSnapshotsBounded', () => {
     const result = await processSnapshotsBounded([], processFn as never)
     expect(result).toEqual({ processed: 0, failed: 0 })
     expect(processFn).not.toHaveBeenCalled()
+  })
+
+  it('leaves the next chunk queued when the cumulative pickup deadline expires', async () => {
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(1000)
+    try {
+      const processFn = vi.fn(async () => { clock.mockReturnValue(2000) })
+      const result = await processSnapshotsBounded(['a', 'b', 'c', 'd'], processFn as never, 1500)
+      expect(result).toEqual({ processed: REPORT_PROCESS_CONCURRENCY, failed: 0 })
+      expect(processFn).toHaveBeenCalledTimes(REPORT_PROCESS_CONCURRENCY)
+      expect(processFn).not.toHaveBeenCalledWith('c')
+    } finally {
+      clock.mockRestore()
+    }
   })
 })
 
@@ -177,8 +191,9 @@ describe('sweepReportGeneration', () => {
       processed: 0,
       failed: 0,
     })
-    // Both the status reset and the pdf reset ran.
-    expect(calls.updateQueries).toBe(2)
+    // Report reset uses a query; PDF recovery owns its lease lock in the RPC.
+    expect(calls.updateQueries).toBe(1)
+    expect(db.rpc).toHaveBeenCalledWith('recover_report_pdf_jobs')
   })
 
   it('picks up pending snapshots oldest-first, capped at SWEEP_BATCH per round', async () => {

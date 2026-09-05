@@ -135,6 +135,10 @@ describe.skipIf(!canRun)("scoring: scoreSessionCTT binary bounds", () => {
       ids[`item${key}`] = itemId;
     }
 
+    const sectionId = await ins("assessment_sections", { assessment_id: ids.assessment, response_format_id: ids.format, title: 'Scored items' });
+    for (const itemId of [ids.itemNo, ids.itemYes, ids.itemRev, ids.itemBare]) {
+      await ins('assessment_section_items', { section_id: sectionId, item_id: itemId });
+    }
     ids.participant = await ins("campaign_participants", {
       campaign_id: ids.campaign,
       email: `cbs-${ts}@test.local`,

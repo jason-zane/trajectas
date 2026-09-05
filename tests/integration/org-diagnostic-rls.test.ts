@@ -109,6 +109,17 @@ describe.skipIf(!canRun)('Org Diagnostic RLS', () => {
     partnerAdminClient = partnerAdmin.client
     authUserIds.push(partnerAdmin.userId)
 
+    // Tenant authority comes from memberships, as in invitation acceptance.
+    const { error: clientMembershipError } = await admin.from('client_memberships').insert([
+      { profile_id: clientAAdmin.userId, client_id: ids.clientA, role: 'admin' },
+      { profile_id: clientBAdmin.userId, client_id: ids.clientB, role: 'admin' },
+    ])
+    if (clientMembershipError) throw new Error(clientMembershipError.message)
+    const { error: partnerMembershipError } = await admin.from('partner_memberships').insert({
+      profile_id: partnerAdmin.userId, partner_id: ids.partner, role: 'admin',
+    })
+    if (partnerMembershipError) throw new Error(partnerMembershipError.message)
+
     // --- Diagnostic data for clientA ---
     // Campaign first (snapshot has FK to campaign)
     const { data: campA, error: campErr } = await admin

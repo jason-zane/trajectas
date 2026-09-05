@@ -56,7 +56,7 @@ export function ReportScreen({
   autoRefresh = false,
 }: ReportScreenProps) {
   const router = useRouter();
-  const hasReport = renderedData && renderedData.length > 0;
+  const hasReport = reportStatus === "released" && content.reportMode !== "holding" && renderedData && renderedData.length > 0;
   const isHolding = content.reportMode === "holding";
   const [countdown, setCountdown] = useState(5);
   const [pollingExpired, setPollingExpired] = useState(false);

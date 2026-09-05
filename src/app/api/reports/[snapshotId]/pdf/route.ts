@@ -24,7 +24,7 @@ import {
 } from '@/lib/security/request-body'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
+export const maxDuration = 300
 
 const REPORTS_BUCKET = 'reports'
 const MAX_PDF_POST_BODY_BYTES = 8 * 1024
@@ -72,6 +72,8 @@ async function validateReportTokenAccess(
   snapshotId: string,
   reportToken: string | null,
 ) {
+  // A signed report token is an explicit grant for this one snapshot, including
+  // a legacy report staff deliberately shared with its participant.
   const tokenPayload = verifyReportAccessToken(reportToken, snapshotId)
   if (!tokenPayload) {
     return Response.json({ error: 'Invalid report token' }, { status: 403 })
@@ -112,7 +114,6 @@ export async function GET(
   const forceRefresh = url.searchParams.get('refresh') === '1'
   const participantToken = url.searchParams.get('token')
   const reportToken = url.searchParams.get('reportToken')
-  const storagePath = `reports/${snapshotId}.pdf`
   const db = createAdminClient()
 
   // Populated for the privileged (admin/consultant) path; the actual audit
@@ -142,11 +143,12 @@ export async function GET(
     // Verify this snapshot belongs to the participant's session and is released
     const { data: validSnapshot, error: snapshotError } = await db
       .from('report_snapshots')
-      .select('id, participant_sessions!inner(campaign_participant_id)')
+      .select('id, audience_type, participant_sessions!inner(campaign_participant_id)')
       .eq('id', snapshotId)
       .eq('status', 'released')
       .maybeSingle()
-    if (snapshotError || !validSnapshot) {
+    if (snapshotError || !validSnapshot ||
+      (validSnapshot.audience_type != null && validSnapshot.audience_type !== 'participant')) {
       return Response.json({ error: 'Report not available' }, { status: 403 })
     }
     const session = Array.isArray(validSnapshot.participant_sessions)
@@ -185,6 +187,7 @@ export async function GET(
   if (!snapshot) {
     return Response.json({ error: 'Report not found' }, { status: 404 })
   }
+  const storagePath = snapshot.pdf_url ?? `reports/${snapshotId}.pdf`
 
   if (!['ready', 'released'].includes(String(snapshot.status))) {
     return Response.json(
@@ -243,6 +246,10 @@ export async function GET(
     if (!generated) {
       return await respondWithStoredPdf(storagePath, filename)
     }
+    if ('queued' in generated) {
+      return Response.json({ status: 'queued', error: 'PDF is queued for generation' },
+        { status: 409, headers: { 'Retry-After': '5' } })
+    }
 
     return new Response(generated.body, {
       headers: {
@@ -282,7 +289,7 @@ export async function POST(
       forceRefresh?: boolean
     }>(request, MAX_PDF_POST_BODY_BYTES, {})
 
-    const queued = await queueReportPdfGeneration(snapshotId)
+    const queued = await queueReportPdfGeneration(snapshotId, { forceRefresh: body.forceRefresh })
     if (queued.queued) {
       after(async () => {
         try {

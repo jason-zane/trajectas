@@ -40,7 +40,7 @@ export type IntegrationLaunchRecord = {
   participantId: string
   deliveryMethod: 'link' | 'email'
   status: 'created' | 'delivered' | 'delivery_failed'
-  assessmentUrl: string
+  assessmentUrl: string | null
   launchedAt: string
   deliveredAt?: string
   errorMessage?: string

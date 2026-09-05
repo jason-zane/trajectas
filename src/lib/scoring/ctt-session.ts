@@ -12,6 +12,7 @@
  * @module
  */
 
+import { getOrCreateSectionForms } from '@/lib/dal/session-forms'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { toPomp } from '@/lib/scoring/transforms'
 import {
@@ -115,7 +116,7 @@ export async function scoreSessionCTT(
   // 1. Get session metadata + assessment scoring level
   const { data: session, error: sessionErr } = await db
     .from('participant_sessions')
-    .select('assessment_id')
+    .select('assessment_id, campaign_id')
     .eq('id', sessionId)
     .single()
 
@@ -123,7 +124,14 @@ export async function scoreSessionCTT(
     return { error: sessionErr?.message ?? 'Session not found' }
   }
 
-  // 2. Load all responses for this session
+  const forms = await getOrCreateSectionForms(db, {
+    sessionId, assessmentId: session.assessment_id, campaignId: session.campaign_id ?? null,
+  })
+  if ('error' in forms) return { error: forms.error }
+  const scoredIds = new Set([...forms.values()].flatMap(form =>
+    form.entries.filter(entry => entry.countsTowardScore).map(entry => entry.itemId)))
+
+  // Only delivered, scoring-eligible items can contribute to the result.
   const { data: responseRows, error: respErr } = await db
     .from('participant_responses')
     .select('item_id, response_value')
@@ -134,7 +142,7 @@ export async function scoreSessionCTT(
     return { error: 'No responses were recorded for this session' }
   }
 
-  const responses: ResponseRow[] = responseRows
+  const responses: ResponseRow[] = responseRows.filter(row => scoredIds.has(row.item_id))
 
   // 3. Load item metadata for all responded items
   const itemIds = responses.map((r) => r.item_id)
@@ -265,6 +273,7 @@ export async function scoreSessionCTT(
     if (keyedOutcome?.kind === 'scored') {
       pompValue = keyedOutcome.pomp
     } else {
+      if (keyedOutcome) return { error: `Invalid keyed response for item ${meta.id}` }
       const rawValue = Number(resp.response_value)
 
       // A response outside the derived bounds means option values and bounds

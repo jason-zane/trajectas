@@ -30,7 +30,7 @@ describe.skipIf(!canRun)("scoring: scoreSession dispatcher", () => {
   }
 
   describe("scoring_profile = 'pomp_factor' (default, every pre-existing assessment)", () => {
-    const ids = { format: "", assessment: "", factor: "", construct: "", item: "", session: "" };
+    const ids = { format: "", assessment: "", factor: "", construct: "", section: "", item: "", session: "" };
 
     beforeAll(async () => {
       if (!canRun) return;
@@ -47,10 +47,13 @@ describe.skipIf(!canRun)("scoring: scoreSession dispatcher", () => {
         construct_id: ids.construct,
         status: "active",
       });
+      ids.section = await ins("assessment_sections", { assessment_id: ids.assessment, response_format_id: ids.format, title: "POMP section" });
+      await ins("assessment_section_items", { section_id: ids.section, item_id: ids.item });
       ids.session = await ins("participant_sessions", { assessment_id: ids.assessment, status: "completed" });
       await admin.from("participant_responses").insert({
         session_id: ids.session,
         item_id: ids.item,
+        section_id: ids.section,
         response_value: 4, // Likert 1-5 default bounds -> POMP 75
       });
     }, 60_000);
@@ -60,6 +63,8 @@ describe.skipIf(!canRun)("scoring: scoreSession dispatcher", () => {
       await admin.from("participant_scores").delete().eq("session_id", ids.session);
       await admin.from("participant_responses").delete().eq("session_id", ids.session);
       await admin.from("participant_sessions").delete().eq("id", ids.session);
+      await admin.from("assessment_section_items").delete().eq("section_id", ids.section);
+      await admin.from("assessment_sections").delete().eq("id", ids.section);
       await admin.from("items").delete().eq("id", ids.item);
       await admin.from("assessment_factors").delete().eq("assessment_id", ids.assessment);
       await admin.from("factor_constructs").delete().eq("factor_id", ids.factor);

@@ -66,12 +66,16 @@ describe('POST /api/assess/save-batch', () => {
           responseValue: 3,
           responseData: { foo: 'bar' },
           responseTimeMs: null,
+          revision: 0,
+          idempotencyKey: 'idem-1',
         },
         {
           itemId: VALID_UUID,
           responseValue: 5,
           responseData: {},
           responseTimeMs: null,
+          revision: 0,
+          idempotencyKey: 'idem-2',
         },
       ],
     })

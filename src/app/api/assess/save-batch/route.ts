@@ -1,3 +1,4 @@
+import { getAssessSessionProof, verifyAssessSessionProof } from "@/lib/assess/session-proof";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logActionError } from "@/lib/security/action-errors";
 import { checkAssessApiTokenRateLimit } from "@/lib/security/rate-limit";
@@ -41,6 +42,10 @@ export async function POST(request: Request) {
   }
 
   const { token, sessionId, saves } = parsed.data;
+  const proof = getAssessSessionProof(request);
+  if (proof && !verifyAssessSessionProof(proof, { token, sessionId })) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   // Per-token budget on top of the proxy's per-IP rule; keyed on the token
   // actually submitted, so it can't be dodged by forging request headers.
@@ -64,6 +69,8 @@ export async function POST(request: Request) {
       responseValue: s.responseValue,
       responseData: s.responseData ?? {},
       responseTimeMs: s.responseTimeMs ?? null,
+      revision: s.revision ?? 0,
+      idempotencyKey: s.idempotencyKey,
     })),
   });
 

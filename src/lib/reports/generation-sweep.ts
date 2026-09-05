@@ -20,8 +20,7 @@ type ProcessFn = typeof processSnapshot
 
 /**
  * How many snapshots are generated at once. Kept low because each job can
- * involve LLM narrative calls and defers a headless-Chromium PDF render
- * (~500MB–1GB) on the same instance.
+ * involve LLM narrative calls. Chromium runs separately in the PDF worker.
  */
 export const REPORT_PROCESS_CONCURRENCY = 2
 
@@ -32,17 +31,14 @@ export const SWEEP_BATCH = 10
  * Wall-clock budget for one sweep run. The cron route's maxDuration is 300s;
  * stop picking new batches with headroom so in-flight jobs can finish.
  */
-export const SWEEP_TIME_BUDGET_MS = 240 * 1000
+export const SWEEP_TIME_BUDGET_MS = 150 * 1000
 
 /** Safety valve on sweep rounds in case pending rows never drain. */
 const MAX_SWEEP_ROUNDS = 20
 
 /**
- * Global backpressure threshold for the trigger path. Each completion trigger
- * processes inline only while fewer than this many snapshots are 'generating'
- * platform-wide; past it, work is left pending for the sweep. The count check
- * is read-then-act (small races overshoot slightly) — it's backpressure, not
- * a hard semaphore.
+ * Cheap backpressure hint before pickup. The atomic database claim also
+ * enforces this bound, including single-snapshot/manual requests.
  */
 export const MAX_GLOBAL_GENERATING = 6
 
@@ -78,11 +74,13 @@ export interface GenerationSweepOptions {
 export async function processSnapshotsBounded(
   ids: string[],
   processFn: ProcessFn = processSnapshot,
+  deadline = Date.now() + SWEEP_TIME_BUDGET_MS,
 ): Promise<{ processed: number; failed: number }> {
   let processed = 0
   let failed = 0
 
   for (let i = 0; i < ids.length; i += REPORT_PROCESS_CONCURRENCY) {
+    if (Date.now() >= deadline) break
     const chunk = ids.slice(i, i + REPORT_PROCESS_CONCURRENCY)
     await Promise.all(
       chunk.map(async (id) => {
@@ -148,24 +146,14 @@ export async function sweepReportGeneration(
   }
   const resetStuck = (resetRows ?? []).length
 
-  // 1b. Same recovery for PDF generation: a process killed mid-render leaves
-  // pdf_status='generating' forever — downloads 409 and re-queues are
-  // refused. 'failed' is a re-queueable state (see ensureSnapshotPdf) and
-  // reads honestly in the UI.
-  const { data: resetPdfRows, error: resetPdfError } = await db
-    .from('report_snapshots')
-    .update({
-      pdf_status: 'failed',
-      pdf_error_message: 'PDF generation timed out and was reset by the sweep',
-    })
-    .eq('pdf_status', 'generating')
-    .lt('updated_at', stuckCutoff)
-    .select('id')
+  // Recovery shares the PDF claimant's lock and uses its dedicated lease
+  // timestamp. Failed attempts retain a bounded, durable retry budget.
+  const { data: resetPdfCount, error: resetPdfError } = await db.rpc('recover_report_pdf_jobs')
 
   if (resetPdfError) {
     console.error('[reports] Sweep failed to reset stuck PDF generations:', resetPdfError)
   }
-  const resetStuckPdf = (resetPdfRows ?? []).length
+  const resetStuckPdf = Number(resetPdfCount ?? 0)
 
   // 2. Drain pending snapshots in batches until the queue is empty or the
   // time budget runs out. Processing flips rows out of 'pending', so each
@@ -177,6 +165,7 @@ export async function sweepReportGeneration(
 
   for (let round = 0; round < MAX_SWEEP_ROUNDS; round += 1) {
     if (round > 0 && Date.now() - startedAt >= SWEEP_TIME_BUDGET_MS) break
+    if (await shouldDeferInlineProcessing(db)) break
 
     const { data: pendingRows, error: pendingError } = await db
       .from('report_snapshots')
@@ -195,7 +184,7 @@ export async function sweepReportGeneration(
 
     // 3. Process with bounded concurrency; the claim guard in processSnapshot
     // makes races with the trigger path harmless.
-    const result = await processSnapshotsBounded(ids, processFn)
+    const result = await processSnapshotsBounded(ids, processFn, startedAt + SWEEP_TIME_BUDGET_MS)
     picked += ids.length
     processed += result.processed
     failed += result.failed

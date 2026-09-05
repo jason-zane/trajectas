@@ -14,6 +14,12 @@ import type {
 import { buildSurfaceUrl, requireAppUrl } from '@/lib/hosts'
 import { mapCampaignAssessmentRow, mapCampaignParticipantRow, mapCampaignRow, mapReportSnapshotRow } from '@/lib/supabase/mappers'
 
+function integrationParticipant(row: Parameters<typeof mapCampaignParticipantRow>[0], mode: CampaignConfidentialityMode) {
+  const participant = mapCampaignParticipantRow(row)
+  // The internal invitation path may use the token; client API responses may not.
+  return mode === 'aggregate_only' ? { ...participant, accessToken: '' } : participant
+}
+
 async function getClientPartnerId(clientId: string) {
   const db = createAdminClient()
   const { data, error } = await db
@@ -475,6 +481,13 @@ export async function upsertIntegrationParticipant(
   }
 
   if (participantId) {
+    if (campaign.confidentialityMode === 'aggregate_only') {
+      const existing = await ensureParticipantOwnedByCredential(context, participantId)
+      if (existing.participant.email.toLowerCase() !== input.email.toLowerCase()) {
+        throw new IntegrationApiError(403, 'participant_identity_protected',
+          'An aggregate-only participant invitation cannot be redirected to a different email address.')
+      }
+    }
     const { data: updated, error: updateError } = await db
       .from('campaign_participants')
       .update({
@@ -500,10 +513,11 @@ export async function upsertIntegrationParticipant(
       refs: input.externalRefs,
     })
 
+    const currentCampaign = await ensureCampaignOwnedByCredential(context, campaignId)
     return {
-      participant: mapCampaignParticipantRow(updated),
-      campaign,
-      assessmentUrl: assessmentUrlFromToken(String(updated.access_token)),
+      participant: integrationParticipant(updated, currentCampaign.confidentialityMode),
+      campaign: currentCampaign,
+      assessmentUrl: currentCampaign.confidentialityMode === 'aggregate_only' ? null : assessmentUrlFromToken(String(updated.access_token)),
       created: false,
     }
   }
@@ -550,10 +564,13 @@ export async function upsertIntegrationParticipant(
     },
   })
 
+  // Enrollment serializes with confidentiality changes in Postgres. Re-read
+  // after INSERT: the initial empty-campaign read may predate that lock.
+  const currentCampaign = await ensureCampaignOwnedByCredential(context, campaignId)
   return {
-    participant: mapCampaignParticipantRow(inserted),
-    campaign,
-    assessmentUrl: assessmentUrlFromToken(String(inserted.access_token)),
+    participant: integrationParticipant(inserted, currentCampaign.confidentialityMode),
+    campaign: currentCampaign,
+    assessmentUrl: currentCampaign.confidentialityMode === 'aggregate_only' ? null : assessmentUrlFromToken(String(inserted.access_token)),
     created: true,
   }
 }
@@ -567,6 +584,10 @@ export async function createIntegrationLaunch(
   }
 ) {
   const campaign = await ensureCampaignOwnedByCredential(context, campaignId)
+  if (campaign.confidentialityMode === 'aggregate_only' && input.deliveryMethod === 'link') {
+    throw new IntegrationApiError(403, 'participant_link_protected',
+      'Aggregate-only invitations must be delivered directly to the participant by email.')
+  }
   const db = createAdminClient()
   const { participant } = await ensureParticipantOwnedByCredential(context, input.participantId)
 
@@ -589,7 +610,9 @@ export async function createIntegrationLaunch(
       campaign_participant_id: participant.id,
       delivery_method: input.deliveryMethod,
       status: 'created',
-      assessment_url: assessmentUrl,
+      // This compatibility sentinel satisfies the existing NOT NULL constraint
+      // without persisting a private bearer URL in client-visible launch data.
+      assessment_url: campaign.confidentialityMode === 'aggregate_only' ? 'redacted:participant-email-delivery' : assessmentUrl,
       metadata: {
         requestId: context.requestId,
       },
@@ -688,6 +711,8 @@ export async function getIntegrationLaunch(
     throw new IntegrationApiError(404, 'launch_not_found', 'Launch not found.')
   }
 
+  const campaign = await ensureCampaignOwnedByCredential(context, String(data.campaign_id))
+
   return {
     id: String(data.id),
     clientId: String(data.client_id),
@@ -695,7 +720,7 @@ export async function getIntegrationLaunch(
     participantId: String(data.campaign_participant_id),
     deliveryMethod: data.delivery_method,
     status: data.status,
-    assessmentUrl: String(data.assessment_url),
+    assessmentUrl: campaign.confidentialityMode === 'aggregate_only' ? null : String(data.assessment_url),
     launchedAt: String(data.launched_at),
     deliveredAt: data.delivered_at ?? undefined,
     errorMessage: data.error_message ?? undefined,
@@ -707,7 +732,11 @@ export async function getIntegrationParticipantResultSummary(
   participantId: string
 ) {
   const db = createAdminClient()
-  const { participant, campaignId } = await ensureParticipantOwnedByCredential(context, participantId)
+  const { participant, campaignId, confidentialityMode } = await ensureParticipantOwnedByCredential(context, participantId)
+  if (confidentialityMode === 'aggregate_only') {
+    throw new IntegrationApiError(403, 'individual_results_protected',
+      'Individual results are not available for aggregate-only campaigns.')
+  }
 
   const [{ data: sessionRows, error: sessionsError }, { count: assessmentCount, error: assessmentCountError }] =
     await Promise.all([
