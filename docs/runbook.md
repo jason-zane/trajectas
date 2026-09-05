@@ -13,6 +13,8 @@
 
 Create an isolated worktree with `scripts/agent-worktree.sh <branch>`. Do not switch or modify the founder's primary checkout. Follow `AGENTS.md`: validate locally, apply compatible migrations through Supabase MCP, run advisors, open a PR, wait for green CI, then squash merge. Verify production is READY at the merged commit.
 
+Main enforces status checks, an up-to-date branch, resolved review conversations and linear history, including for administrators. Check unresolved review threads as well as the check rollup before merging. Resolve findings through verified fixes; do not bypass the protections.
+
 Preview deployments can use production credentials. Never run destructive tests or load tests against a preview without verifying its database is isolated. The primary checkout's `.env.local` points at production.
 
 Token-column permissions require two releases: deploy the explicit safe-column application queries first; then apply `protect_participant_bearer_tokens` and ship its migration in a follow-up PR. Reversing this order makes old `SELECT *` clients fail closed. Staff roster reads exclude participant bearer tokens. Authorized campaign managers can share links for standard campaigns through the gated application path.

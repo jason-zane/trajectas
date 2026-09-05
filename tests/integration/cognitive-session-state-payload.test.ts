@@ -278,6 +278,93 @@ describe.skipIf(!canRun)("cognitive item delivery — getSessionState payload", 
     }
   }, 30_000);
 
+  it("preserves mapped cognitive diagnostics and answer provenance on an unreviewed copy-on-write revision", async () => {
+    const { getSessionState } = await import("@/app/actions/assess");
+    expect((await getSessionState(token, ids.session)).data).toBeDefined();
+    const { data: original } = await adminDb.from("items")
+      .select("stem,item_version").eq("id", ids.item).single();
+    const { data: oldDiagnostics, error: oldError } = await adminDb.from("item_option_diagnostics")
+      .select("option_id,item_id,error_label,rationale").eq("item_id", ids.item).order("option_id");
+    expect(oldError).toBeNull();
+    expect(oldDiagnostics).toHaveLength(4);
+
+    const { data: successor, error } = await adminDb.rpc("revise_library_item", {
+      p_item_id: ids.item, p_patch: { stem: "Revised cognitive instructions" },
+    });
+    expect(error).toBeNull();
+    expect(successor).toBeTruthy();
+    expect(successor).not.toBe(ids.item);
+    try {
+      const { data: next } = await adminDb.from("items")
+        .select("stem,parent_item_id,item_version,status,lifecycle_state,content_hash")
+        .eq("id", successor).single();
+      expect(next).toMatchObject({ stem: "Revised cognitive instructions", parent_item_id: ids.item,
+        item_version: original!.item_version + 1, status: "draft", lifecycle_state: "draft", content_hash: null });
+      const { data: options } = await adminDb.from("item_options")
+        .select("id,item_id,label").eq("item_id", successor).order("display_order");
+      expect(options).toHaveLength(5);
+      const mapped = Object.fromEntries(options!.map(option => [option.label, option.id]));
+      for (const option of options!) {
+        expect(option.item_id).toBe(successor);
+        expect(Object.values(ids.optionIds)).not.toContain(option.id);
+      }
+      const { data: diagnostics, error: diagnosticError } = await adminDb.from("item_option_diagnostics")
+        .select("option_id,item_id,error_label,rationale").eq("item_id", successor).order("option_id");
+      expect(diagnosticError).toBeNull();
+      expect(diagnostics).toEqual(oldDiagnostics!.map(diagnostic => ({
+        ...diagnostic, item_id: successor,
+        option_id: mapped[Object.entries(ids.optionIds).find(([, id]) => id === diagnostic.option_id)![0]],
+      })).sort((a, b) => a.option_id.localeCompare(b.option_id)));
+      const { data: key } = await adminDb.from("item_answer_keys")
+        .select("correct_option_id,scoring_rule,rationale").eq("item_id", successor).single();
+      expect(key).toEqual({ correct_option_id: mapped.B, scoring_rule: "dichotomous", rationale: SECRET_RATIONALE });
+      const { data: spec } = await adminDb.from("cognitive_item_specs")
+        .select("spec").eq("item_id", successor).single();
+      expect(spec?.spec).toEqual(m6ItemSpec);
+      const { data: optionSpecs } = await adminDb.from("cognitive_option_specs")
+        .select("option_id,item_id,spec").eq("item_id", successor);
+      expect(optionSpecs).toHaveLength(5);
+      for (const [index, slot] of ["A", "B", "C", "D", "E"].entries()) {
+        expect(optionSpecs).toContainEqual({ option_id: mapped[slot], item_id: successor, spec: m6OptionSpecs[index] });
+      }
+
+      // Synthetic stimuli have no human sign-offs. A revision remains a draft
+      // requiring fresh review; no fixture fabricates an approval.
+      const { data: reviews, error: reviewError } = await adminDb.from("item_reviews")
+        .select("id").eq("item_id", successor);
+      expect(reviewError).toBeNull();
+      expect(reviews).toEqual([]);
+      const promotion = await adminDb.from("items").update({ lifecycle_state: "content_reviewed" }).eq("id", successor);
+      expect(promotion.error?.message).toContain("no content review has been recorded");
+      const { data: unchanged } = await adminDb.from("item_option_diagnostics")
+        .select("option_id,item_id,error_label,rationale").eq("item_id", ids.item).order("option_id");
+      expect(unchanged).toEqual(oldDiagnostics);
+      expect((await adminDb.from("items").select("stem,item_version").eq("id", ids.item).single()).data).toEqual(original);
+      expect((await adminDb.from("assessment_section_items").select("item_id").eq("section_id", ids.section)).data)
+        .toEqual([{ item_id: ids.item }]);
+      const edited = await adminDb.rpc("revise_library_item", {
+        p_item_id: successor, p_patch: { stem: "Updated draft instructions" },
+      });
+      expect(edited.error).toBeNull();
+      expect(edited.data).toBe(successor);
+      expect((await adminDb.from("item_option_diagnostics").select("option_id,item_id,error_label,rationale")
+        .eq("item_id", successor).order("option_id")).data).toEqual(diagnostics);
+
+      // This rejection occurs after cloning inside the function. The entire
+      // transaction must roll back, including the copied secure diagnostics.
+      const rejected = await adminDb.rpc("revise_library_item", {
+        p_item_id: ids.item, p_patch: { stem: "Must roll back" }, p_options: [],
+      });
+      expect(rejected.error?.message).toContain("Cognitive options must be revised");
+      expect((await adminDb.from("items").select("id").eq("parent_item_id", ids.item)).data)
+        .toEqual([{ id: successor }]);
+    } finally {
+      // Delete the key first because its composite option FK is RESTRICT.
+      await adminDb.from("item_answer_keys").delete().eq("item_id", successor);
+      await adminDb.from("items").delete().eq("id", successor);
+    }
+  }, 30_000);
+
   it("falls back to a plain item (no stimulus) if the item has no cognitive spec, rather than failing the whole section", async () => {
     // Delivered assessment definitions are immutable. A revised form uses a
     // new assessment version while the original participant keeps its form.

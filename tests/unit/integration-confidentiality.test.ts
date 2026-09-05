@@ -8,7 +8,7 @@ vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({ from: (tabl
   const query = { table, operation: 'select', values: null as any, filters: [] as any[] }
   const chain: any = {}
   for (const name of ['select', 'order', 'limit']) chain[name] = () => chain
-  for (const name of ['eq', 'in', 'is', 'lte']) chain[name] = (...args: any[]) => { query.filters.push([name, ...args]); return chain }
+  for (const name of ['eq', 'in', 'is', 'lte', 'lt', 'gte']) chain[name] = (...args: any[]) => { query.filters.push([name, ...args]); return chain }
   for (const name of ['insert', 'update']) chain[name] = (values: any) => { query.operation = name; query.values = values; return chain }
   const finish = async () => { mocks.queries.push(query); return mocks.resolve(query) ?? { data: null, error: null } }
   chain.single = finish; chain.maybeSingle = finish
@@ -139,8 +139,11 @@ describe('aggregate-only integration confidentiality', () => {
     vi.stubGlobal('fetch', fetch)
     mocks.resolve.mockImplementation((q: any) => {
       if (q.table === 'campaigns') return result(campaign)
-      if (q.table === 'integration_events_outbox') return result([{ id: 'event', client_id: 'client',
-        event_type: 'integration.launch.created', payload: { campaignId, assessmentUrl: legacyLaunch.assessment_url } }])
+      if (q.table === 'integration_events_outbox') {
+        const event = { id: 'event', client_id: 'client', attempts: 0,
+          event_type: 'integration.launch.created', payload: { campaignId, assessmentUrl: legacyLaunch.assessment_url } }
+        return result(q.operation === 'select' ? [event] : q.values.status === 'dispatched' ? event : null)
+      }
       if (q.table === 'integration_webhook_endpoints' && q.operation === 'select') return result([{ id: 'endpoint',
         url: 'https://webhook.example.invalid', signing_secret_ciphertext: 'fixture', subscribed_events: [] }])
       return result(null)

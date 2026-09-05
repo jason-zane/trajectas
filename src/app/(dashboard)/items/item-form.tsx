@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -153,25 +153,47 @@ export function ItemForm({
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // A delivered item's first edit creates a revision. All subsequent edits,
+  // including an explicit save, must follow that revision instead of cloning
+  // the original again while navigation is pending.
+  const currentItemId = useRef(itemId);
+  const itemSaveQueue = useRef<Promise<void>>(Promise.resolve());
+  const [savedItemId, setSavedItemId] = useState(itemId);
+  const [pendingItemSaves, setPendingItemSaves] = useState(0);
+  const navigatedItemId = useRef(itemId);
+  const enqueueItemSave = useCallback(<T extends { id?: string },>(
+    save: (id: string) => Promise<T>,
+  ): Promise<T> => {
+    setPendingItemSaves((count) => count + 1);
+    const pending = itemSaveQueue.current.then(async () => {
+      if (!currentItemId.current) throw new Error("Item not found");
+      const result = await save(currentItemId.current);
+      if (result.id) {
+        currentItemId.current = result.id;
+        setSavedItemId(result.id);
+      }
+      return result;
+    }).finally(() => setPendingItemSaves((count) => count - 1));
+    // A failed request stays visible on its field but cannot poison the queue.
+    itemSaveQueue.current = pending.then(() => undefined, () => undefined);
+    return pending;
+  }, []);
+  const saveStem = useCallback((value: string) =>
+    enqueueItemSave((id) => updateItemField(id, "stem", value)), [enqueueItemSave]);
+  const saveObserverStem = useCallback((value: string) =>
+    enqueueItemSave((id) => updateItemField(id, "stem_observer", value)), [enqueueItemSave]);
+
   // ── Auto-save for stem (edit mode only) ──
   const stemAutoSave = useAutoSave({
     initialValue: initialData?.stem ?? "",
-    onSave: async (val) => {
-      const result = await updateItemField(itemId!, "stem", val);
-      if (result.id && result.id !== itemId) router.replace(`/items/${result.id}/edit`);
-      return result;
-    },
+    onSave: saveStem,
     enabled: mode === "edit" && !!itemId,
   });
 
   // ── Auto-save for the observer (360) stem (edit mode, construct items only) ──
   const stemObserverAutoSave = useAutoSave({
     initialValue: initialData?.stemObserver ?? "",
-    onSave: async (val) => {
-      const result = await updateItemField(itemId!, "stem_observer", val);
-      if (result.id && result.id !== itemId) router.replace(`/items/${result.id}/edit`);
-      return result;
-    },
+    onSave: saveObserverStem,
     enabled: mode === "edit" && !!itemId,
   });
 
@@ -180,7 +202,7 @@ export function ItemForm({
     if (mode !== "edit" || !initialData) return false;
     return (
       purpose !== initialData.purpose ||
-      constructId !== initialData.constructId ||
+      constructId !== (initialData.constructId ?? "") ||
       responseFormatId !== initialData.responseFormatId ||
       reverseScored !== initialData.reverseScored ||
       weight !== initialData.weight ||
@@ -189,6 +211,18 @@ export function ItemForm({
       status !== initialData.status
     );
   }, [mode, initialData, purpose, constructId, responseFormatId, reverseScored, weight, difficulty, sourceId, status]);
+
+  // Do not unmount a dirty field's pending debounce or load the revision before
+  // its queued writes finish. Failed fields remain here with their retry UI.
+  useEffect(() => {
+    if (mode !== "edit" || !savedItemId || savedItemId === itemId ||
+      savedItemId === navigatedItemId.current || pendingItemSaves > 0 ||
+      stemAutoSave.isDirty || stemObserverAutoSave.isDirty || structuralDirty ||
+      saveState === "saving") return;
+    navigatedItemId.current = savedItemId;
+    router.replace(`/items/${savedItemId}/edit`);
+  }, [mode, savedItemId, itemId, pendingItemSaves, stemAutoSave.isDirty,
+    stemObserverAutoSave.isDirty, structuralDirty, saveState, router]);
 
   const { showDialog, confirmNavigation, cancelNavigation } =
     useUnsavedChanges(structuralDirty);
@@ -243,7 +277,7 @@ export function ItemForm({
 
     const result =
       mode === "edit" && itemId
-        ? await updateItem(itemId, formData)
+        ? await enqueueItemSave((id) => updateItem(id, formData))
         : await createItem(formData);
 
     if (result?.error) {
