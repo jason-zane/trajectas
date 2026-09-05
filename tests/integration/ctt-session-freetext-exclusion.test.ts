@@ -101,6 +101,10 @@ describe.skipIf(!canRun)("scoring: free_text excluded from aggregates", () => {
       status: "active",
     });
 
+    const sectionId = await ins("assessment_sections", { assessment_id: ids.assessment, response_format_id: ids.likertFormat, title: 'Scored items' });
+    for (const itemId of [ids.likertItem, ids.freeTextItem]) {
+      await ins('assessment_section_items', { section_id: sectionId, item_id: itemId });
+    }
     ids.participant = await ins("campaign_participants", {
       campaign_id: ids.campaign,
       email: `cfe-${ts}@test.local`,

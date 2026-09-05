@@ -71,7 +71,7 @@ vi.mock('@/lib/reports/pdf', () => ({
   generateAndStoreReportPdf: (id: string, opts: unknown) =>
     generateAndStoreReportPdf(id, opts),
   getReportPdfFilename: (id: string) => getReportPdfFilename(id),
-  queueReportPdfGeneration: (id: string) => queueReportPdfGeneration(id),
+  queueReportPdfGeneration: (id: string, options: unknown) => queueReportPdfGeneration(id, options),
 }))
 
 vi.mock('@/lib/auth/support-sessions', () => ({
@@ -384,6 +384,7 @@ describe('POST /api/reports/[snapshotId]/pdf', () => {
     const body = await response.json()
     expect(body.jobId).toBe('job-123')
     expect(body.status).toBe('queued')
+    expect(queueReportPdfGeneration).toHaveBeenCalledWith(snapshotId, { forceRefresh: true })
   })
 
   it('returns 413 when request body exceeds max size', async () => {

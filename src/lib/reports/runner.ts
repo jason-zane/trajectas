@@ -20,15 +20,14 @@ import { DEFAULT_3_BAND_SCHEME, type BandScheme } from './band-scheme'
 import { resolveTemplateBandScheme } from './resolve-template-band-scheme'
 import { buildDerivedNarrative, buildDevelopmentSuggestion, resolvePersonToken } from './narrative'
 import { enhanceNarrative } from './ai-narrative'
+import { withReportNarrativeBudget } from './narrative-budget'
 import { OpenRouterProvider } from '@/lib/ai/providers/openrouter'
 import { getModelForTask } from '@/lib/ai/model-config'
 import { DEFAULT_REPORT_THEME } from './presentation'
 import { getEffectiveBrand } from '@/app/actions/brand'
 import { enqueueReportSnapshotEvent } from '@/lib/integrations/events'
 import { notifyConsultantsForSnapshot } from '@/lib/notifications/consultant-notification'
-import { generatePdfWithResilience } from '@/lib/reports/pdf-resilience'
 import { reportError } from '@/lib/observability/report-error'
-import { after } from 'next/server'
 import { buildReportContext } from './report-context'
 import { getCustomReport } from './custom'
 import type { ReportTheme } from './presentation'
@@ -129,27 +128,25 @@ export async function claimSnapshotForGeneration(
   db: ReturnType<typeof createAdminClient>,
   snapshotId: string,
 ): Promise<boolean> {
-  const claim = await db
-    .from('report_snapshots')
-    .update({
-      status: 'generating',
-      pdf_url: null,
-      pdf_status: null,
-      pdf_error_message: null,
-    })
-    .eq('id', snapshotId)
-    .eq('status', 'pending')
-    .select('id')
+  // One transaction owns both the per-snapshot claim and the platform-wide
+  // capacity check; simultaneous requests cannot all observe a free slot.
+  const claim = await db.rpc('claim_report_snapshot_for_generation', {
+    p_snapshot_id: snapshotId,
+  })
 
   if (claim.error) {
     console.error(`[runner] Failed to claim snapshot ${snapshotId}:`, claim.error)
     return false
   }
 
-  return (claim.data ?? []).length > 0
+  return claim.data === true
 }
 
 export async function processSnapshot(snapshotId: string): Promise<void> {
+  return withReportNarrativeBudget(() => processSnapshotWithinBudget(snapshotId))
+}
+
+async function processSnapshotWithinBudget(snapshotId: string): Promise<void> {
   const db = createAdminClient()
 
   // Mark as generating — skip entirely if another caller already claimed it.
@@ -426,6 +423,7 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       generated_at: generatedAt,
       rendered_data: resolvedBlocks,
       error_message: null,
+      ...(template.autoRelease ? { pdf_status: 'queued', pdf_attempt_count: 0 } : {}),
     }).eq('id', snapshotId)
     if (snapshotWriteError) {
       throw new Error(`Failed to persist generated snapshot: ${snapshotWriteError.message}`)
@@ -458,14 +456,9 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
     }
 
     if (template.autoRelease) {
-      // Kick off PDF generation in the background. The pdf.ts module hooks
-      // notifyConsultantsForSnapshot() onto the post-PDF success path, so the
-      // consultant email (with attach_pdf=true) fires once the PDF is ready.
-      // We also fire an immediate notify attempt — if attach_pdf=false on the
-      // campaign, this sends straight away without waiting for the PDF; the
-      // atomic claim in the module ensures only one email goes out.
-      // Background PDF generation with bounded retry + alerting on failure.
-      after(() => generatePdfWithResilience(snapshotId))
+      // The minute worker consumes the persisted PDF job and sends email
+      // once attachments are ready. Campaigns without attachments notify
+      // immediately; the notification claim prevents duplicate delivery.
 
       try {
         await notifyConsultantsForSnapshot(snapshotId)
@@ -566,6 +559,7 @@ async function runCustomReport(
     generated_at: generatedAt,
     rendered_data: [resolvedBlock],
     error_message: null,
+    ...(template.autoRelease ? { pdf_status: 'queued', pdf_attempt_count: 0 } : {}),
   }).eq('id', snapshotId)
   if (snapshotWriteError) {
     throw new Error(`Failed to persist generated snapshot: ${snapshotWriteError.message}`)
@@ -597,14 +591,8 @@ async function runCustomReport(
   }
 
     if (template.autoRelease) {
-      // Kick off PDF generation in the background. The pdf.ts module hooks
-      // notifyConsultantsForSnapshot() onto the post-PDF success path, so the
-      // consultant email (with attach_pdf=true) fires once the PDF is ready.
-      // We also fire an immediate notify attempt — if attach_pdf=false on the
-      // campaign, this sends straight away without waiting for the PDF; the
-      // atomic claim in the module ensures only one email goes out.
-      // Background PDF generation with bounded retry + alerting on failure.
-      after(() => generatePdfWithResilience(snapshotId))
+      // The PDF job is durable. Notify immediately only when attachments
+      // are not required; the PDF worker completes attachment delivery.
 
       try {
         await notifyConsultantsForSnapshot(snapshotId)

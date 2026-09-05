@@ -49,7 +49,8 @@ const env = {
 
 // Delegate to vitest. Pass through any extra args (e.g. a specific test file).
 const extra = process.argv.slice(2);
-const args = ["vitest", "run", "tests/integration", ...extra];
+const hasFileFilter = extra.some(arg => arg.startsWith("tests/integration/"));
+const args = ["vitest", "run", ...(hasFileFilter ? [] : ["tests/integration"]), ...extra];
 
 try {
   execFileSync("npx", args, { stdio: "inherit", env });

@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { PARTICIPANT_COLUMNS } from "./participant-columns";
 import { mapCampaignParticipantRow } from "@/lib/supabase/mappers";
 import { throwActionError } from "@/lib/security/action-errors";
 import type { CampaignParticipantStatus } from "@/types/database";
@@ -56,7 +57,7 @@ export async function getParticipantById(
     .from("campaign_participants")
     .select(
       `
-      *,
+      ${PARTICIPANT_COLUMNS},
       campaigns(title, slug, client_id, clients(name))
     `,
     )
@@ -128,7 +129,7 @@ export async function listParticipants(
     .from("campaign_participants")
     .select(
       `
-      *,
+      ${PARTICIPANT_COLUMNS},
       campaigns!inner(title, slug, deleted_at),
       participant_sessions(id, status)
     `,
@@ -166,7 +167,7 @@ export async function listUniqueParticipants(
 
   let query = db
     .from("campaign_participants")
-    .select("*, campaigns!inner(deleted_at)", { count: "exact" })
+    .select(`${PARTICIPANT_COLUMNS}, campaigns!inner(deleted_at)`, { count: "exact" })
     .is("deleted_at", null)
     .is("campaigns.deleted_at", null)
     .order("created_at", { ascending: false });

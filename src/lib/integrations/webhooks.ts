@@ -2,6 +2,7 @@ import crypto from 'crypto'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decryptIntegrationSecret } from '@/lib/integrations/crypto'
+import { protectIntegrationPayload } from '@/lib/integrations/confidentiality'
 import {
   readResponseTextWithLimit,
   RequestBodyTooLargeError,
@@ -56,6 +57,10 @@ export async function dispatchPendingIntegrationEvents(limit: number) {
 
   for (const event of events ?? []) {
     processed += 1
+    const payload = event.payload ?? {}
+    const protectedPayload = typeof payload.campaignId === 'string'
+      ? await protectIntegrationPayload(String(event.client_id), payload.campaignId, payload)
+      : payload
     const eventPayload = {
       id: event.id,
       eventType: event.event_type,
@@ -63,7 +68,7 @@ export async function dispatchPendingIntegrationEvents(limit: number) {
       aggregateType: event.aggregate_type,
       aggregateId: event.aggregate_id,
       createdAt: event.created_at,
-      data: event.payload ?? {},
+      data: protectedPayload,
     }
     const rawPayload = JSON.stringify(eventPayload)
     const { data: endpoints, error: endpointsError } = await db

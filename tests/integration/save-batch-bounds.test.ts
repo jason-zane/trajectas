@@ -1,3 +1,4 @@
+import { getOrCreateSectionForms } from '@/lib/dal/session-forms';
 /**
  * save_responses_batch_for_session — response bounds validation (audit H12).
  *
@@ -194,6 +195,9 @@ describe.skipIf(!canRun)("save_responses_batch_for_session bounds", () => {
       .select("id")
       .single();
     ids.session = session!.id;
+    const forms = await getOrCreateSectionForms(adminDb, { sessionId: ids.session, assessmentId: ids.assessment, campaignId: ids.campaign });
+    expect('error' in forms).toBe(false);
+
   }, 90_000);
 
   afterAll(async () => {

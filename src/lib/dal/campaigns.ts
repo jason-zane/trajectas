@@ -1,4 +1,5 @@
 import "server-only";
+import { PARTICIPANT_COLUMNS } from "./participant-columns";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -239,6 +240,7 @@ export async function getCampaignHeader(
 export async function getCampaignDetailParts(
   db: DbClient,
   id: string,
+  includeParticipantTokens = false,
 ): Promise<CampaignDetailParts | null> {
   const [assessmentResult, participantResult, linkResult] = await Promise.all([
     db
@@ -251,7 +253,7 @@ export async function getCampaignDetailParts(
       .from("campaign_participants")
       // Exclude 360 rater taking-rows — they are managed in the Raters tab,
       // not shown as normal participants.
-      .select("*, participant_sessions(id, status)")
+      .select(`${PARTICIPANT_COLUMNS}${includeParticipantTokens ? ',access_token' : ''}, participant_sessions(id, status)`)
       .eq("campaign_id", id)
       .is("campaign_rater_id", null)
       .is("deleted_at", null)

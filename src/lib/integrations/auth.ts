@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { extractIntegrationKeyPrefix, hashIntegrationApiKey } from '@/lib/integrations/credentials'
 import { IntegrationApiError, isIntegrationApiError } from '@/lib/integrations/errors'
 import { MAX_INTEGRATION_JSON_BODY_BYTES } from '@/lib/integrations/request'
+import { protectIntegrationPayload } from '@/lib/integrations/confidentiality'
 import type {
   IntegrationApiScope,
   IntegrationAuthContext,
@@ -386,7 +387,11 @@ export async function withIntegrationApiRoute(
     if (options.enableIdempotency) {
       idempotencyState = await beginIdempotencyRecord({ context, request, bodyText })
       if (idempotencyState.mode === 'replay') {
-        return buildJsonResponse(idempotencyState.response.responseBody, idempotencyState.response.responseStatus, {
+        const campaignId = new URL(request.url).pathname.match(/^\/api\/internal\/v1\/campaigns\/([0-9a-f-]{36})(?:\/|$)/i)?.[1]
+        const body = campaignId
+          ? await protectIntegrationPayload(context.clientId, campaignId, idempotencyState.response.responseBody)
+          : idempotencyState.response.responseBody
+        return buildJsonResponse(body, idempotencyState.response.responseStatus, {
           'X-Request-Id': requestId,
           'X-Idempotent-Replay': 'true',
         })

@@ -1,3 +1,4 @@
+import { getOrCreateSectionForms } from '@/lib/dal/session-forms';
 // @vitest-environment node
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { canRun, createAdminClient } from "./_helpers/rls-fixture";
@@ -136,6 +137,9 @@ describe.skipIf(!canRun)("assess: save-batch RPC (live schema)", () => {
       status: "in_progress",
       started_at: new Date().toISOString(),
     });
+    const forms = await getOrCreateSectionForms(admin, { sessionId: ids.session, assessmentId: ids.assessment, campaignId: ids.campaign });
+    expect('error' in forms).toBe(false);
+
   });
 
   afterAll(async () => {

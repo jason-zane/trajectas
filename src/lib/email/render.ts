@@ -102,7 +102,7 @@ export async function renderEmailHtml(
   // Maily has its own variable system ({{var,fallback=...}}) that differs from
   // our simple {{var}} format — we must call setVariableValues() so Maily
   // substitutes them during render rather than outputting raw placeholders.
-  const maily = new Maily(editorJson as ConstructorParameters<typeof Maily>[0])
+  const maily = new Maily(sanitizeEditorJson(editorJson) as ConstructorParameters<typeof Maily>[0])
   maily.setVariableValues(variables)
   const mailyHtml = await maily.render()
 
@@ -135,3 +135,4 @@ export async function renderEmailHtml(
 
   return { html, text }
 }
+import { sanitizeEditorJson } from '@/lib/security/editor-json'

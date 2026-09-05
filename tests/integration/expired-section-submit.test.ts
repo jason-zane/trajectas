@@ -188,6 +188,19 @@ describe.skipIf(!canRun)("getSessionCompleteness — expired sections (LR-2 / #3
     // — expiry excludes only the gap it actually caused.
   });
 
+  it('does not treat manual finalization as an expired deadline', async () => {
+    // Historical or tampered early finalization must not waive mandatory items.
+    const { error } = await adminDb.from('participant_section_states').insert({
+      session_id: ids.session, section_id: ids.sectionOpen,
+      started_at: new Date().toISOString(), finalised_at: new Date().toISOString(),
+      finalised_by: 'participant', deadline_at: null,
+    });
+    expect(error).toBeNull();
+    expect(await getSessionCompleteness(adminDb, {
+      sessionId: ids.session, assessmentId: ids.assessment, campaignId: ids.campaign,
+    })).toEqual({ expected: 2, answered: 1 });
+  });
+
   it("still counts an expired section's item if it WAS answered before time ran out", async () => {
     // Answer the open section's item too, so the session is now fully
     // "complete" under the relaxed gate.

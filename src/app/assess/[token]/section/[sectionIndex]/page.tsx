@@ -81,7 +81,7 @@ export default async function SectionPage({
     redirect(`/assess/${token}/welcome`);
   }
 
-  const stateResult = await getSessionState(token, sessionId);
+  const stateResult = await getSessionState(token, sessionId, Math.max(0, sectionIdx || 0));
 
   if (stateResult.error || !stateResult.data) {
     return renderBrandedAssessError(
@@ -135,6 +135,8 @@ export default async function SectionPage({
     );
   }
 
+  if ("error" in timingResult) return renderBrandedAssessError(timingResult.error, token);
+
   const sectionWithTiming =
     "data" in timingResult ? { ...section, timing: timingResult.data } : section;
 
@@ -169,6 +171,7 @@ export default async function SectionPage({
       <SectionWrapper
         token={token}
         sessionId={sessionId}
+        sessionProof={stateResult.data.sessionProof}
         section={sectionWithTiming}
         sectionIndex={clampedIdx}
         totalSections={sections.length}

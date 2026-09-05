@@ -54,6 +54,7 @@ import { requireAppUrl } from '@/lib/hosts'
 import { mapCampaignAccessLinkRow } from '@/lib/supabase/mappers'
 import { getPrimaryActiveAccessLink } from '@/lib/campaign-access-links'
 import { campaignSchema, inviteParticipantSchema, accessLinkSchema } from '@/lib/validations/campaigns'
+import { canViewIndividualResults } from '@/lib/reports/confidentiality'
 import { checkQuotaAvailability } from '@/app/actions/client-entitlements'
 import type { Campaign, CampaignAssessment, CampaignParticipant, CampaignAccessLink } from '@/types/database'
 
@@ -183,14 +184,22 @@ async function getCampaignHeaderImpl(id: string): Promise<CampaignHeader | null>
 export const getCampaignHeader = cache(getCampaignHeaderImpl)
 
 async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
-  const db = await createClient()
+  let access
+  try { access = await requireCampaignAccess(id) }
+  catch (error) {
+    if (error instanceof AuthorizationError) return null
+    throw error
+  }
+  const canShareParticipantLinks = canManageCampaign(access.scope, access.partnerId, access.clientId)
+    && canViewIndividualResults(access.confidentialityMode, access.scope)
+  const db = canShareParticipantLinks ? createAdminClient() : await createClient()
 
   // Kick off the header + the three detail queries in a single parallel batch.
   // getCampaignHeader is cache()-wrapped (so a preceding layout call is a free
   // hit) and carries the authorization; the detail queries only need the id.
   const [header, parts] = await Promise.all([
     getCampaignHeader(id),
-    dalGetCampaignDetailParts(db, id),
+    dalGetCampaignDetailParts(db, id, canShareParticipantLinks),
   ])
 
   if (!header || !parts) return null
@@ -1258,6 +1267,15 @@ export async function inviteParticipant(
     return { error: { _form: ['Unable to invite participant.'] } }
   }
 
+  // Enrollment serializes against confidentiality edits in Postgres. Read the
+  // winning value after INSERT instead of returning a token from the earlier
+  // authorization snapshot. A failed refresh withholds the token.
+  const { data: enrolledCampaign, error: confidentialityError } = await db.from('campaigns')
+    .select('confidentiality_mode').eq('id', campaignId).maybeSingle()
+  if (confidentialityError) logActionError('inviteParticipant.confidentiality', confidentialityError)
+  const canShareParticipantToken = !!enrolledCampaign && !confidentialityError
+    && canViewIndividualResults(enrolledCampaign.confidentiality_mode, access.scope)
+
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
     eventType: 'campaign.participant.invited',
@@ -1294,7 +1312,7 @@ export async function inviteParticipant(
   return {
     success: true as const,
     id: data.id,
-    accessToken: data.access_token,
+    accessToken: canShareParticipantToken ? data.access_token : '',
     emailSent,
     emailError,
   }

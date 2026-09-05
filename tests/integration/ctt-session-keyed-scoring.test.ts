@@ -45,6 +45,8 @@ describe.skipIf(!canRun)("scoring: scoreSessionCTT keyed options", () => {
     factor: {} as Record<Key, string>,
     construct: {} as Record<Key, string>,
     item: {} as Record<Key, string>,
+    practiceItem: "",
+    undeliveredItem: "",
   };
 
   const ins = async (
@@ -143,6 +145,15 @@ describe.skipIf(!canRun)("scoring: scoreSessionCTT keyed options", () => {
       ids.item[key] = itemId;
     }
 
+    const sectionId = await ins("assessment_sections", { assessment_id: ids.assessment, response_format_id: ids.format, title: 'Scored items' });
+    for (const itemId of Object.values(ids.item)) {
+      await ins('assessment_section_items', { section_id: sectionId, item_id: itemId });
+    }
+    const practiceSection = await ins('assessment_sections', { assessment_id: ids.assessment,
+      response_format_id: ids.format, title: 'Practice', section_role: 'practice' });
+    ids.practiceItem = await ins('items', { response_format_id: ids.format, stem: 'Practice only', construct_id: ids.construct.Best });
+    ids.undeliveredItem = await ins('items', { response_format_id: ids.format, stem: 'Not delivered', construct_id: ids.construct.Best });
+    await ins('assessment_section_items', { section_id: practiceSection, item_id: ids.practiceItem });
     ids.participant = await ins("campaign_participants", {
       campaign_id: ids.campaign,
       email: `cks-${ts}@test.local`,
@@ -156,6 +167,10 @@ describe.skipIf(!canRun)("scoring: scoreSessionCTT keyed options", () => {
       status: "completed",
     });
 
+    // Even corrupt historical rows outside the form and ordinary bank items
+    // delivered as practice must never contaminate the scored construct.
+    await ins('participant_responses', { session_id: ids.session, item_id: ids.practiceItem, response_value: 1 });
+    await ins('participant_responses', { session_id: ids.session, item_id: ids.undeliveredItem, response_value: 1 });
     const responses: [Key, number][] = [
       ["Best", 4], // key 5 → 100
       ["Worst", 1], // key 0 → 0
@@ -185,7 +200,7 @@ describe.skipIf(!canRun)("scoring: scoreSessionCTT keyed options", () => {
     await admin
       .from("items")
       .delete()
-      .in("id", Object.values(ids.item).filter(Boolean));
+      .in("id", [...Object.values(ids.item), ids.practiceItem, ids.undeliveredItem].filter(Boolean));
     await admin.from("response_formats").delete().eq("id", ids.format);
     await admin.from("assessments").delete().eq("id", ids.assessment);
     await admin
@@ -235,4 +250,11 @@ describe.skipIf(!canRun)("scoring: scoreSessionCTT keyed options", () => {
       .single();
     expect(Number(session!.composite_score)).toBe(72);
   });
+  it('refuses an unoffered keyed value instead of treating it as a raw scale score', async () => {
+    const { error } = await admin.from('participant_responses').update({ response_value: 3.99 })
+      .eq('session_id', ids.session).eq('item_id', ids.item.Best);
+    expect(error).toBeNull();
+    expect(await scoreSessionCTT(ids.session)).toEqual({ error: `Invalid keyed response for item ${ids.item.Best}` });
+  });
+
 });

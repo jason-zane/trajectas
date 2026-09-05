@@ -1,3 +1,4 @@
+import { getOrCreateSectionForms } from '@/lib/dal/session-forms';
 /**
  * Practice-mode answer checking (LR-6 / #336) —
  * src/app/actions/assess-practice.ts#checkPracticeAnswer.
@@ -253,6 +254,11 @@ describe.skipIf(!canRun)("practice-mode answer checking", () => {
       campaign_participant_id: ids.foreignParticipant,
       status: "in_progress",
     });
+    for (const sessionId of [ids.session, ids.foreignSession]) {
+      const forms = await getOrCreateSectionForms(admin, { sessionId, assessmentId: ids.assessment, campaignId: ids.campaign });
+      expect('error' in forms).toBe(false);
+    }
+
   }, 90_000);
 
   afterAll(async () => {

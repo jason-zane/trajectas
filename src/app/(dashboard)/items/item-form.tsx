@@ -156,14 +156,22 @@ export function ItemForm({
   // ── Auto-save for stem (edit mode only) ──
   const stemAutoSave = useAutoSave({
     initialValue: initialData?.stem ?? "",
-    onSave: (val) => updateItemField(itemId!, "stem", val),
+    onSave: async (val) => {
+      const result = await updateItemField(itemId!, "stem", val);
+      if (result.id && result.id !== itemId) router.replace(`/items/${result.id}/edit`);
+      return result;
+    },
     enabled: mode === "edit" && !!itemId,
   });
 
   // ── Auto-save for the observer (360) stem (edit mode, construct items only) ──
   const stemObserverAutoSave = useAutoSave({
     initialValue: initialData?.stemObserver ?? "",
-    onSave: (val) => updateItemField(itemId!, "stem_observer", val),
+    onSave: async (val) => {
+      const result = await updateItemField(itemId!, "stem_observer", val);
+      if (result.id && result.id !== itemId) router.replace(`/items/${result.id}/edit`);
+      return result;
+    },
     enabled: mode === "edit" && !!itemId,
   });
 
@@ -251,8 +259,8 @@ export function ItemForm({
     }
 
     // Success
-    if (mode === "create" && result && "id" in result) {
-      toast.success("Item created");
+    if (result && "id" in result && (mode === "create" || result.id !== itemId)) {
+      toast.success(mode === "create" ? "Item created" : "Saved as a new draft revision. Existing assessments keep their original questions.");
       router.replace(`/items/${result.id}/edit`);
     } else {
       toast.success("Item saved");

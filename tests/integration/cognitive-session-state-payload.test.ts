@@ -74,6 +74,7 @@ describe.skipIf(!canRun)("cognitive item delivery — getSessionState payload", 
     });
     ids.assessment = await insertRow("assessments", {
       title: `CSP Assessment ${ts}`,
+      internal_pilot: true, // Synthetic unreviewed stimuli stay explicitly internal.
       slug: testSlug("assessment"),
       client_id: ids.client,
       partner_id: ids.partner,
@@ -150,6 +151,7 @@ describe.skipIf(!canRun)("cognitive item delivery — getSessionState payload", 
 
     ids.campaign = await insertRow("campaigns", {
       title: `CSP Campaign ${ts}`,
+      is_internal: true,
       slug: testSlug("campaign"),
       client_id: ids.client,
       partner_id: ids.partner,
@@ -277,17 +279,29 @@ describe.skipIf(!canRun)("cognitive item delivery — getSessionState payload", 
   }, 30_000);
 
   it("falls back to a plain item (no stimulus) if the item has no cognitive spec, rather than failing the whole section", async () => {
+    // Delivered assessment definitions are immutable. A revised form uses a
+    // new assessment version while the original participant keeps its form.
+    const assessment2 = await insertRow("assessments", {
+      title: `Cognitive revised ${ts}`, slug: `csp-revised-${ts}`,
+      internal_pilot: true,
+      client_id: ids.client, partner_id: ids.partner, status: "active",
+    });
+    const section2 = await insertRow("assessment_sections", {
+      assessment_id: assessment2, response_format_id: ids.responseFormat,
+      title: "Revised section", item_ordering: "fixed",
+    });
+    await insertRow("campaign_assessments", { campaign_id: ids.campaign, assessment_id: assessment2, display_order: 1 });
     const bareItemId = await insertRow("items", {
       response_format_id: ids.responseFormat,
       stem: "Bare item with no cognitive spec",
       purpose: "construct",
       construct_id: ids.construct,
     });
-    await adminDb.from("assessment_section_items").insert({
-      section_id: ids.section,
-      item_id: bareItemId,
-      display_order: 1,
-    });
+    const links = await adminDb.from("assessment_section_items").insert([
+      { section_id: section2, item_id: ids.item, display_order: 0 },
+      { section_id: section2, item_id: bareItemId, display_order: 1 },
+    ]);
+    if (links.error) throw new Error(`Revised section fixture: ${links.error.message}`);
 
     // A FRESH session/participant/token — not the shared `ids.session` the
     // test above already read. That session's form is now frozen (LR-3 /
@@ -307,7 +321,7 @@ describe.skipIf(!canRun)("cognitive item delivery — getSessionState payload", 
       access_token: token2,
     });
     const session2 = await insertRow("participant_sessions", {
-      assessment_id: ids.assessment,
+      assessment_id: assessment2,
       campaign_id: ids.campaign,
       campaign_participant_id: participant2,
       client_id: ids.client,
@@ -319,7 +333,7 @@ describe.skipIf(!canRun)("cognitive item delivery — getSessionState payload", 
       const result = await getSessionState(token2, session2);
       if (!("data" in result) || !result.data) throw new Error("getSessionState returned no data");
 
-      const section = result.data.sections.find((s) => s.id === ids.section);
+      const section = result.data.sections.find((s) => s.id === section2);
       const bareItem = section!.items.find((it) => it.id === bareItemId);
       expect(bareItem).toBeDefined();
       expect(bareItem!.stimulus).toBeUndefined();
@@ -330,7 +344,10 @@ describe.skipIf(!canRun)("cognitive item delivery — getSessionState payload", 
     } finally {
       await adminDb.from("participant_sessions").delete().eq("id", session2);
       await adminDb.from("campaign_participants").delete().eq("id", participant2);
-      await adminDb.from("assessment_section_items").delete().eq("item_id", bareItemId);
+      await adminDb.from("campaign_assessments").delete().eq("assessment_id", assessment2);
+      await adminDb.from("assessment_section_items").delete().eq("section_id", section2);
+      await adminDb.from("assessment_sections").delete().eq("id", section2);
+      await adminDb.from("assessments").delete().eq("id", assessment2);
       await adminDb.from("items").delete().eq("id", bareItemId);
     }
   }, 30_000);

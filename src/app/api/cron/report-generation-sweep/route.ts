@@ -19,6 +19,7 @@
  */
 
 import { NextResponse } from 'next/server'
+import { recoverInterruptedSessionProcessing } from '@/lib/dal/session-processing-recovery'
 import { sweepReportGeneration } from '@/lib/reports/generation-sweep'
 import { reportError } from '@/lib/observability/report-error'
 
@@ -38,8 +39,9 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   try {
+    const sessionRecovery = await recoverInterruptedSessionProcessing()
     const result = await sweepReportGeneration()
-    return NextResponse.json({ ok: true, ...result })
+    return NextResponse.json({ ok: true, sessionRecovery, ...result })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('[cron:report-generation-sweep] sweep failed:', message)

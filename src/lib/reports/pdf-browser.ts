@@ -79,11 +79,60 @@ export async function launchReportPdfBrowser(): Promise<Browser> {
     )
   }
   try {
-    return await puppeteer.launch(options)
+    return await puppeteer.launch({ ...options, timeout: 20_000 })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     throw new Error(
       `[PDF] Puppeteer launch failed (executablePath: ${options.executablePath ?? 'unknown'}): ${message}`,
     )
+  }
+}
+
+async function closeReportBrowser(browser: Browser) {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    const closed = await Promise.race([
+      browser.close().then(() => true, () => false),
+      new Promise<false>(resolve => { timer = setTimeout(() => resolve(false), 5_000) }),
+    ])
+    if (!closed) browser.process()?.kill('SIGKILL')
+  } catch {
+    try { browser.process()?.kill('SIGKILL') } catch { /* process already exited */ }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** Bound the entire Chromium stage, including cold executable resolution.
+ * A launcher that completes after expiry is closed without rendering a page. */
+export async function withReportPdfBrowser<T>(
+  render: (browser: Browser) => Promise<T>,
+  options: { timeoutMs?: number; launch?: typeof launchReportPdfBrowser } = {},
+): Promise<T> {
+  let browser: Browser | undefined
+  let expired = false
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const work = (async () => {
+    const launched = await (options.launch ?? launchReportPdfBrowser)()
+    if (expired) {
+      await closeReportBrowser(launched)
+      throw new Error('PDF browser deadline exceeded')
+    }
+    browser = launched
+    return render(launched)
+  })()
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          expired = true
+          reject(new Error('PDF browser deadline exceeded'))
+        }, options.timeoutMs ?? 90_000)
+      }),
+    ])
+  } finally {
+    clearTimeout(timer)
+    if (browser) await closeReportBrowser(browser)
   }
 }

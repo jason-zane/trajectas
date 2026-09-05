@@ -528,14 +528,12 @@ async function ensureProfileForUser(user: User, invite: StaffInviteRecord) {
   const legacyRole = getLegacyRoleForInvite(invite.role);
   const profileUpdate: Record<string, unknown> = {
     email: user.email?.toLowerCase() ?? invite.email,
-    role: legacyRole,
     display_name:
       typeof user.user_metadata?.full_name === "string"
         ? user.user_metadata.full_name
         : typeof user.user_metadata?.name === "string"
           ? user.user_metadata.name
           : null,
-    is_active: true,
   };
 
   if (invite.tenantType === "partner") {
@@ -551,15 +549,24 @@ async function ensureProfileForUser(user: User, invite: StaffInviteRecord) {
 
   const { data: existing } = await db
     .from("profiles")
-    .select("id")
+    .select("id, is_active")
     .eq("id", user.id)
     .maybeSingle();
 
   if (existing) {
-    const { error } = await db.from("profiles").update(profileUpdate).eq("id", user.id);
-    if (error) {
-      throw new Error(error.message);
+    // Tenant admins can grant their own membership, not reactivate a globally
+    // disabled account or replace its existing platform role. Reactivation
+    // remains an explicit platform-admin action, even for a platform invite.
+    if (!existing.is_active) {
+      throw new Error("This account is inactive. A platform administrator must reactivate it before an invite can be accepted.");
     }
+    if (invite.tenantType === "platform" && invite.role === "platform_admin") {
+      profileUpdate.role = "platform_admin";
+    }
+    const { data: updated, error } = await db.from("profiles").update(profileUpdate)
+      .eq("id", user.id).eq("is_active", true).select("id").maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!updated) throw new Error("This account is inactive. A platform administrator must reactivate it before an invite can be accepted.");
     return;
   }
 
@@ -568,6 +575,8 @@ async function ensureProfileForUser(user: User, invite: StaffInviteRecord) {
     first_name: "",
     last_name: "",
     ...profileUpdate,
+    role: legacyRole,
+    is_active: true,
   });
 
   if (error) {

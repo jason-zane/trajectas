@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkAssessApiTokenRateLimit } from '@/lib/security/rate-limit'
+import { getAssessSessionProof, verifyAssessSessionProof } from '@/lib/assess/session-proof'
 import {
   parseJsonRequestWithLimit,
   RequestBodyTooLargeError,
@@ -30,6 +31,10 @@ export async function POST(request: Request) {
 
   if (!token || !sessionId || !sectionId || itemIndex === undefined) {
     return new Response('Missing required fields', { status: 400 })
+  }
+  const proof = getAssessSessionProof(request)
+  if (proof && !verifyAssessSessionProof(proof, { token, sessionId })) {
+    return new Response('Invalid session proof', { status: 403 })
   }
 
   // Per-token budget on top of the proxy's per-IP rule; keyed on the token

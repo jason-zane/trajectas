@@ -417,7 +417,7 @@ export async function getClientStats(clientId: string): Promise<{
   if (ids.length > 0) {
     const { count, error: participantsError } = await db
       .from('campaign_participants')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .in('campaign_id', ids)
     if (participantsError) {
       throwActionError('getClientStats', 'Unable to load client stats.', participantsError)

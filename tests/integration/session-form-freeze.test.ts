@@ -74,6 +74,26 @@ describe.skipIf(!canRun)("getOrCreateSectionForms — frozen per-session forms",
     await adminDb.from("campaign_participants").delete().eq("id", s.participantId);
   }
 
+  async function revision() {
+    const { data, error } = await adminDb.rpc("get_delivery_authoring_revision", { p_assessment_id: ids.assessment });
+    expect(error).toBeNull();
+    return data as number;
+  }
+
+  function formPayload(sessionId: string, authoringRevision?: number) {
+    return {
+      session_id: sessionId, section_id: ids.section,
+      assembly_seed: `${sessionId}:${ids.section}`,
+      assembler_version: "form-assembler@2",
+      ...(authoringRevision == null ? {} : { authoring_revision: authoringRevision }),
+      entries: [ids.itemOne, ids.itemTwo, ids.itemThree].map((itemId, index) => ({
+        itemId, position: index + 1, itemVersion: 1, contentHash: null,
+        purpose: "impression_management", countsTowardScore: true,
+      })),
+      entry_count: 3,
+    };
+  }
+
   beforeAll(async () => {
     if (!canRun) return;
 
@@ -150,6 +170,104 @@ describe.skipIf(!canRun)("getOrCreateSectionForms — frozen per-session forms",
     await adminDb.from("partners").delete().eq("id", ids.partner);
   }, 60_000);
 
+  it("does not invalidate an assembly when an unrelated assessment is authored", async () => {
+    const before = await revision();
+    const unrelated = await insertRow("assessments", {
+      title: "Unrelated authoring", slug: testSlug("unrelated"), client_id: ids.client,
+    });
+    try {
+      const changed = await adminDb.from("assessments").update({ title: "Unrelated edit" }).eq("id", unrelated);
+      expect(changed.error).toBeNull();
+      expect(await revision()).toBe(before);
+    } finally {
+      await adminDb.from("assessments").delete().eq("id", unrelated);
+    }
+  });
+
+  it("rejects stale assembly after an option edit and accepts a fresh assembly", async () => {
+    const session = await makeSession(`stale-form-${ts}@test.local`);
+    let optionId: string | undefined;
+    try {
+      const staleRevision = await revision();
+      optionId = await insertRow("item_options", { item_id: ids.itemOne, label: "Yes", value: 1, display_order: 1 });
+      const stale = await adminDb.from("participant_section_forms").insert(formPayload(session.sessionId, staleRevision));
+      expect(stale.error?.code).toBe("40001");
+      const forms = await getOrCreateSectionForms(adminDb, {
+        sessionId: session.sessionId, assessmentId: ids.assessment, campaignId: ids.campaign,
+      });
+      expect("error" in forms).toBe(false);
+      const { data: row } = await adminDb.from("participant_section_forms").select("authoring_revision")
+        .eq("session_id", session.sessionId).single();
+      expect(row!.authoring_revision).toBe(await revision());
+    } finally {
+      await cleanupSession(session);
+      if (optionId) await adminDb.from("item_options").delete().eq("id", optionId);
+    }
+  });
+
+  it("requires the new writer revision while accepting a legacy rolling-deploy writer", async () => {
+    const session = await makeSession(`legacy-form-${ts}@test.local`);
+    try {
+      const payload = formPayload(session.sessionId);
+      const missing = await adminDb.from("participant_section_forms").insert(payload);
+      expect(missing.error?.code).toBe("23514");
+      const legacy = await adminDb.from("participant_section_forms").insert({ ...payload, assembler_version: "form-assembler@1" });
+      expect(legacy.error).toBeNull();
+    } finally {
+      await cleanupSession(session);
+    }
+  });
+
+  it("reassembles when an author changes content between the DAL reads and INSERT", async () => {
+    const session = await makeSession(`retry-form-${ts}@test.local`);
+    let freezes = 0;
+    const racingDb = {
+      rpc: adminDb.rpc.bind(adminDb),
+      from: (table: string) => {
+        const builder = adminDb.from(table);
+        if (table === "participant_section_forms") {
+          const upsert = builder.upsert.bind(builder);
+          Object.assign(builder, {
+            upsert: async (...args: Parameters<typeof upsert>) => {
+              if (freezes++ === 0) {
+                const edit = await adminDb.from("items").update({ stem: "Edited before freeze" }).eq("id", ids.itemOne);
+                expect(edit.error).toBeNull();
+              }
+              return upsert(...args);
+            },
+          });
+        }
+        return builder;
+      },
+    } as typeof adminDb;
+    try {
+      const forms = await getOrCreateSectionForms(racingDb, {
+        sessionId: session.sessionId, assessmentId: ids.assessment, campaignId: ids.campaign,
+      });
+      expect("error" in forms).toBe(false);
+      expect(freezes).toBe(2);
+    } finally {
+      await cleanupSession(session);
+      await adminDb.from("items").update({ stem: "Item ONE (original)" }).eq("id", ids.itemOne);
+    }
+  });
+
+  it("never allows a concurrent first freeze and an in-place content edit both to succeed", async () => {
+    const session = await makeSession(`race-form-${ts}@test.local`);
+    try {
+      const payload = formPayload(session.sessionId, await revision());
+      const [freeze, edit] = await Promise.all([
+        adminDb.from("participant_section_forms").insert(payload),
+        adminDb.from("items").update({ stem: "Racing edit" }).eq("id", ids.itemOne),
+      ]);
+      expect(freeze.error?.code === "40001" || edit.error?.code === "23514").toBe(true);
+      expect(freeze.error === null && edit.error === null).toBe(false);
+    } finally {
+      await cleanupSession(session);
+      await adminDb.from("items").update({ stem: "Item ONE (original)" }).eq("id", ids.itemOne);
+    }
+  });
+
   it("freezes a section's delivered items on first read, in section order", async () => {
     const session = await makeSession(`first-read-${ts}@test.local`);
     try {
@@ -174,13 +292,13 @@ describe.skipIf(!canRun)("getOrCreateSectionForms — frozen per-session forms",
         .eq("section_id", ids.section)
         .single();
       expect(row!.entry_count).toBe(3);
-      expect(row!.assembler_version).toBe("form-assembler@1");
+      expect(row!.assembler_version).toBe("form-assembler@2");
     } finally {
       await cleanupSession(session);
     }
   });
 
-  it("a second read returns the SAME frozen entries even after the item bank changes underneath it", async () => {
+  it("a second read returns the SAME frozen entries and delivered content edits are refused", async () => {
     const session = await makeSession(`stable-read-${ts}@test.local`);
     try {
       const first = await getOrCreateSectionForms(adminDb, {
@@ -193,7 +311,8 @@ describe.skipIf(!canRun)("getOrCreateSectionForms — frozen per-session forms",
 
       // Edit an item's stem and remove another item from the section —
       // things that would change a LIVE recomputation.
-      await adminDb.from("items").update({ stem: "Item ONE (EDITED)" }).eq("id", ids.itemOne);
+      const edit = await adminDb.from("items").update({ stem: "Item ONE (EDITED)" }).eq("id", ids.itemOne);
+      expect(edit.error?.code).toBe("23514");
       await adminDb
         .from("assessment_section_items")
         .delete()

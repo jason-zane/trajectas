@@ -172,6 +172,12 @@ describe.skipIf(!canRun)("support session confinement (RLS)", () => {
     });
     memberDb = member.client;
     authUserIds.push(member.userId);
+    const { error: membershipError } = await adminDb.from("client_memberships").insert({
+      profile_id: member.userId,
+      client_id: ids.clientA,
+      role: "member",
+    });
+    if (membershipError) throw new Error(membershipError.message);
   });
 
   afterAll(async () => {
