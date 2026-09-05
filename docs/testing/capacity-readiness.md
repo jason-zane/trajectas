@@ -1,6 +1,6 @@
 # Commercial launch capacity evidence
 
-Recorded 6 September 2026 against the commercial-launch-readiness worktree based on `1b11b01`. This is local evidence for critical persistence, rate limiting and worker coordination. Hosted capacity still needs a representative staging run.
+Recorded 6 September 2026 against the commercial-launch-readiness worktree based on `1b11b01`. This is local evidence for critical persistence, rate limiting, worker coordination, and a separate 100-participant run through actual Next HTTP ingress. Hosted capacity still needs a representative staging run.
 
 ## Repeat the local checks
 
@@ -34,6 +34,21 @@ The final local run passed nine database tests. The assessment fixture has 100 d
 The save test calls the actual rate limiter and actual Next route handler, which calls the real local HTTP Supabase service. Its signed session credentials are issued for synthetic fixture sessions. This excludes Next's HTTP ingress, browser rendering and IndexedDB behaviour, hosted Redis latency, full session-state/page delivery, scoring, AI services, PDF rendering throughput, and notifications. These numbers are not a claim of deployed requests per second or support for 1,000 participants.
 
 The cold-start test is independent of the answer test and remains a hard assertion. Before transport recovery, one run initialized only 79 of 100 forms. Node reported `UND_ERR_SOCKET`; local Kong logged `512 worker_connections are not enough` with one gateway worker. No file-descriptor exhaustion or database timeout signature appeared. The final run still encountered a closed socket but recovered all 100 forms. Form assembly now retries only transient network failures, at most twice with short jitter, and waits for all outstanding reads before retrying. It re-reads the authoring revision each time. SQL, RLS and validation failures are not retried. The conflict-ignoring freeze remains idempotent. Unit tests cover successful recovery, retry exhaustion and immediate hard denial.
+
+## Actual Next HTTP verification
+
+A separate synthetic fixture exercised the local Next development server at `127.0.0.1:3117` and local Supabase, with one participant warming compilation before the measured cohort. All 100 entry pages loaded, and all 100 simultaneous session-start requests rendered their 20-item assessments. The harness extracted the server-issued, token-bound session proofs from the actual page responses and used them through the real proxy and save-batch HTTP route. Every one of 2,000 answers was read back and verified after 2,100 requests including replays; there were no missing or duplicate rows, and fixture cleanup passed.
+
+| Actual HTTP stage | Final result |
+|---|---|
+| 100 entry pages | 100 succeeded; p95 3.22 seconds |
+| 100 session-start pages | 100 succeeded; p95 14.26 seconds |
+| 100 concurrent answer writers | 2,000 verified answers in 7.12 seconds, approximately 281 answers/second |
+| Save request latency | p50 302.24 ms; p95 414.59 ms; p99 484.51 ms |
+
+The first HTTP run exposed a remaining failure: only 79 start pages rendered, while the others encountered the local gateway's 512-connection ceiling before reaching form assembly. The shared server-only Supabase client now retries GET/HEAD socket failures at most twice with short jitter. It does not retry HTTP errors, aborts, writes or RPC POSTs. Exhausted reads have a distinct error so form recovery cannot multiply that retry budget. Failed participant lookups now reach the existing retryable page-error boundary instead of incorrectly calling a valid link expired. Focused tests cover these boundaries; the repeated 100-participant HTTP run passed.
+
+These page timings are from the development server and include full HTML/RSC response delivery, not browser JavaScript execution or hydration. The 14-second start latency warrants staging measurement; it is not a production performance claim. Hosted Redis, scoring, report generation, Chromium throughput and sustained production load remain outside this HTTP check. The guarded companion harness and before/after JSON evidence are retained in the audit workspace.
 
 ## Capacity controls
 

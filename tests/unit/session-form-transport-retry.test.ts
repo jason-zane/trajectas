@@ -44,4 +44,12 @@ describe('idempotent form transport recovery', () => {
     expect(db.rpc).toHaveBeenCalledTimes(3)
     expect(log).toHaveBeenCalledTimes(1)
   })
+
+  it('does not multiply an exhausted shared read retry budget', async () => {
+    const db = fixture()
+    db.rpc.mockResolvedValue({ data: null, error: { code: '',
+      message: 'SupabaseReadRetriesExhaustedError: Supabase read failed after bounded transport retries' } })
+    expect(await getOrCreateSectionForms(db as never, input)).toEqual({ error: 'Unable to load this assessment right now' })
+    expect(db.rpc).toHaveBeenCalledTimes(1)
+  })
 })

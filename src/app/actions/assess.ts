@@ -242,7 +242,13 @@ async function validateAccessTokenImpl(
     .is('deleted_at', null)
     .single()
 
-  if (participantErr || !participantRow) {
+  if (participantErr && participantErr.code !== 'PGRST116') {
+    logActionError('validateAccessToken.participant', participantErr)
+    // Let the assessment error boundary offer Retry. Returning an invalid-
+    // link result would redirect every page to "expired" for a network fault.
+    throw new Error('Unable to load this assessment right now')
+  }
+  if (!participantRow) {
     return { error: 'Invalid or expired access link' }
   }
 
