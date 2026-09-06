@@ -5,7 +5,6 @@ import {
   validateAccessToken,
   startSession,
   getSessionState,
-  startSectionTiming,
 } from "@/app/actions/assess";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
@@ -90,34 +89,28 @@ export default async function SectionPage({
     );
   }
 
-  const { sections, responses } = stateResult.data;
+  const { sections, responses, sectionStart } = stateResult.data;
 
   if (sections.length === 0) {
     redirect(`/assess/${token}/complete`);
   }
 
-  const clampedIdx = Math.min(sectionIdx, sections.length - 1);
+  const clampedIdx = Math.min(Math.max(0, sectionIdx || 0), sections.length - 1);
   const section = sections[clampedIdx];
 
   if (!section) {
     redirect(`/assess/${token}/complete`);
   }
 
-  // Start (or resume) this section's server-stamped clock. Deliberately
-  // scoped to the section actually being rendered, not done inside
-  // getSessionState — starting every section's clock on first load would
-  // begin timing sections the participant hasn't reached yet. Best-effort:
-  // if this fails, the section still renders, just without a countdown —
-  // enforcement lives in the save RPCs regardless of whether the client got
-  // a timing payload.
-  const timingResult = await startSectionTiming(token, sessionId, section.id);
-
+  // getSessionState already opened this exact section before revealing its
+  // timed content. Reuse the authorized result instead of repeating the
+  // participant lookup and start/resume RPC on every page load.
   // LR-6 / #336 practice-completion gate: this section couldn't start
   // because a 'practice'-role section still has unanswered items. Route the
   // participant back to the first practice section with something
   // unanswered — never render this (scored) section untimed, and never
   // surface a raw/opaque failure for what is really "go finish practice".
-  if ("blocked" in timingResult && timingResult.blocked === "practice_incomplete") {
+  if (sectionStart && "blocked" in sectionStart && sectionStart.blocked === "practice_incomplete") {
     const practiceSectionIdx = sections.findIndex(
       (s) => s.sectionRole === "practice" && s.items.some((it) => !(it.id in responses)),
     );
@@ -135,10 +128,10 @@ export default async function SectionPage({
     );
   }
 
-  if ("error" in timingResult) return renderBrandedAssessError(timingResult.error, token);
-
-  const sectionWithTiming =
-    "data" in timingResult ? { ...section, timing: timingResult.data } : section;
+  if (!sectionStart || sectionStart.sectionId !== section.id || !("timing" in sectionStart)) {
+    return renderBrandedAssessError("Unable to start this section right now", token);
+  }
+  const sectionWithTiming = { ...section, timing: sectionStart.timing };
 
   // Load brand + experience in parallel — they're independent.
   const [brandConfig, experience] = await Promise.all([

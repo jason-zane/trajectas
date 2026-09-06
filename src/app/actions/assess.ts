@@ -83,11 +83,10 @@ export type TokenValidationResult = {
 }
 
 /**
- * Server-authoritative timing for a section (LR-2 / #332). Attached by the
- * section page (startSectionTiming, below) AFTER getSessionState resolves
- * which section is actually being rendered — not by getSessionState itself,
- * which would otherwise start the clock on every section up front, including
- * ones the participant hasn't reached yet. deadlineAt is null for untimed
+ * Server-authoritative timing for a section (LR-2 / #332). getSessionState
+ * opens only the explicitly selected section and returns that timing for
+ * the section page to reuse. Calls without an openSectionIndex start no
+ * clocks. deadlineAt is null for untimed
  * sections (and practice sections, which are never timed regardless of the
  * column) — the client renders no countdown in that case.
  */
@@ -99,6 +98,11 @@ export type SectionTimingForRunner = {
   expired: boolean
   finalised: boolean
 }
+
+export type SectionStartForRunner = { sectionId: string } & (
+  | { timing: SectionTimingForRunner }
+  | { blocked: 'practice_incomplete' }
+)
 
 export type SectionForRunner = {
   id: string
@@ -521,13 +525,28 @@ export async function getSessionState(token: string, sessionId: string, openSect
     return { error: 'Unable to load this assessment right now' }
   }
 
+  // Resolve frozen entries once for both opening and rendering. Legacy forms
+  // can reference a removed join row; such an empty section must not shift
+  // the selected index or start a clock for content that will not render.
   const deliverableSections = ((sectionRows ?? []) as AssessmentSectionRow[])
-    .filter(section => (formsResult.get(section.id)?.entries.length ?? 0) > 0)
+    .map(section => {
+      const rawByItemId = new Map((section.assessment_section_items ?? []).map(item => [item.item_id, item]))
+      const sectionItems = (formsResult.get(section.id)?.entries ?? [])
+        .map(entry => rawByItemId.get(entry.itemId))
+        .filter((item): item is AssessmentSectionItemRow => Boolean(item))
+      return { section, sectionItems }
+    })
+    .filter(({ sectionItems }) => sectionItems.length > 0)
+  let sectionStart: SectionStartForRunner | undefined
+  let timingReceivedAt = 0
   if (session.status === 'in_progress' && openSectionIndex !== undefined && deliverableSections.length > 0) {
     const selectedSection = deliverableSections[Math.min(openSectionIndex, deliverableSections.length - 1)]
-    const opened = await startSectionTiming(token, sessionId, selectedSection.id)
-    if ('blocked' in opened) return { error: 'Please finish the practice items before continuing.' }
+    const opened = await startSectionTiming(token, sessionId, selectedSection.section.id)
     if ('error' in opened) return { error: opened.error }
+    sectionStart = 'blocked' in opened
+      ? { sectionId: selectedSection.section.id, blocked: opened.blocked }
+      : { sectionId: selectedSection.section.id, timing: opened.data }
+    timingReceivedAt = performance.now()
   }
   const { data: openedStates, error: statesError } = await db.from('participant_section_states')
     .select('section_id').eq('session_id', sessionId)
@@ -545,7 +564,7 @@ export async function getSessionState(token: string, sessionId: string, openSect
   // items only — see the getCognitiveItemsForDelivery pass after the map.
   const cognitiveItemIds: string[] = []
 
-  const sections: SectionForRunner[] = ((sectionRows ?? []) as AssessmentSectionRow[]).map((s) => {
+  const sections: SectionForRunner[] = deliverableSections.map(({ section: s, sectionItems }) => {
     const formatConfig = s.response_formats?.config ?? {}
     const formatType = s.response_formats?.type ?? 'likert'
     const isCognitive = formatType === 'cognitive'
@@ -565,21 +584,6 @@ export async function getSessionState(token: string, sessionId: string, openSect
 
     const fallbackOptions = deriveOptionsFromFormat()
 
-    // Delivery order comes from the frozen form, not a live recomputation —
-    // look each entry's item id up against this section's (unfiltered) joined
-    // rows for its stem/options. An entry whose item no longer resolves here
-    // (e.g. soft-deleted since the freeze) is skipped defensively rather than
-    // rendering a broken item; per-content drift detection is the future
-    // scorer's job (it has itemVersion/contentHash to compare against), not
-    // delivery's.
-    const rawByItemId = new Map<string, AssessmentSectionItemRow>()
-    for (const si of s.assessment_section_items ?? []) {
-      rawByItemId.set(si.item_id, si)
-    }
-    const form = formsResult.get(s.id)
-    const sectionItems = (form?.entries ?? [])
-      .map((entry) => rawByItemId.get(entry.itemId))
-      .filter((si): si is AssessmentSectionItemRow => Boolean(si))
 
     return {
       id: s.id,
@@ -619,9 +623,6 @@ export async function getSessionState(token: string, sessionId: string, openSect
     }
   })
 
-  // Filter out sections with no frozen entries (no items after factor
-  // filtering, or an instructions-only section with nothing to deliver).
-  .filter(s => s.items.length > 0)
 
   // Attach cognitive (figural-matrix) stimulus/option SVGs. Done as a
   // second pass, after `sections` is built, because the item ids to render
@@ -662,9 +663,26 @@ export async function getSessionState(token: string, sessionId: string, openSect
     }
   }
 
+  if (sectionStart && 'timing' in sectionStart) {
+    // The countdown estimates clock skew from serverNow at mount. Account
+    // for content loading after receipt of the timing RPC, without another
+    // auth/RPC round trip or moving the original database-issued deadline.
+    const timing = sectionStart.timing
+    const nowMs = Date.parse(timing.serverNow) + Math.max(0, performance.now() - timingReceivedAt)
+    sectionStart = {
+      ...sectionStart,
+      timing: {
+        ...timing,
+        serverNow: new Date(nowMs).toISOString(),
+        expired: timing.expired || (timing.deadlineAt !== null && Date.parse(timing.deadlineAt) <= nowMs),
+      },
+    }
+  }
+
   return {
     data: {
       sessionId: session.id,
+      sectionStart,
       sessionProof: createAssessSessionProof(token, sessionId),
       assessmentId: session.assessment_id,
       status: session.status,
@@ -682,10 +700,9 @@ export async function getSessionState(token: string, sessionId: string, openSect
 // ---------------------------------------------------------------------------
 
 /**
- * Starts (or resumes) the server-side clock for a section. Called by the
- * section page once it knows which section is actually being rendered — NOT
- * from getSessionState, which would otherwise start every section's clock on
- * first page load regardless of whether the participant has reached it.
+ * Starts (or resumes) the server-side clock for one section. getSessionState
+ * invokes this only when a caller explicitly supplies the section index it
+ * is opening; read-only state/review calls do not start any clocks.
  *
  * Idempotent: the underlying RPC INSERTs the (session, section) row once
  * (ON CONFLICT DO NOTHING) and always returns the ORIGINAL startedAt/
