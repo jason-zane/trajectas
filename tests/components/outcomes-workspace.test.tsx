@@ -115,6 +115,12 @@ describe("Business Outcomes evidence workflow", () => {
       screen.getByRole("columnheader", { name: "Std. β" }),
     ).toBeInTheDocument();
     expect(
+      screen.getByText("R² · variation explained").nextElementSibling,
+    ).toHaveTextContent(/^0\.4$/);
+    expect(
+      screen.getByText("Adjusted R²").nextElementSibling,
+    ).toHaveTextContent(/^0\.38$/);
+    expect(
       screen.getAllByText("Private context category").length,
     ).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "KPI estimate" }));

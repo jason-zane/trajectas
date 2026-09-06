@@ -221,11 +221,7 @@ export function OutcomeRegressionPanel({
                       R² · variation explained
                     </dt>
                     <dd className="mt-2 text-2xl font-semibold tabular-nums">
-                      {statistic(
-                        details.r2 === null ? null : details.r2 * 100,
-                        1,
-                      )}
-                      %
+                      {statistic(details.r2)}
                     </dd>
                   </div>
                   <div>
@@ -245,6 +241,10 @@ export function OutcomeRegressionPanel({
                     </dd>
                   </div>
                 </dl>
+                <p className="mb-5 text-sm text-muted-foreground">
+                  R² values are proportions: 0.40 means 40% of the observed
+                  variation.
+                </p>
                 <h3 className="text-section">What do assessment scores add?</h3>
                 <div className="mt-4">
                   <DataTable
