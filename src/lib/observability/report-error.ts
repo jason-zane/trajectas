@@ -2,6 +2,7 @@ import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendOpsAlert } from './ops-alert'
+import { redactDiagnosticContext, redactDiagnosticText } from './redact'
 
 export type ErrorSeverity = 'warning' | 'error' | 'fatal'
 
@@ -48,14 +49,14 @@ export async function reportError(
   opts: ReportErrorOptions,
 ): Promise<void> {
   const severity = opts.severity ?? 'error'
-  const message = error instanceof Error ? error.message : String(error)
-  const stack = error instanceof Error ? (error.stack ?? null) : null
+  const message = redactDiagnosticText(error instanceof Error ? error.message : String(error))
+  const stack = error instanceof Error && error.stack ? redactDiagnosticText(error.stack) : null
   const fingerprint = makeFingerprint(opts.source, message)
-  const context = opts.context ?? {}
+  const context = redactDiagnosticContext(opts.context ?? {}) as Record<string, unknown>
 
   // 1. Structured log — always, first, so it survives a DB/email outage.
-  //    Log the original error (preserving the stack in the console) + context.
-  console.error(`[${opts.source}]`, error, context)
+  //    Bearer links must never enter logs, persisted events, or alert emails.
+  console.error(`[${opts.source}]`, { message, stack }, context)
 
   // 2. Ops alert (best-effort, throttled inside sendOpsAlert). `alerted`
   //    reflects whether an alert was ACTUALLY dispatched (not just requested) —

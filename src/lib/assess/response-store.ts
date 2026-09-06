@@ -29,6 +29,8 @@ export interface ResponseRecord {
   /** Stable per-write key — included with the server POST so a retried batch
    *  is naturally idempotent even though the server upserts on (session,item). */
   idempotencyKey: string;
+  /** Monotonic per-item write version, allocated atomically across browser tabs. */
+  revision?: number;
   /** 0 = pending flush, 1 = confirmed by server. */
   synced: 0 | 1;
   /** Epoch ms — used to break ties and emit BroadcastChannel events. */
@@ -73,6 +75,7 @@ export async function putResponse(input: {
   value: number;
   data?: Record<string, unknown>;
   responseTimeMs?: number;
+  serverRevision?: number;
 }): Promise<ResponseRecord> {
   const record: ResponseRecord = {
     sessionId: input.sessionId,
@@ -85,7 +88,12 @@ export async function putResponse(input: {
     synced: 0,
     updatedAt: Date.now(),
   };
-  await getResponseDb().responses.put(record);
+  const db = getResponseDb();
+  await db.transaction("rw", db.responses, async () => {
+    const previous = await db.responses.get([input.sessionId, input.itemId]);
+    record.revision = Math.max(previous?.revision ?? 0, input.serverRevision ?? 0) + 1;
+    await db.responses.put(record);
+  });
   return record;
 }
 
@@ -139,6 +147,8 @@ export async function getResponsesForSession(
     .toArray();
   const map = new Map<string, { value: number; data: Record<string, unknown> }>();
   for (const r of rows) {
+    // Server state is authoritative for acknowledged rows on a fresh load.
+    if (r.synced === 1) continue;
     map.set(r.itemId, { value: r.value, data: r.data });
   }
   return map;

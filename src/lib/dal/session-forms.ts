@@ -8,8 +8,29 @@ import type { ItemOrdering } from '@/types/database'
 
 type DbClient = SupabaseClient
 
-const ASSEMBLER_VERSION = 'form-assembler@1'
+const ASSEMBLER_VERSION = 'form-assembler@2'
 const ERROR_MESSAGE = 'Unable to load this assessment right now'
+
+class FormPersistenceError extends Error {
+  constructor(readonly source: string, readonly originalError: unknown) {
+    super(ERROR_MESSAGE)
+  }
+}
+
+function isTransientTransportError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const value = error as { code?: string; message?: string; cause?: { code?: string } }
+  if (value.code) return ['UND_ERR_SOCKET', 'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT'].includes(value.code)
+  if (value.cause?.code) return ['UND_ERR_SOCKET', 'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT'].includes(value.cause.code)
+  // PostgREST converts fetch's rejected promise to this error result. A
+  // database denial has a SQL/PostgREST code and must never be retried here.
+  return /^(?:TypeError: )?(?:fetch failed|Failed to fetch)$/i.test(value.message ?? '')
+}
+
+function settledValue<T>(result: PromiseSettledResult<T>): T {
+  if (result.status === 'rejected') throw result.reason
+  return result.value
+}
 
 /**
  * Frozen per-session form snapshots (LR-3 / #333) — see the migration
@@ -163,8 +184,7 @@ async function resolveFactorSelection(
     .maybeSingle()
 
   if (caError) {
-    logActionError('sessionForms.campaignAssessment', caError)
-    return { error: ERROR_MESSAGE }
+    throw new FormPersistenceError('sessionForms.campaignAssessment', caError)
   }
   if (!campaignAssessment) {
     return { allowedConstructIds: null, itemsPerConstruct: null }
@@ -176,8 +196,7 @@ async function resolveFactorSelection(
     .eq('campaign_assessment_id', campaignAssessment.id)
 
   if (factorError) {
-    logActionError('sessionForms.factorSelection', factorError)
-    return { error: ERROR_MESSAGE }
+    throw new FormPersistenceError('sessionForms.factorSelection', factorError)
   }
   if (!factorRows || factorRows.length === 0) {
     return { allowedConstructIds: null, itemsPerConstruct: null }
@@ -191,8 +210,7 @@ async function resolveFactorSelection(
     .eq('assessment_id', assessmentId)
 
   if (afError) {
-    logActionError('sessionForms.assessmentFactors', afError)
-    return { error: ERROR_MESSAGE }
+    throw new FormPersistenceError('sessionForms.assessmentFactors', afError)
   }
 
   const assessmentFactorIds = (assessmentFactors ?? []).map((r) => String(r.factor_id))
@@ -206,8 +224,7 @@ async function resolveFactorSelection(
     .in('factor_id', assessmentFactorIds)
 
   if (fcError) {
-    logActionError('sessionForms.factorConstructs', fcError)
-    return { error: ERROR_MESSAGE }
+    throw new FormPersistenceError('sessionForms.factorConstructs', fcError)
   }
   if (!fcLinks) {
     return { allowedConstructIds: null, itemsPerConstruct: null }
@@ -231,8 +248,7 @@ async function resolveFactorSelection(
       .maybeSingle()
 
     if (ruleError) {
-      logActionError('sessionForms.selectionRules', ruleError)
-      return { error: ERROR_MESSAGE }
+      throw new FormPersistenceError('sessionForms.selectionRules', ruleError)
     }
     itemsPerConstruct = rule ? Number(rule.items_per_construct) : null
   }
@@ -410,9 +426,39 @@ export async function getOrCreateSectionForms(
   db: DbClient,
   input: { sessionId: string; assessmentId: string; campaignId: string | null },
 ): Promise<Map<string, SectionFormDTO> | { error: string }> {
+  for (let transportAttempt = 0; ; transportAttempt++) {
+    try {
+      return await assembleAndFreezeSectionForms(db, input, 0)
+    } catch (error) {
+      if (!(error instanceof FormPersistenceError)) throw error
+      if (transportAttempt >= 2 || !isTransientTransportError(error.originalError)) {
+        logActionError(error.source, error.originalError)
+        return { error: ERROR_MESSAGE }
+      }
+      // Assembly reads and its conflict-ignoring freeze are idempotent. A
+      // short jitter spreads retries after a gateway closes burst sockets;
+      // the authoring revision is re-read and validated on every attempt.
+      await new Promise(resolve => setTimeout(resolve, 100 * (transportAttempt + 1) + Math.random() * 100))
+    }
+  }
+}
+
+async function assembleAndFreezeSectionForms(
+  db: DbClient,
+  input: { sessionId: string; assessmentId: string; campaignId: string | null },
+  attempt: number,
+): Promise<Map<string, SectionFormDTO> | { error: string }> {
   const { sessionId, assessmentId, campaignId } = input
 
-  const [existingResult, sectionsResult, selection] = await Promise.all([
+  // Capture BEFORE reading any assembly inputs. The database checks this
+  // under a shared freeze lock: an author changing any input during these
+  // reads forces a fresh assembly, never a stale delivered form.
+  const { data: authoringRevision, error: revisionError } = await db.rpc('get_delivery_authoring_revision', { p_assessment_id: assessmentId })
+  if (revisionError || authoringRevision == null) {
+    throw new FormPersistenceError('sessionForms.authoringRevision', revisionError ?? new Error('Missing authoring revision'))
+  }
+
+  const results = await Promise.allSettled([
     db.from('participant_section_forms').select(FORM_COLUMNS).eq('session_id', sessionId),
     db
       .from('assessment_sections')
@@ -428,14 +474,17 @@ export async function getOrCreateSectionForms(
       .eq('assessment_id', assessmentId),
     resolveFactorSelection(db, assessmentId, campaignId),
   ])
+  // Finish all parallel reads before retrying an assembly, so failed socket
+  // retries cannot stack another wave over unfinished requests.
+  const existingResult = settledValue(results[0])
+  const sectionsResult = settledValue(results[1])
+  const selection = settledValue(results[2])
 
   if (existingResult.error) {
-    logActionError('sessionForms.existing', existingResult.error)
-    return { error: ERROR_MESSAGE }
+    throw new FormPersistenceError('sessionForms.existing', existingResult.error)
   }
   if (sectionsResult.error) {
-    logActionError('sessionForms.sections', sectionsResult.error)
-    return { error: ERROR_MESSAGE }
+    throw new FormPersistenceError('sessionForms.sections', sectionsResult.error)
   }
   if ('error' in selection) return selection
 
@@ -463,8 +512,7 @@ export async function getOrCreateSectionForms(
     .in('section_id', missingSectionIds)
 
   if (responsesError) {
-    logActionError('sessionForms.priorResponses', responsesError)
-    return { error: ERROR_MESSAGE }
+    throw new FormPersistenceError('sessionForms.priorResponses', responsesError)
   }
 
   const answeredBySection = new Map<string, Set<string>>()
@@ -493,6 +541,7 @@ export async function getOrCreateSectionForms(
       section_id: section.id,
       assembly_seed: `${sessionId}:${section.id}`,
       assembler_version: ASSEMBLER_VERSION,
+      authoring_revision: authoringRevision,
       entries,
       entry_count: entries.length,
     })
@@ -504,8 +553,10 @@ export async function getOrCreateSectionForms(
       .upsert(toInsert, { onConflict: 'session_id,section_id', ignoreDuplicates: true })
 
     if (insertError) {
-      logActionError('sessionForms.insert', insertError)
-      return { error: ERROR_MESSAGE }
+      if (insertError.code === '40001' && attempt < 2) {
+        return assembleAndFreezeSectionForms(db, input, attempt + 1)
+      }
+      throw new FormPersistenceError('sessionForms.insert', insertError)
     }
 
     // Re-select rather than trust our own `toInsert` values: with
@@ -520,8 +571,7 @@ export async function getOrCreateSectionForms(
       .in('section_id', missingSectionIds)
 
     if (freshError) {
-      logActionError('sessionForms.reselect', freshError)
-      return { error: ERROR_MESSAGE }
+      throw new FormPersistenceError('sessionForms.reselect', freshError)
     }
     for (const row of (freshRows ?? []) as RawFormRow[]) {
       forms.set(row.section_id, mapFormRow(sessionId, row))

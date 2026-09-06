@@ -27,6 +27,7 @@ import type { RunnerContent } from "@/lib/experience/types";
 interface SectionWrapperProps {
   token: string;
   sessionId: string;
+  sessionProof?: string;
   section: SectionForRunner;
   sectionIndex: number;
   totalSections: number;
@@ -34,7 +35,7 @@ interface SectionWrapperProps {
   allSections: SectionForRunner[];
   existingResponses: Record<
     string,
-    { value: number; data: Record<string, unknown> }
+    { value: number; data: Record<string, unknown>; revision?: number }
   >;
   assessmentName: string;
   /** Brand config for the assessment. */
@@ -79,6 +80,7 @@ type PracticeCheckState =
 export function SectionWrapper({
   token,
   sessionId,
+  sessionProof,
   section,
   sectionIndex,
   totalSections,
@@ -109,6 +111,8 @@ export function SectionWrapper({
   } = useSaveQueue({
     token,
     sessionId,
+    sessionProof,
+    initialRevisions: Object.fromEntries(Object.entries(existingResponses).map(([id, response]) => [id, response.revision ?? 0])),
   });
 
   // An answer the server definitively refused (it arrived after the section
@@ -337,7 +341,10 @@ export function SectionWrapper({
       // still complete instead of being stuck forever on incomplete_submission.
       const result = await submitSession(token, sessionId);
       if (result.ok) {
-        router.push(postAssessmentUrl);
+        const destination = result.refreshedAccessToken
+          ? postAssessmentUrl.replace(`/assess/${token}`, `/assess/${result.refreshedAccessToken}`)
+          : postAssessmentUrl;
+        router.push(destination);
         return;
       }
       setIsBoundaryPending(false);

@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { reportError } from "@/lib/observability/report-error";
+import { getAssessSessionProof, verifyAssessSessionProof } from "@/lib/assess/session-proof";
 
 type SlidingWindowStore = Map<string, number[]>;
 
@@ -237,6 +238,20 @@ function resolveRule(request: NextRequest): RateLimitRule | null {
     pathname === "/api/assess/save" ||
     pathname === "/api/assess/progress"
   ) {
+    // Only a server-issued proof, minted after token/session authorization,
+    // earns an independent participant bucket. The route binds the proof to
+    // the actual body before its RPC. A forged token/header still uses the
+    // unchanged IP abuse budget below; signature checks need no DB call.
+    const proof = verifyAssessSessionProof(getAssessSessionProof(request));
+    if (proof) {
+      const endpoint = pathname.slice("/api/assess/".length);
+      return {
+        key: `assess-api:${endpoint}:session:${hashValue(`${proof.sessionId}:${proof.tokenHash}`)}`,
+        limit: pathname === "/api/assess/progress" ? 60 : 120,
+        windowMs: 60_000,
+        failClosed: false,
+      };
+    }
     // Unauthenticated token-bearing runner endpoints. The access token
     // travels in the request body, which middleware cannot read, and every
     // request-envelope surrogate for it (Referer, custom headers) is

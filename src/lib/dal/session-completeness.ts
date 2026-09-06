@@ -34,8 +34,7 @@ type DbClient = SupabaseClient
  * unselected items neither help nor hurt.
  *
  * Server-authoritative timing (LR-2 / #332): an item delivered in a section
- * whose deadline has passed (participant_section_states.finalised_at is set,
- * or its deadline_at is in the past even if the sweep hasn't finalised it
+ * whose server deadline has passed (even if the sweep has not finalised it
  * yet) is dropped from `expected` when unanswered. Without this, a
  * participant who ran out of time would be permanently unable to submit —
  * the hard completeness gate below would refuse forever. An item in an
@@ -81,8 +80,7 @@ export async function getSessionCompleteness(
     (sectionStatesResult.data ?? [])
       .filter(
         (row) =>
-          row.finalised_at != null ||
-          (row.deadline_at != null && new Date(row.deadline_at) < now),
+          row.deadline_at != null && new Date(row.deadline_at) < now,
       )
       .map((row) => String(row.section_id)),
   )

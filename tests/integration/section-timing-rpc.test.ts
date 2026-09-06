@@ -1,3 +1,4 @@
+import { getOrCreateSectionForms } from '@/lib/dal/session-forms';
 /**
  * Server-authoritative section timing (LR-2 / #332):
  *   start_section_for_session, finalise_section_for_session, and the
@@ -72,7 +73,7 @@ describe.skipIf(!canRun)("section timing RPCs", () => {
       partner_id: ids.partner,
     });
     ids.responseFormat = await insertRow("response_formats", {
-      name: `Likert ${ts}`,
+      name: `STT Likert ${ts}`,
       type: "likert",
       config: { points: 5 },
     });
@@ -188,6 +189,11 @@ describe.skipIf(!canRun)("section timing RPCs", () => {
       time_multiplier: 1.5,
       reason_category: "disability",
     });
+    for (const sessionId of [ids.sessionA, ids.sessionB]) {
+      const forms = await getOrCreateSectionForms(adminDb, { sessionId, assessmentId: ids.assessment, campaignId: ids.campaign });
+      expect('error' in forms).toBe(false);
+    }
+
   }, 90_000);
 
   afterAll(async () => {
@@ -318,7 +324,7 @@ describe.skipIf(!canRun)("section timing RPCs", () => {
     expect(Number(afterBatch!.response_value)).toBe(3);
   }, 20_000);
 
-  it("finalise_section_for_session refuses a 'client_timer' claim before the deadline, honours 'participant' always, and locks the section against further writes", async () => {
+  it("finalise_section_for_session refuses a 'client_timer' claim before the deadline, requires answers for early 'participant' completion, and locks the section against further writes", async () => {
     await adminDb.rpc("start_section_for_session", {
       p_access_token: tokenB,
       p_session_id: ids.sessionB,
@@ -333,6 +339,17 @@ describe.skipIf(!canRun)("section timing RPCs", () => {
       p_reason: "client_timer",
     });
     expect(tooEarly).toBeNull();
+
+    const { data: incomplete } = await adminDb.rpc('finalise_section_for_session', {
+      p_access_token: tokenB, p_session_id: ids.sessionB,
+      p_section_id: ids.sectionNoBackNav, p_reason: 'participant',
+    });
+    expect(incomplete).toBeNull();
+    const saved = await adminDb.rpc('save_response_for_session', {
+      p_access_token: tokenB, p_session_id: ids.sessionB, p_item_id: ids.itemNoBackNav,
+      p_section_id: ids.sectionNoBackNav, p_response_value: 3,
+    });
+    expect(saved.data).toBe(true);
 
     const { data: finalised } = await adminDb.rpc("finalise_section_for_session", {
       p_access_token: tokenB,

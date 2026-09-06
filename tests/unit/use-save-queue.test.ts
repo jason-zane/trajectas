@@ -222,7 +222,7 @@ describe('useSaveQueue (IndexedDB-backed)', () => {
     expect(await countPending(cfg.sessionId)).toBe(0)
   })
 
-  it('hydrates localResponses from IDB on mount', async () => {
+  it('leaves acknowledged local rows to the authoritative server response on mount', async () => {
     // Pre-seed IDB with a synced row from a "previous session".
     await getResponseDb().responses.put({
       sessionId: cfg.sessionId,
@@ -242,9 +242,7 @@ describe('useSaveQueue (IndexedDB-backed)', () => {
       await new Promise((r) => setTimeout(r, 100))
     })
 
-    expect(result.current.localResponses).toEqual({
-      'pre-existing': { value: 4, data: {} },
-    })
+    expect(result.current.localResponses).toEqual({})
   })
 
   it('does not mark an answer changed mid-flight as synced (ack/edit race)', async () => {

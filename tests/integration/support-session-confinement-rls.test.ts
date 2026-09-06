@@ -172,6 +172,12 @@ describe.skipIf(!canRun)("support session confinement (RLS)", () => {
     });
     memberDb = member.client;
     authUserIds.push(member.userId);
+    const { error: membershipError } = await adminDb.from("client_memberships").insert({
+      profile_id: member.userId,
+      client_id: ids.clientA,
+      role: "member",
+    });
+    if (membershipError) throw new Error(membershipError.message);
   });
 
   afterAll(async () => {
@@ -253,30 +259,54 @@ describe.skipIf(!canRun)("support session confinement (RLS)", () => {
     }
   });
 
-  it("keeps writes working inside a session", async () => {
-    // is_platform_admin() is deliberately untouched, so an admin can still act
-    // on the tenant they came to help. If this ever fails, the migration has
-    // narrowed more than it intended.
-    //
-    // Asserting `error === null` would prove nothing: an UPDATE that RLS
-    // refuses comes back from PostgREST as a SUCCESS affecting zero rows, not
-    // as an error. So read the row back through the admin client — which
-    // bypasses RLS and therefore reports what was actually written — and check
-    // the value changed.
+  it("keeps non-bearer client writes working inside a session", async () => {
+    // Support still permits ordinary client management. Participant lifecycle
+    // and bearer writes instead go through authorized server operations.
+    const sessionId = await openSupportSession(ids.clientA);
+    try {
+      const { error } = await platformAdminDb
+        .from("clients")
+        .update({ name: "SupportEdited" })
+        .eq("id", ids.clientA);
+      expect(error).toBeNull();
+
+      // A zero-row RLS update can succeed, so verify the stored value too.
+      const { data: after, error: readError } = await adminDb
+        .from("clients")
+        .select("name")
+        .eq("id", ids.clientA)
+        .single();
+      expect(readError).toBeNull();
+      expect(after?.name).toBe("SupportEdited");
+    } finally {
+      await endSupportSession(sessionId);
+    }
+  });
+
+  it("denies direct participant writes even inside a support session", async () => {
+    const { data: before, error: beforeError } = await adminDb
+      .from("campaign_participants")
+      .select("first_name")
+      .eq("id", ids.participantA)
+      .single();
+    expect(beforeError).toBeNull();
+    expect(before).not.toBeNull();
+
     const sessionId = await openSupportSession(ids.clientA);
     try {
       const { error } = await platformAdminDb
         .from("campaign_participants")
-        .update({ first_name: "SupportEdited" })
+        .update({ first_name: "MustNotBeWritten" })
         .eq("id", ids.participantA);
-      expect(error).toBeNull();
+      expect(error?.code).toBe("42501");
 
-      const { data: after } = await adminDb
+      const { data: after, error: afterError } = await adminDb
         .from("campaign_participants")
         .select("first_name")
         .eq("id", ids.participantA)
         .single();
-      expect(after?.first_name).toBe("SupportEdited");
+      expect(afterError).toBeNull();
+      expect(after).toEqual(before);
     } finally {
       await endSupportSession(sessionId);
     }

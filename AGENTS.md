@@ -155,6 +155,19 @@ model.
    `requireCampaignManage`, which layers `canManageCampaign` onto the same
    lookup. Pinned by `tests/architecture/campaign-write-manage-gate.test.ts`.
 
+5. **A client owns its campaigns; its current partner determines partner access.**
+   For campaigns with a `client_id`, never use the copied `campaigns.partner_id`
+   as an independent authorization grant. The database synchronizes it when a
+   client moves or is unassigned, and rejects conflicting campaign ownership
+   writes. Creation and reassignment require `canManageClient` for the destination
+   client. Clientless partner campaigns retain their independent partner owner.
+   Pinned by `tests/integration/campaign-client-ownership.test.ts`.
+
+6. **Platform authority still respects the selected workspace.**
+   Use `isUnconfinedPlatformAdmin` for a global bypass, and the resolved client
+   or managed-client sets otherwise. `isPlatformAdmin` alone does not authorize
+   a different client while a workspace or support session is selected.
+
 Brand writes carry one extra gate: `assertCanEditClientBrand`, at every write
 site, not only on the flag toggle — and that includes the campaign brand layer,
 which is what a participant actually sees.
@@ -235,7 +248,7 @@ Relatedly, `tests/architecture/admin-actions-authz.test.ts` fails CI if a Server
 
 The project uses a PR-then-merge model with CI gating on each PR. The order of operations for any DB-touching feature:
 
-1. **Branch from `origin/main`.** Never push to `main` directly — main is not currently protected, but the convention is PR-based and Vercel deploys from main. Use a descriptive branch name (`feat/X`, `fix/Y`, `refactor/Z`).
+1. **Branch from `origin/main`.** Never push to `main` directly. Main requires the `security`, `quality`, and `e2e-smoke` checks, an up-to-date branch, resolved review conversations, and linear history; these protections also apply to administrators. Vercel deploys from main. Use a descriptive branch name (`feat/X`, `fix/Y`, `refactor/Z`).
 2. **Apply schema changes locally first.** Use the local Supabase stack via `supabase db reset` (or `db push` for incremental) and verify via `npm run test:integration:local`.
 3. **Once the migration is green locally**, apply it to the live Supabase project via the Supabase MCP (`apply_migration`). The migration file in `supabase/migrations/` is the source of truth, but the MCP write keeps the live project in sync without waiting for a deploy.
 4. **Run `mcp__claude_ai_Supabase__get_advisors` after every DDL change.** New `SECURITY DEFINER` functions that aren't intended for direct RPC need a follow-up migration revoking `EXECUTE` from `anon` and `authenticated`. See `20260512150000_trajectory_revoke_trigger_fn_exec.sql` for the pattern.

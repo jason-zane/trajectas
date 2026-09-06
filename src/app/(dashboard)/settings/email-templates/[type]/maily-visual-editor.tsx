@@ -3,6 +3,8 @@
 import "@maily-to/core/style.css"
 
 import { Editor } from "@maily-to/core"
+import { useMemo } from "react"
+import { sanitizeEditorJson } from "@/lib/security/editor-json"
 import {
   text,
   heading1,
@@ -43,9 +45,10 @@ export function MailyVisualEditor({
   onUpdate,
   onCreate,
 }: MailyVisualEditorProps) {
+  const safeContent = useMemo(() => sanitizeEditorJson(contentJson), [contentJson])
   return (
     <Editor
-      contentJson={contentJson as JSONContent}
+      contentJson={safeContent as JSONContent}
       onUpdate={(editor) => onUpdate(editor as TiptapEditorInstance)}
       onCreate={(editor) => onCreate(editor as TiptapEditorInstance)}
       blocks={EDITOR_BLOCKS}

@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActionError } from '@/lib/security/action-errors'
 import { checkAssessApiTokenRateLimit } from '@/lib/security/rate-limit'
+import { getAssessSessionProof, verifyAssessSessionProof } from '@/lib/assess/session-proof'
 import {
   parseJsonRequestWithLimit,
   RequestBodyTooLargeError,
@@ -44,6 +45,10 @@ export async function POST(request: Request) {
   }
 
   const input = parsed.data
+  const proof = getAssessSessionProof(request)
+  if (proof && !verifyAssessSessionProof(proof, { token: input.token, sessionId: input.sessionId })) {
+    return Response.json({ error: 'Invalid session proof' }, { status: 403 })
+  }
 
   // Per-token budget on top of the proxy's per-IP rule; keyed on the token
   // actually submitted, so it can't be dodged by forging request headers.

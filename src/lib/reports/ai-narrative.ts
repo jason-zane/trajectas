@@ -9,6 +9,7 @@ import { getActiveSystemPrompt } from '@/lib/ai/prompt-config'
 import { OpenRouterProvider } from '@/lib/ai/providers/openrouter'
 import { getModelForTask } from '@/lib/ai/model-config'
 import { resolvePersonToken } from './narrative'
+import { getNarrativeRequestBudget } from './narrative-budget'
 import type { PersonReferenceType } from '@/types/database'
 
 export interface AIEnhanceInput {
@@ -26,6 +27,8 @@ export interface AIEnhanceInput {
  * or if the AI call fails — this must never throw.
  */
 export async function enhanceNarrative(input: AIEnhanceInput): Promise<string> {
+  const requestBudget = getNarrativeRequestBudget()
+  if (Date.now() >= requestBudget.deadlineAt) return input.derivedNarrative
   try {
     const prompt = await getActiveSystemPrompt('report_narrative')
     const taskConfig = await getModelForTask('item_generation')  // reuse same model tier
@@ -38,7 +41,7 @@ export async function enhanceNarrative(input: AIEnhanceInput): Promise<string> {
       input.derivedNarrative,
     ].join('\n')
 
-    const provider = new OpenRouterProvider()
+    const provider = new OpenRouterProvider(requestBudget)
     const response = await provider.complete({
       model,
       systemPrompt: prompt.content,
@@ -74,6 +77,8 @@ export interface StrengthsAnalysisInput {
 export async function generateStrengthsAnalysis(
   input: StrengthsAnalysisInput,
 ): Promise<string | null> {
+  const requestBudget = getNarrativeRequestBudget()
+  if (Date.now() >= requestBudget.deadlineAt) return null
   try {
     const prompt = await getActiveSystemPrompt('report_strengths_analysis')
     const taskConfig = await getModelForTask('report_strengths_analysis')
@@ -88,7 +93,7 @@ export async function generateStrengthsAnalysis(
       })),
     )
 
-    const provider = new OpenRouterProvider()
+    const provider = new OpenRouterProvider(requestBudget)
     const response = await provider.complete({
       model,
       systemPrompt: prompt.content,
@@ -128,6 +133,8 @@ export interface DevelopmentAdviceInput {
 export async function generateDevelopmentAdvice(
   input: DevelopmentAdviceInput,
 ): Promise<{ entityName: string; aiSuggestion: string }[] | null> {
+  const requestBudget = getNarrativeRequestBudget()
+  if (Date.now() >= requestBudget.deadlineAt) return null
   try {
     const prompt = await getActiveSystemPrompt('report_development_advice')
     const taskConfig = await getModelForTask('report_development_advice')
@@ -143,7 +150,7 @@ export async function generateDevelopmentAdvice(
       })),
     )
 
-    const provider = new OpenRouterProvider()
+    const provider = new OpenRouterProvider(requestBudget)
     const response = await provider.complete({
       model,
       systemPrompt: prompt.content,

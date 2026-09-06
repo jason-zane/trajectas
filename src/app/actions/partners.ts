@@ -766,13 +766,10 @@ export async function getRecentPartnerCampaigns(partnerId: string): Promise<
   const clientIds = (clientRows ?? []).map((c) => c.id)
   if (clientIds.length === 0) return []
 
-  // Note: participant_count and completed_count are NOT columns on campaigns.
-  // They must be derived from campaign_participants. Use a count join.
+  // The count view excludes deleted and 360 rater rows without reading tokens.
   const { data, error } = await db
-    .from('campaigns')
-    .select('id, title, status, clients(name), campaign_participants(count)')
-    // Exclude 360 rater taking-rows from the participant count.
-    .is('campaign_participants.campaign_rater_id', null)
+    .from('campaigns_with_counts')
+    .select('id, title, status, clients(name), participant_count')
     .in('client_id', clientIds)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -782,9 +779,7 @@ export async function getRecentPartnerCampaigns(partnerId: string): Promise<
 
   return (data ?? []).map((row) => {
     const client = Array.isArray(row.clients) ? row.clients[0] : row.clients
-    const participantCount = row.campaign_participants
-      ? ((row.campaign_participants as { count: number }[])[0]?.count ?? 0)
-      : 0
+    const participantCount = Number(row.participant_count ?? 0)
     return {
       id: row.id,
       title: row.title,
@@ -878,6 +873,7 @@ export async function assignClientToPartner(clientId: string, partnerId: string)
   }
 
   revalidateDirectoryPaths()
+  revalidatePath('/', 'layout')
   return { success: true as const }
 }
 
@@ -899,6 +895,7 @@ export async function unassignClientFromPartner(clientId: string) {
   }
 
   revalidateDirectoryPaths()
+  revalidatePath('/', 'layout')
   return { success: true as const }
 }
 

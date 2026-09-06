@@ -1,4 +1,5 @@
 "use client"
+import { sanitizeEditorJson } from "@/lib/security/editor-json"
 
 import { useCallback, useRef, useState } from "react"
 import dynamic from "next/dynamic"
@@ -116,7 +117,7 @@ export function EmailTemplateEditor({
 
   const switchToVisual = useCallback(() => {
     try {
-      const parsed = JSON.parse(jsonStr)
+      const parsed = sanitizeEditorJson(JSON.parse(jsonStr))
       setEditorJson(parsed)
       if (tiptapRef.current) {
         tiptapRef.current.commands.setContent(parsed)

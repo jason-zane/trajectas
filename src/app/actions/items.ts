@@ -281,9 +281,28 @@ export async function updateItem(id: string, formData: FormData) {
 
   const db = createAdminClient()
 
-  const { error: updateErr } = await db
-    .from('items')
-    .update({
+  let options: ItemOptionInput[] | null = null
+  const optionsJson = formData.get('options')
+  if (optionsJson) {
+    try {
+      const candidate: unknown = JSON.parse(String(optionsJson))
+      if (!Array.isArray(candidate) || candidate.some((option) =>
+        !option || typeof option.label !== 'string' || !option.label.trim() ||
+        typeof option.value !== 'number' || !Number.isFinite(option.value) ||
+        (option.scoreValue != null && (typeof option.scoreValue !== 'number' || !Number.isFinite(option.scoreValue))))) {
+        return { error: { _form: ['Invalid item options.'] } }
+      }
+      if (new Set(candidate.map(option => option.value)).size !== candidate.length) {
+        return { error: { _form: ['Each option must have a unique value.'] } }
+      }
+      options = candidate as ItemOptionInput[]
+    } catch {
+      return { error: { _form: ['Invalid item options.'] } }
+    }
+  }
+  const { data: revisedId, error: updateErr } = await db.rpc('revise_library_item', {
+    p_item_id: id,
+    p_patch: {
       purpose: parsed.data.purpose,
       construct_id: parsed.data.constructId ?? null,
       response_format_id: parsed.data.responseFormatId,
@@ -296,29 +315,10 @@ export async function updateItem(id: string, formData: FormData) {
       difficulty: parsed.data.difficulty,
       source_id: parsed.data.sourceId || null,
       keyed_answer: parsed.data.keyedAnswer ?? null,
-    })
-    .eq('id', id)
-
-  if (updateErr) return { error: { _form: [updateErr.message] } }
-
-  // Replace item options if provided
-  const optionsJson = formData.get('options') as string
-  if (optionsJson) {
-    try {
-      const options = JSON.parse(optionsJson) as ItemOptionInput[]
-      // Delete existing options
-      const { error: deleteOptErr } = await db.from('item_options').delete().eq('item_id', id)
-      if (deleteOptErr) logActionError('updateItem', deleteOptErr)
-      // Insert new options
-      if (options.length > 0) {
-        const optionRows = options.map((opt, i) => toItemOptionRow(id, opt, i))
-        const { error: insertOptErr } = await db.from('item_options').insert(optionRows)
-        if (insertOptErr) logActionError('updateItem', insertOptErr)
-      }
-    } catch {
-      // ignore parse errors for options
-    }
-  }
+    },
+    p_options: options,
+  })
+  if (updateErr || !revisedId) return { error: { _form: [updateErr?.message ?? 'Unable to save item.'] } }
 
   revalidatePath('/items')
   revalidatePath('/constructs')
@@ -328,7 +328,7 @@ export async function updateItem(id: string, formData: FormData) {
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.updated',
     targetTable: 'items',
-    targetId: id,
+    targetId: String(revisedId),
     metadata: {
       purpose: parsed.data.purpose,
       constructId: parsed.data.constructId ?? null,
@@ -336,7 +336,7 @@ export async function updateItem(id: string, formData: FormData) {
     },
   })
 
-  return { success: true, id }
+  return { success: true, id: String(revisedId) }
 }
 
 export async function deleteItem(id: string) {
@@ -544,10 +544,9 @@ export async function updateItemField(id: string, field: string, value: string) 
     field === 'stem_observer' && value.trim() === '' ? null : value
 
   const db = createAdminClient()
-  const { error } = await db
-    .from('items')
-    .update({ [field]: writeValue })
-    .eq('id', id)
+  const { data: revisedId, error } = await db.rpc('revise_library_item', {
+    p_item_id: id, p_patch: { [field]: writeValue }, p_options: null,
+  })
 
   if (error) return { error: error.message }
 
@@ -561,5 +560,5 @@ export async function updateItemField(id: string, field: string, value: string) 
     metadata: { field },
   })
 
-  return { success: true }
+  return { success: true, id: String(revisedId) }
 }

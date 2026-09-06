@@ -219,11 +219,6 @@ function getRelatedRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
 }
 
-function getRelatedCount(value: unknown) {
-  const record = getRelatedRecord(value)
-  return record?.count ? Number(record.count) : 0
-}
-
 function revalidateAssessmentPaths() {
   revalidatePath('/assessments')
   revalidatePath('/partner/assessments')
@@ -280,7 +275,7 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
   let query = db
     .from('campaign_assessments')
     .select(
-      'campaign_id, assessment_id, campaigns(id, title, status, client_id, clients(name), campaign_participants(count)), assessments(id, title, description, status, client_id, updated_at)'
+      'campaign_id, assessment_id, campaigns:campaigns_with_counts(id, title, status, client_id, clients(name), participant_count), assessments(id, title, description, status, client_id, updated_at)'
     )
     .order('created_at', { ascending: false })
 
@@ -345,7 +340,7 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
     const campaignTitle = campaignRow?.title ? String(campaignRow.title) : null
     const clientRow = getRelatedRecord(campaignRow?.clients)
     const clientName = clientRow?.name ? String(clientRow.name) : undefined
-    const participantCount = getRelatedCount(campaignRow?.campaign_participants)
+    const participantCount = Number(campaignRow?.participant_count ?? 0)
 
     const existing = summaries.get(assessmentId)
     if (existing) {
@@ -479,7 +474,7 @@ export async function getPartnerAssessmentLibrary(): Promise<AssessmentLibrarySu
     let deploymentQuery = db
       .from('campaign_assessments')
       .select(
-        'assessment_id, campaign_id, campaigns(id, title, client_id, clients(name), campaign_participants(count))'
+        'assessment_id, campaign_id, campaigns:campaigns_with_counts(id, title, client_id, clients(name), participant_count)'
       )
       .in('assessment_id', assessmentIds)
 
@@ -560,7 +555,7 @@ export async function getPartnerAssessmentLibrary(): Promise<AssessmentLibrarySu
     const campaignTitle = campaignRow?.title ? String(campaignRow.title) : null
     const clientRow = getRelatedRecord(campaignRow?.clients)
     const clientName = clientRow?.name ? String(clientRow.name) : null
-    const participantCount = getRelatedCount(campaignRow?.campaign_participants)
+    const participantCount = Number(campaignRow?.participant_count ?? 0)
 
     summary.campaignCount += campaignId ? 1 : 0
     summary.participantCount += participantCount
@@ -970,6 +965,9 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
   }
 
   const db = createAdminClient()
+
+  const responseCheck = await assertNoParticipantResponses(db, id)
+  if (responseCheck) return { error: { _form: [responseCheck] } }
 
   const lockName = await getAssessmentCustomReportLockName(db, id)
   if (lockName) {
@@ -1984,18 +1982,31 @@ async function assertNoParticipantResponses(
   db: any,
   assessmentId: string,
 ): Promise<string | null> {
-  const { data: sectionRows } = await db
+  const { data: sectionRows, error: sectionError } = await db
     .from('assessment_sections')
     .select('id')
     .eq('assessment_id', assessmentId)
 
+  if (sectionError) return 'Unable to verify assessment usage.'
+
   const sectionIds = ((sectionRows ?? []) as { id: string }[]).map((s) => s.id)
   if (sectionIds.length === 0) return null
 
-  const { count } = await db
+  const { count, error: countError } = await db
     .from('participant_responses')
     .select('*', { count: 'exact', head: true })
     .in('section_id', sectionIds)
+
+  if (countError) return 'Unable to verify assessment usage.'
+
+  const { count: formCount, error: formError } = await db
+    .from('participant_section_forms')
+    .select('*', { count: 'exact', head: true })
+    .in('section_id', sectionIds)
+  if (formError) return 'Unable to verify assessment usage.'
+  if (formCount && formCount > 0) {
+    return 'This assessment has already been delivered. Clone it into a new version before changing its structure.'
+  }
 
   if (count && count > 0) {
     return `Cannot modify this assessment's structure: ${count} participant response(s) already exist. Clone this assessment into a new version to make structural changes.`

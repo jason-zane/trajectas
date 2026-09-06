@@ -7,6 +7,7 @@ import { dispatchIntegrationWebhookSchema } from '@/lib/integrations/schema'
 import { dispatchPendingIntegrationEvents } from '@/lib/integrations/webhooks'
 
 export const runtime = 'nodejs'
+export const maxDuration = 300
 
 export async function POST(request: Request) {
   return withInternalIntegrationWorkerRoute(request, async () => {

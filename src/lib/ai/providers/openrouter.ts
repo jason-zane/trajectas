@@ -25,6 +25,12 @@ export class OpenRouterProvider implements AIProvider {
 
   private client: OpenAI | null = null
 
+  constructor(private readonly requestBudget: {
+    deadlineAt?: number
+    timeoutMs?: number
+    maxAttempts?: number
+  } = {}) {}
+
   /** Lazily initialise the SDK client to avoid throwing at import time. */
   private getClient(): OpenAI {
     if (!this.client) {
@@ -35,6 +41,7 @@ export class OpenRouterProvider implements AIProvider {
         apiKey: process.env.OpenRouter_API_KEY,
         baseURL: OPENROUTER_BASE_URL,
         timeout: 120_000, // 2 min per request — fail fast so retries can kick in
+        maxRetries: 0, // withOpenRouterRetry owns retries; never multiply them.
         defaultHeaders: {
           'HTTP-Referer': 'https://trajectas.com',
           'X-Title': 'Trajectas',
@@ -67,7 +74,14 @@ export class OpenRouterProvider implements AIProvider {
           ...(request.responseFormat === 'json' && {
             response_format: { type: 'json_object' as const },
           }),
-        })
+        }, {
+          timeout: Math.max(1, Math.min(
+            this.requestBudget.timeoutMs ?? 120_000,
+            (this.requestBudget.deadlineAt ?? Infinity) - Date.now(),
+          )),
+          maxRetries: 0,
+        }),
+        { maxAttempts: this.requestBudget.maxAttempts, deadlineAt: this.requestBudget.deadlineAt },
       )
 
       const choice = response.choices[0]

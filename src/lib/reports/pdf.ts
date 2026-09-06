@@ -1,13 +1,16 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { reportError } from '@/lib/observability/report-error'
 import { notifyConsultantsForSnapshot } from '@/lib/notifications/consultant-notification'
-import { launchReportPdfBrowser } from '@/lib/reports/pdf-browser'
+import { withReportPdfBrowser } from '@/lib/reports/pdf-browser'
 import { createReportPdfToken } from '@/lib/reports/pdf-token'
 import { requireAppUrl } from '@/lib/hosts'
 import type { ReportPdfStatus, ReportSnapshotStatus } from '@/types/database'
 
 const REPORTS_BUCKET = 'reports'
 const ACTIVE_PDF_STATUSES: ReportPdfStatus[] = ['queued', 'generating']
+// Chromium can consume most of a function's memory. Other invocations on this
+// process leave work durably queued instead of launching another browser.
+let pdfRunning = false
 
 type SnapshotPdfRow = {
   id: string
@@ -15,6 +18,7 @@ type SnapshotPdfRow = {
   pdf_url: string | null
   pdf_status: ReportPdfStatus | null
   pdf_error_message: string | null
+  pdf_attempt_count: number
 }
 
 export type ReportPdfStatusResponse = {
@@ -84,7 +88,7 @@ export async function getSnapshotPdfState(snapshotId: string) {
   const db = createAdminClient()
   const { data, error } = await db
     .from('report_snapshots')
-    .select('id, status, pdf_url, pdf_status, pdf_error_message')
+    .select('id, status, pdf_url, pdf_status, pdf_error_message, pdf_attempt_count')
     .eq('id', snapshotId)
     .maybeSingle<SnapshotPdfRow>()
 
@@ -95,7 +99,7 @@ export async function getSnapshotPdfState(snapshotId: string) {
   return data
 }
 
-export async function queueReportPdfGeneration(snapshotId: string) {
+export async function queueReportPdfGeneration(snapshotId: string, options: { forceRefresh?: boolean } = {}) {
   const snapshot = await getSnapshotPdfState(snapshotId)
   if (!snapshot) {
     throw new Error('Report not found')
@@ -105,7 +109,7 @@ export async function queueReportPdfGeneration(snapshotId: string) {
     throw new Error('PDF is only available for ready or released reports')
   }
 
-  if (snapshot.pdf_url) {
+  if (snapshot.pdf_url && !options.forceRefresh) {
     return {
       jobId: snapshotId,
       ...mapReportPdfStatus(snapshot, snapshotId),
@@ -122,16 +126,22 @@ export async function queueReportPdfGeneration(snapshotId: string) {
   }
 
   const db = createAdminClient()
-  const { data: queued, error } = await db
+  let query = db
     .from('report_snapshots')
     .update({
       pdf_status: 'queued',
       pdf_error_message: null,
+      pdf_attempt_count: 0,
+      pdf_claim_token: null,
+      pdf_started_at: null,
+      pdf_next_attempt_at: null,
+      ...(options.forceRefresh ? { pdf_url: null } : {}),
     })
     .eq('id', snapshotId)
     .in('status', ['ready', 'released'])
-    .is('pdf_url', null)
     .or('pdf_status.is.null,pdf_status.eq.failed,pdf_status.eq.ready')
+  if (!options.forceRefresh) query = query.is('pdf_url', null)
+  const { data: queued, error } = await query
     .select('id, status, pdf_url, pdf_status, pdf_error_message')
     .maybeSingle<SnapshotPdfRow>()
 
@@ -186,54 +196,53 @@ export async function generateAndStoreReportPdf(
     return null
   }
 
-  await db
-    .from('report_snapshots')
-    .update({
-      pdf_status: 'generating',
-      pdf_error_message: null,
-    })
-    .eq('id', snapshotId)
-
-  const storagePath = `reports/${snapshotId}.pdf`
-  let browser: Awaited<ReturnType<typeof launchReportPdfBrowser>> | null = null
+  if (snapshot.pdf_status !== 'queued' && snapshot.pdf_status !== 'generating') {
+    await queueReportPdfGeneration(snapshotId, options)
+  }
+  if (pdfRunning) return { queued: true as const }
+  pdfRunning = true
+  let claimToken: string | null = null
+  let storagePath = ''
 
   try {
+    const claim = await db.rpc('claim_report_pdf_generation', { p_snapshot_id: snapshotId })
+    if (claim.error) throw claim.error
+    if (!claim.data) return { queued: true as const }
+    claimToken = claim.data as string
+    // Each claim writes its own object. A stale worker can never overwrite
+    // the object of a newer claim even if it resumes after lease recovery.
+    storagePath = `reports/${snapshotId}/${claimToken}.pdf`
     const url = `${getAppUrl()}/print/reports/${snapshotId}?format=print&pdfToken=${encodeURIComponent(
       createReportPdfToken(snapshotId),
     )}`
 
-    browser = await launchReportPdfBrowser()
-    const page = await browser.newPage()
-    // Full A4 viewport at 96 dpi — cover page uses 100vh to fill the page
-    await page.setViewport({ width: 794, height: 1123 })
-    await page.emulateMediaType('print')
+    const pdf = await withReportPdfBrowser(async (browser) => {
+      const page = await browser.newPage()
+      page.setDefaultTimeout(15_000)
+      // Full A4 viewport at 96 dpi — cover page uses 100vh to fill the page.
+      await page.setViewport({ width: 794, height: 1123 })
+      await page.emulateMediaType('print')
 
-    const response = await page.goto(url, {
-      waitUntil: 'networkidle0',
-      timeout: 30000,
-    })
-    if (!response || !response.ok()) {
-      throw new Error(
-        `Print render failed with status ${response?.status() ?? 'unknown'}`,
-      )
-    }
-
-    await page.waitForSelector('[data-print="true"]', { timeout: 10000 })
-    await page.evaluate(async () => {
-      if ('fonts' in document) {
-        await document.fonts.ready
+      const response = await page.goto(url, { waitUntil: 'networkidle0', timeout: 15_000 })
+      if (!response || !response.ok()) {
+        throw new Error(`Print render failed with status ${response?.status() ?? 'unknown'}`)
       }
-    })
-    // Wait for the measured pagination pass (TOC page numbers) — soft timeout
-    // so a measurement hiccup can never block PDF generation.
-    await page
-      .waitForSelector('html[data-pagination-ready="true"]', { timeout: 5000 })
-      .catch(() => {})
 
-    const pdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      await page.waitForSelector('[data-print="true"]', { timeout: 5_000 })
+      await page.evaluate(async () => {
+        if ('fonts' in document) {
+          await Promise.race([document.fonts.ready, new Promise(resolve => setTimeout(resolve, 5_000))])
+        }
+      })
+      // Pagination is a soft wait; its fallback still produces a usable PDF.
+      await page.waitForSelector('html[data-pagination-ready="true"]', { timeout: 5_000 }).catch(() => {})
+
+      return page.pdf({
+        timeout: 20_000,
+        format: 'A4',
+        printBackground: true,
+        margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      })
     })
     const body = pdf.buffer.slice(
       pdf.byteOffset,
@@ -252,18 +261,22 @@ export async function generateAndStoreReportPdf(
       throw uploadError
     }
 
-    const { error: updateError } = await storage
+    const { data: completedRows, error: updateError } = await storage
       .from('report_snapshots')
       .update({
         pdf_url: storagePath,
         pdf_status: 'ready',
         pdf_error_message: null,
+        pdf_claim_token: null,
+        pdf_started_at: null,
+        pdf_next_attempt_at: null,
       })
       .eq('id', snapshotId)
+      .eq('pdf_claim_token', claimToken)
+      .select('id')
 
-    if (updateError) {
-      throw updateError
-    }
+    if (updateError) throw updateError
+    if (!completedRows?.length) throw new Error('PDF claim expired before completion')
 
     try {
       await notifyConsultantsForSnapshot(snapshotId)
@@ -284,17 +297,15 @@ export async function generateAndStoreReportPdf(
     const message =
       error instanceof Error ? error.message : 'PDF generation failed'
 
-    await db
-      .from('report_snapshots')
-      .update({
-        pdf_url: options.forceRefresh ? null : snapshot.pdf_url,
-        pdf_status: 'failed',
-        pdf_error_message: message,
-      })
-      .eq('id', snapshotId)
+    const failure = claimToken ? await db.rpc('fail_report_pdf_generation', {
+      p_snapshot_id: snapshotId, p_claim_token: claimToken, p_error: message,
+    }) : null
 
+    await reportError(error, { source: 'reports.pdf', severity: 'error',
+      alert: failure?.data === 'failed' || !!failure?.error,
+      context: { snapshotId, retryStatus: failure?.data, retryPersistFailed: !!failure?.error } })
     throw error
   } finally {
-    await browser?.close()
+    pdfRunning = false
   }
 }
