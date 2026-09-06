@@ -27,6 +27,7 @@ const ROUTABLE_SEGMENTS = new Set([
   "clients",
   "matching",
   "psychometrics",
+  "business-outcomes",
   "settings",
 ])
 
@@ -58,6 +59,7 @@ const segmentConfig: Record<
   clients: { label: "Clients" },
   matching: { label: "AI Matching" },
   psychometrics: { label: "Psychometrics" },
+  "business-outcomes": { label: "Business Outcomes" },
   reliability: { label: "Scale Reliability" },
   norms: { label: "Norm Explorer" },
   settings: { label: "Settings" },

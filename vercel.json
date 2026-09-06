@@ -1,6 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["sin1"],
+  "regions": [
+    "sin1"
+  ],
   "crons": [
     {
       "path": "/api/cron/account-deletion-sweep",
@@ -25,6 +27,16 @@
     {
       "path": "/api/cron/usage-billing",
       "schedule": "0 2 1 * *"
+    },
+    {
+      "path": "/api/cron/outcome-analysis-sweep",
+      "schedule": "*/5 * * * *"
     }
-  ]
+  ],
+  "functions": {
+    "api/outcomes-worker.py": {
+      "maxDuration": 300,
+      "excludeFiles": "{node_modules/**,.next/**,docs/**,tests/**,public/**,output/**,src/**,.claude/**}"
+    }
+  }
 }

@@ -1,14 +1,14 @@
 export class RequestBodyTooLargeError extends Error {
   constructor(readonly limitBytes: number) {
-    super(`Request body exceeds ${limitBytes} bytes.`)
-    this.name = 'RequestBodyTooLargeError'
+    super(`Request body exceeds ${limitBytes} bytes.`);
+    this.name = "RequestBodyTooLargeError";
   }
 }
 
 function assertContentLengthWithinLimit(headers: Headers, limitBytes: number) {
-  const contentLength = Number(headers.get('content-length') ?? 0)
+  const contentLength = Number(headers.get("content-length") ?? 0);
   if (Number.isFinite(contentLength) && contentLength > limitBytes) {
-    throw new RequestBodyTooLargeError(limitBytes)
+    throw new RequestBodyTooLargeError(limitBytes);
   }
 }
 
@@ -16,51 +16,51 @@ async function readStreamTextWithLimit(
   body: ReadableStream<Uint8Array> | null,
   limitBytes: number,
 ) {
-  if (!body) return ''
+  if (!body) return "";
 
-  const reader = body.getReader()
-  const decoder = new TextDecoder()
-  let received = 0
-  let text = ''
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let received = 0;
+  let text = "";
 
   while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    const { done, value } = await reader.read();
+    if (done) break;
 
-    received += value.byteLength
+    received += value.byteLength;
     if (received > limitBytes) {
-      await reader.cancel()
-      throw new RequestBodyTooLargeError(limitBytes)
+      await reader.cancel();
+      throw new RequestBodyTooLargeError(limitBytes);
     }
 
-    text += decoder.decode(value, { stream: true })
+    text += decoder.decode(value, { stream: true });
   }
 
-  return text + decoder.decode()
+  return text + decoder.decode();
 }
 
 export async function readRequestTextWithLimit(
   request: Request,
   limitBytes: number,
 ) {
-  assertContentLengthWithinLimit(request.headers, limitBytes)
-  return readStreamTextWithLimit(request.body, limitBytes)
+  assertContentLengthWithinLimit(request.headers, limitBytes);
+  return readStreamTextWithLimit(request.body, limitBytes);
 }
 
 export async function readResponseTextWithLimit(
   response: Response,
   limitBytes: number,
 ) {
-  assertContentLengthWithinLimit(response.headers, limitBytes)
-  return readStreamTextWithLimit(response.body, limitBytes)
+  assertContentLengthWithinLimit(response.headers, limitBytes);
+  return readStreamTextWithLimit(response.body, limitBytes);
 }
 
 export async function parseJsonRequestWithLimit<T>(
   request: Request,
   limitBytes: number,
 ): Promise<T> {
-  const raw = await readRequestTextWithLimit(request, limitBytes)
-  return JSON.parse(raw) as T
+  const raw = await readRequestTextWithLimit(request, limitBytes);
+  return JSON.parse(raw) as T;
 }
 
 export async function parseOptionalJsonRequestWithLimit<T>(
@@ -68,10 +68,43 @@ export async function parseOptionalJsonRequestWithLimit<T>(
   limitBytes: number,
   emptyValue: T,
 ): Promise<T> {
-  const raw = await readRequestTextWithLimit(request, limitBytes)
+  const raw = await readRequestTextWithLimit(request, limitBytes);
   if (!raw.trim()) {
-    return emptyValue
+    return emptyValue;
   }
 
-  return JSON.parse(raw) as T
+  return JSON.parse(raw) as T;
+}
+
+/** Bound multipart bodies before parsing, including chunked uploads without a length header. */
+export async function readRequestBytesWithLimit(
+  request: Request,
+  limitBytes: number,
+): Promise<Uint8Array> {
+  assertContentLengthWithinLimit(request.headers, limitBytes);
+  if (!request.body) return new Uint8Array();
+  const reader = request.body.getReader(),
+    chunks: Uint8Array[] = [];
+  let received = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > limitBytes) {
+        await reader.cancel();
+        throw new RequestBodyTooLargeError(limitBytes);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
 }

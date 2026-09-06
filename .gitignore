@@ -64,3 +64,12 @@ supabase/.temp/
 
 # Local Trajectory studio screenshots, checks and sample exports
 /output/trajectory-studio/
+
+# Numerical worker bytecode and local verification artifacts
+__pycache__/
+*.pyc
+/output/business-outcomes/
+/output/pdf/
+/tmp/pdfs/
+
+/.playwright-cli/
