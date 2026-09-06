@@ -10,7 +10,7 @@ import { EmptyState } from '@/components/empty-state'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { OVERALL_ID, type CanvasPoint } from '@/lib/canvas/types'
-import { assessmentOptions, campaignOptions, displayDate, historySessions, initialSettings, initials, measures, referenceFor, referenceOptions, score, snapshotCaption, snapshotMeasures, snapshotSession, trajectorySeries, validateSavedSettings, type Experience, type StudioDataset, type StudioSettings } from '@/lib/trajectory-studio/model'
+import { assessmentOptions, campaignOptions, displayDate, historySessions, initialSettings, initials, measures, referenceFor, referenceOptions, score, snapshotCaption, snapshotMeasures, snapshotSession, trajectorySeries, validateSavedSettings, type Experience, type Lens, type StudioDataset, type StudioSettings } from '@/lib/trajectory-studio/model'
 import { SERIES_COLORS } from './studio-chart'
 import { StudioPeople } from './studio-people'
 import { StudioTable } from './studio-table'
@@ -26,15 +26,16 @@ const experiences = [
   { id: 'unified' as const, number: '03', name: 'Unified trajectory', caption: 'Both, in one workspace', icon: Layers },
 ]
 type SavedView = { name: string; experience: Experience; settings: StudioSettings }
-type StudioProps = { dataset: StudioDataset; initialExperience?: Experience; onBrowse?: () => void; nonce?: string }
+type StudioProps = { dataset: StudioDataset; initialExperience?: Experience; initialLens?: Lens; onBrowse?: () => void; nonce?: string }
 export function TrajectoryStudio(props: StudioProps) {
   return <StudioThemeProvider nonce={props.nonce} attribute="data-studio-theme" defaultTheme="light" enableSystem={false} enableColorScheme={false} storageKey="trajectas-studio-theme"><StudioWorkspace {...props} /></StudioThemeProvider>
 }
-function StudioWorkspace({ dataset, initialExperience = 'compare', onBrowse }: StudioProps) {
+function StudioWorkspace({ dataset, initialExperience = 'compare', initialLens, onBrowse }: StudioProps) {
   const result = dataset.result
   const [experience, setExperience] = useState<Experience>(initialExperience)
   const [views, setViews] = useState<Record<Experience, StudioSettings>>(() => Object.fromEntries(experiences.map((e) => {
     const settings = initialSettings(result, e.id)
+    if (initialLens && e.id === 'unified') settings.lens = initialLens
     if (!dataset.demo && e.id !== 'individual') settings.people = result.people.map((p) => p.personKey)
     return [e.id, settings]
   })) as Record<Experience, StudioSettings>)
@@ -64,11 +65,16 @@ function StudioWorkspace({ dataset, initialExperience = 'compare', onBrowse }: S
   const shownMeasures = time ? trajectorySeries(dataset, settings).map((line) => line.entityId) : snapshotMeasures(result, settings).map((m) => m.id)
   const canShowDifference = shownMeasures.some((id) => referenceFor(dataset, settings, id).value !== null)
   const sourceLabel = dataset.demo ? 'Illustrative data' : 'Workspace data'
-  const title = experience === 'compare' ? 'Compare' : 'Trajectory'
+  const title = experience === 'compare' ? 'Compare' : experience === 'unified' && !dataset.demo ? 'Unified Trajectory' : 'Trajectory'
   const reportTitle = single && firstPerson ? `${firstPerson.displayName} · ${time ? 'Trajectory' : 'Snapshot'}` : time ? 'Trajectory · Progress report' : 'Trajectory · Comparison report'
-  const storageKey = `trajectas-studio-v2-${dataset.demo ? 'demo' : result.clientId ?? 'workspace'}`
+  const storageKey = `trajectas-studio-v2-${dataset.demo ? 'demo' : `${result.clientId ?? 'workspace'}-${experience}`}`
 
   const update = useCallback((patch: Partial<StudioSettings>) => {
+    if (patch.lens && !dataset.demo) {
+      const url = new URL(window.location.href)
+      url.searchParams.set('lens', patch.lens)
+      window.history.replaceState(null, '', url)
+    }
     setViews((previous) => {
       const next = { ...previous[experience], ...patch }
       if (patch.assessment) {
@@ -88,12 +94,12 @@ function StudioWorkspace({ dataset, initialExperience = 'compare', onBrowse }: S
   }, [experience, result, dataset])
   function switchExperience(next: Experience) {
     setExperience(next)
-    const url = new URL(window.location.href); url.searchParams.set('experience', next); window.history.replaceState(null, '', url)
+    const url = new URL(window.location.href); if (dataset.demo) url.searchParams.set('experience', next); window.history.replaceState(null, '', url)
   }
   function openSaved() {
     try {
       const raw = JSON.parse(localStorage.getItem(storageKey) ?? '[]') as unknown
-      setSaved((Array.isArray(raw) ? raw : []).filter((entry): entry is SavedView => !!entry && typeof entry === 'object' && typeof entry.name === 'string' && experiences.some((e) => e.id === entry.experience) && !!validateSavedSettings(entry.settings, result, dataset.references)).slice(0, 12))
+      setSaved((Array.isArray(raw) ? raw : []).filter((entry): entry is SavedView => !!entry && typeof entry === 'object' && typeof entry.name === 'string' && experiences.some((e) => e.id === entry.experience) && (dataset.demo || (entry.experience === initialExperience && (initialExperience === 'unified' || entry.settings?.lens === (initialExperience === 'individual' ? 'time' : 'snapshot')))) && !!validateSavedSettings(entry.settings, result, dataset.references)).slice(0, 12))
     } catch { toast.error('Saved views could not be read on this device.') }
     setViewName(`${single && firstPerson ? firstPerson.displayName : assessment?.name ?? 'Assessment'} · ${time ? 'Progress' : 'Comparison'}`); setSaveOpen(true)
   }
@@ -121,10 +127,9 @@ function StudioWorkspace({ dataset, initialExperience = 'compare', onBrowse }: S
       <button className={styles.railHelp} onClick={() => setHelpOpen(true)}><CircleHelp size={17} />How to read the results</button>
     </aside>}
     <div className={styles.mainShell}>
-      <div className={styles.reviewBar}><span><span className={styles.liveDot} />{dataset.demo ? 'INTERACTIVE DESIGN REVIEW' : 'TRAJECTORY STUDIO'}</span><span>{experiences.find((e) => e.id === experience)?.number} / 03 <i />{sourceLabel}<button onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')} aria-label="Toggle colour theme">{resolvedTheme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}</button></span></div>
-      {!dataset.demo && <nav className={styles.inlineExperiences} aria-label="Design experiences">{experiences.map((e) => <button key={e.id} aria-pressed={experience === e.id} onClick={() => switchExperience(e.id)}>{e.number} {e.name}</button>)}</nav>}
+      {dataset.demo && <div className={styles.reviewBar}><span><span className={styles.liveDot} />{dataset.demo ? 'INTERACTIVE DESIGN REVIEW' : 'TRAJECTORY STUDIO'}</span><span>{experiences.find((e) => e.id === experience)?.number} / 03 <i />{sourceLabel}<button onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')} aria-label="Toggle colour theme">{resolvedTheme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}</button></span></div>}
       <main id="studio-main" className={styles.main}>
-        <header className={styles.header}><PageHeader title={title} eyebrow={experience === 'unified' ? 'Insights / One workspace, every perspective' : experience === 'individual' ? 'Insights / Individual growth' : 'Insights / People in perspective'} description={experience === 'individual' ? 'Follow the dimensions of a person’s development.' : experience === 'unified' ? 'See people side by side, then follow what changes.' : 'See each person clearly. Understand the differences.'} /><div className={styles.headerActions}><button className={styles.secondaryButton} onClick={openSaved}><Bookmark size={15} />Saved views</button><button className={styles.primaryButton} onClick={() => setExportOpen(true)} disabled={!totalSessions || !validRange}><Download size={15} />Export</button></div></header>
+        <header className={styles.header}><PageHeader title={title} eyebrow={experience === 'unified' ? 'Insights / One workspace, every perspective' : experience === 'individual' ? 'Insights / Individual growth' : 'Insights / People in perspective'} description={experience === 'individual' ? 'Follow the dimensions of a person’s development.' : experience === 'unified' ? 'See people side by side, then follow what changes.' : 'See each person clearly. Understand the differences.'} /><div className={styles.headerActions}>{!dataset.demo && <button className={styles.secondaryButton} aria-label="Toggle colour theme" onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}>{resolvedTheme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}</button>}<button className={styles.secondaryButton} onClick={openSaved}><Bookmark size={15} />Saved views</button><button className={styles.primaryButton} onClick={() => setExportOpen(true)} disabled={!totalSessions || !validRange}><Download size={15} />Export</button></div></header>
         <div className={styles.workspace}>
           <StudioPeople dataset={dataset} settings={settings} single={experience === 'individual'} onChange={update} onBrowse={onBrowse} />
           <div className={styles.results}>

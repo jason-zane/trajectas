@@ -7,7 +7,18 @@ The studio provides three interactive directions in the existing Trajectas app. 
 - Compare: `http://127.0.0.1:3012/preview/trajectory?experience=compare`
 - Individual Trajectory: `http://127.0.0.1:3012/preview/trajectory?experience=individual`
 - Unified Trajectory: `http://127.0.0.1:3012/preview/trajectory?experience=unified`
-- Authenticated admin workspace: `/participants/studio`, also accessible under Insights → Trajectory studio.
+
+## Production access
+
+| Portal | Compare | Individual Trajectory | Unified Trajectory |
+| --- | --- | --- | --- |
+| Admin | `/participants/compare` | `/participants/trajectory` | `/participants/unified` |
+| Partner | `/partner/participants/compare` | `/partner/participants/trajectory` | `/partner/participants/unified` |
+| Client | `/client/participants/compare` | `/client/participants/trajectory` | Unavailable |
+
+Each route fixes its experience on the server and checks the existing portal authorization before loading results. Unified has no client route; the shared entry point also rejects that combination. URL mode parameters cannot change a fixed experience. Live saved views are isolated by client and experience. `/participants/studio` redirects through the admin gate to Unified. Existing saved comparisons and URLs with explicit assessment/session configuration retain their original workspace.
+
+Production shows workspace data and portal navigation. The fictional design preview is disabled in production; the three review URLs remain available locally.
 
 The preview contains fictional people, roles, campaigns, assessment structures, results and reference values. The authenticated route uses the existing permission-checked participant search and canvas actions. No database migrations or production data changes are included.
 

@@ -1,5 +1,1 @@
-import { CompareSkeleton } from "@/components/loading/compare-skeleton";
-
-export default function ClientParticipantCompareLoading() {
-  return <CompareSkeleton />;
-}
+export { StudioLoading as default } from '@/components/trajectory-studio/studio-loading'

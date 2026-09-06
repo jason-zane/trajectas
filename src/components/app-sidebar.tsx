@@ -131,7 +131,7 @@ const adminNav: NavSection[] = [
     items: [
       { title: "Compare", href: "/participants/compare", icon: Scale },
       { title: "Trajectory", href: "/participants/trajectory", icon: TrendingUp },
-      { title: "Trajectory studio", href: "/participants/studio", icon: Layers },
+      { title: "Unified Trajectory", href: "/participants/unified", icon: Layers },
       { title: "Reports", href: "/reports", icon: FileText },
     ],
   },
@@ -192,6 +192,8 @@ const partnerNav: NavSection[] = [
     label: "Insights",
     items: [
       { title: "Compare", href: "/participants/compare", icon: Scale },
+      { title: "Trajectory", href: "/participants/trajectory", icon: TrendingUp },
+      { title: "Unified Trajectory", href: "/participants/unified", icon: Layers },
     ],
   },
 ];
@@ -213,6 +215,7 @@ const clientNav: NavSection[] = [
     label: "Insights",
     items: [
       { title: "Compare", href: "/participants/compare", icon: Scale },
+      { title: "Trajectory", href: "/participants/trajectory", icon: TrendingUp },
     ],
   },
 ];

@@ -1,3 +1,4 @@
+import { renderTrajectoryPage } from '@/lib/trajectory-studio/page'
 import { ComparisonWorkspace } from '@/components/comparison/comparison-workspace'
 import {
   getComparisonMatrix,
@@ -36,6 +37,11 @@ export default async function PartnerComparePage({
 }) {
   const { partnerId } = await resolvePartnerOrg(BASE_PATH)
   const sp = await searchParams
+
+  // Keep saved assessment/session configurations on the existing comparison route.
+  if (!sp.saved && !sp.entries && !sp.assessments && !sp.levels && !sp.delta) {
+    return renderTrajectoryPage(sp, 'compare', 'partner')
+  }
 
   const saved = sp.saved ? await getSavedComparison(sp.saved) : null
 

@@ -9,13 +9,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { EmptyState } from '@/components/empty-state'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { CanvasResult } from '@/lib/canvas/types'
-import type { Experience } from '@/lib/trajectory-studio/model'
+import type { Experience, Lens } from '@/lib/trajectory-studio/model'
 import { TrajectoryStudio } from './trajectory-studio'
 import styles from './studio.module.css'
 
-export function LiveTrajectoryStudio({ initial, experience, nonce }: { initial: CanvasResult; experience: Experience; nonce?: string }) {
+export function LiveTrajectoryStudio({ initial, experience, initialLens, nonce }: { initial: CanvasResult; experience: Experience; initialLens?: Lens; nonce?: string }) {
+  const individual = experience === 'individual'
   const [result, setResult] = useState(initial)
-  const [activeExperience, setActiveExperience] = useState(experience)
+  const [activeLens, setActiveLens] = useState(initialLens)
   const [open, setOpen] = useState(false)
   const [picked, setPicked] = useState<string[]>(initial.people.map((p) => p.entryCpId))
   const [query, setQuery] = useState('')
@@ -44,8 +45,7 @@ export function LiveTrajectoryStudio({ initial, experience, nonce }: { initial: 
         const next = await getComparisonCanvas(picked)
         setResult(next); setOpen(false)
         const url = new URL(window.location.href)
-        const currentExperience = url.searchParams.get('experience')
-        setActiveExperience(currentExperience === 'individual' || currentExperience === 'unified' ? currentExperience : 'compare')
+        setActiveLens(url.searchParams.get('lens') === 'time' ? 'time' : 'snapshot')
         url.searchParams.set('ids', next.people.map((p) => p.entryCpId).join(','))
         window.history.replaceState(null, '', url)
         toast.success(`${next.people.length} people loaded`, { description: 'Linked campaign records have been grouped by person.' })
@@ -56,13 +56,13 @@ export function LiveTrajectoryStudio({ initial, experience, nonce }: { initial: 
   const campaigns = [...new Map(hits.map((h) => [h.campaignId, h.campaignTitle])).entries()]
   const filtered = hits.filter((hit) => campaign === 'all' || hit.campaignId === campaign)
   return <>
-    <TrajectoryStudio key={result.people.map((p) => p.personKey).join(',')} dataset={{ result, workspaceName: 'Current workspace', demo: false }} nonce={nonce} initialExperience={activeExperience} onBrowse={() => { setPicked(result.people.map((p) => p.entryCpId)); setOpen(true); setCampaign('all'); setQuery(''); setError(null) }} />
-    <Dialog open={open} onOpenChange={(value) => { if (!pending) setOpen(value) }}><DialogContent className={`${styles.dialog} sm:max-w-2xl max-h-[88dvh] overflow-y-auto`}><DialogHeader><DialogTitle>Choose participants from your workspace</DialogTitle><DialogDescription>Search people and filter by campaign. Each record shows its completed assessments; linked identities are combined when loaded. Up to eight records per selection.</DialogDescription></DialogHeader>
+    <TrajectoryStudio key={result.people.map((p) => p.personKey).join(',')} dataset={{ result, workspaceName: 'Current workspace', demo: false }} nonce={nonce} initialExperience={experience} initialLens={activeLens} onBrowse={() => { setPicked(result.people.map((p) => p.entryCpId)); setOpen(true); setCampaign('all'); setQuery(''); setError(null) }} />
+    <Dialog open={open} onOpenChange={(value) => { if (!pending) setOpen(value) }}><DialogContent className={`${styles.dialog} sm:max-w-2xl max-h-[88dvh] overflow-y-auto`}><DialogHeader><DialogTitle>Choose participants from your workspace</DialogTitle><DialogDescription>Search people and filter by campaign. Each record shows its completed assessments; linked identities are combined when loaded. {individual ? 'Choose one person to explore their history.' : 'Up to eight records per selection.'}</DialogDescription></DialogHeader>
       <div className={styles.search}><Search size={16} /><input aria-label="Search workspace participants" type="search" value={query} onChange={(e) => { setQuery(e.target.value); setCampaign('all') }} placeholder="Search name or email…" /></div>
       <label className={styles.field}><span>Campaign</span><select aria-label="Filter search by campaign" value={campaign} onChange={(e) => setCampaign(e.target.value)}><option value="all">All campaigns in these search results</option>{campaigns.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
       {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
       <div aria-live="polite" className={styles.finePrint}>{searching ? 'Searching…' : `${filtered.length} records found · ${picked.length} selected`}</div>
-      <div className={styles.peopleList}>{filtered.map((hit) => <button className={`${styles.personOption} ${picked.includes(hit.id) ? styles.personSelected : ''}`} key={hit.id} aria-pressed={picked.includes(hit.id)} disabled={pending || (!picked.includes(hit.id) && picked.length >= 8) || hit.completedSessionCount === 0} onClick={() => setPicked((old) => old.includes(hit.id) ? old.filter((id) => id !== hit.id) : [...old, hit.id])}><span className={styles.personText}><strong>{hit.name}</strong><span>{hit.email} · {hit.campaignTitle}</span><small>{hit.completedSessionCount} completed assessments</small></span><span className={styles.checkBox}>{picked.includes(hit.id) && <Check size={12} />}</span></button>)}</div>
+      <div className={styles.peopleList}>{filtered.map((hit) => <button className={`${styles.personOption} ${picked.includes(hit.id) ? styles.personSelected : ''}`} key={hit.id} aria-pressed={picked.includes(hit.id)} disabled={pending || (!individual && !picked.includes(hit.id) && picked.length >= 8) || hit.completedSessionCount === 0} onClick={() => setPicked((old) => old.includes(hit.id) ? old.filter((id) => id !== hit.id) : individual ? [hit.id] : [...old, hit.id])}><span className={styles.personText}><strong>{hit.name}</strong><span>{hit.email} · {hit.campaignTitle}</span><small>{hit.completedSessionCount} completed assessments</small></span><span className={styles.checkBox}>{picked.includes(hit.id) && <Check size={12} />}</span></button>)}</div>
       {!searching && !filtered.length && !error && <EmptyState size="sm" title="No participants found" description="Try another name or campaign filter." />}
       <p className={styles.finePrint}>Loading a new group starts a fresh analysis. Save your current view before changing groups if you want to return to it.</p>
       <button className={styles.primaryButton} disabled={!picked.length || pending || searching} onClick={loadSelection}>{pending ? 'Loading results…' : `Load ${picked.length} selected records`}</button>
