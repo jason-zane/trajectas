@@ -433,11 +433,10 @@ describe.skipIf(!canRun)("tenant isolation (RLS)", () => {
     });
   });
 
-  // SELECT isolation is covered above; these verify the WRITE side of RLS on
-  // campaign_participants — a wrong-tenant client admin must not be able to
-  // mutate another client's participants. Writes are platform-admin-only
-  // (campaign_participants_all_platform_admin), so the platform-admin case is
-  // the positive control proving these aren't vacuously passing.
+  // SELECT isolation is covered above. Direct participant writes are now
+  // service-only, so a wrong-tenant client must still be denied. The service
+  // client is the positive control for authorized application operations;
+  // bearer-artifact-permissions separately denies direct platform-admin writes.
   describe("cross-tenant write denial (campaign_participants)", () => {
     it("client B1 admin cannot INSERT a participant into client A1's campaign", async () => {
       const intruderEmail = testEmail("intruder");
@@ -447,7 +446,7 @@ describe.skipIf(!canRun)("tenant isolation (RLS)", () => {
         first_name: "Mal",
         last_name: "Lory",
       });
-      // RLS WITH CHECK must reject the insert.
+      // Direct write privileges must reject the insert.
       expect(error).not.toBeNull();
 
       // And no such row may exist (verified with the privileged client).
@@ -464,7 +463,7 @@ describe.skipIf(!canRun)("tenant isolation (RLS)", () => {
         .update({ first_name: "Hacked" })
         .eq("id", ids.participantA1)
         .select("id");
-      // RLS USING filters the row out → zero rows updated.
+      // Direct writes are refused, so no rows are updated.
       expect(affected ?? []).toHaveLength(0);
 
       // The row is untouched.
@@ -492,12 +491,13 @@ describe.skipIf(!canRun)("tenant isolation (RLS)", () => {
       expect(still ?? []).toHaveLength(1);
     });
 
-    it("platform admin CAN update the participant (positive control)", async () => {
-      const { data: affected } = await platformAdminDb
+    it("service role CAN update the participant (positive control)", async () => {
+      const { data: affected, error } = await adminDb
         .from("campaign_participants")
         .update({ last_name: "Updated" })
         .eq("id", ids.participantA1)
         .select("id");
+      expect(error).toBeNull();
       expect(affected ?? []).toHaveLength(1);
 
       const { data: row } = await adminDb

@@ -3,8 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { canRun, createAdminClient, createTestUser } from './_helpers/rls-fixture'
 
-// PHASE 2 ONLY: restore to tests/integration after phase-one application
-// deployment, then apply both phase-two permission migrations locally first.
+// Run after applying all phase-two permission migrations to the local stack.
+// Production rollout requires the phase-one application to be deployed first.
 // The shared canRun guard and fixture refuse non-local Supabase URLs.
 describe.skipIf(!canRun)('phase-two bearer artifact permissions', () => {
   const admin = createAdminClient()
@@ -15,6 +15,30 @@ describe.skipIf(!canRun)('phase-two bearer artifact permissions', () => {
   const actors: Record<string, { userId: string; client: SupabaseClient }> = {}
   const bearerTables = ['integration_launches', 'integration_idempotency_keys',
     'integration_events_outbox', 'integration_webhook_deliveries'] as const
+  const connectionId = randomUUID(), credentialId = randomUUID(), endpointId = randomUUID()
+  const artifactIds = Object.fromEntries(bearerTables.map(table => [table, randomUUID()]))
+
+  function artifactRow(table: typeof bearerTables[number], id: string) {
+    if (table === 'integration_launches') return { id, integration_connection_id: connectionId,
+      client_id: clientId, campaign_id: campaignId, campaign_participant_id: participantId,
+      assessment_url: `https://example.invalid/assess/${privateToken}` }
+    if (table === 'integration_idempotency_keys') return { id, integration_credential_id: credentialId,
+      client_id: clientId, request_method: 'POST', request_path: '/phase-two-fixture',
+      idempotency_key: id, request_hash: id, status: 'completed', response_body: { token: privateToken } }
+    if (table === 'integration_events_outbox') return { id, client_id: clientId,
+      event_type: 'fixture', aggregate_type: 'campaign', aggregate_id: campaignId,
+      payload: { token: privateToken }, status: 'failed' }
+    return { id, integration_webhook_endpoint_id: endpointId,
+      integration_event_outbox_id: artifactIds.integration_events_outbox,
+      response_body_excerpt: privateToken, status: 'failed' }
+  }
+
+  function artifactPatch(table: typeof bearerTables[number]): Record<string, unknown> {
+    if (table === 'integration_launches') return { assessment_url: 'https://example.invalid/updated' }
+    if (table === 'integration_idempotency_keys') return { response_body: { token: 'updated-fixture' } }
+    if (table === 'integration_events_outbox') return { payload: { token: 'updated-fixture' } }
+    return { response_body_excerpt: 'updated-fixture' }
+  }
 
   async function insert(table: string, values: Record<string, unknown> | Record<string, unknown>[]) {
     const { error } = await admin.from(table).insert(values)
@@ -39,6 +63,14 @@ describe.skipIf(!canRun)('phase-two bearer artifact permissions', () => {
       { id: participantId, campaign_id: campaignId, email: `${participantId}@test.local`, access_token: privateToken },
       { id: otherParticipantId, campaign_id: otherCampaignId, email: `${otherParticipantId}@test.local`, access_token: randomUUID() },
     ])
+    await insert('integration_connections', { id: connectionId, client_id: clientId,
+      provider_slug: 'fixture', display_name: 'Permission fixture' })
+    await insert('integration_credentials', { id: credentialId, integration_connection_id: connectionId,
+      client_id: clientId, label: 'Fixture', key_prefix: credentialId, secret_hash: 'fixture-only' })
+    await insert('integration_webhook_endpoints', { id: endpointId, integration_connection_id: connectionId,
+      client_id: clientId, label: 'Inactive fixture', url: 'https://example.invalid/webhook',
+      signing_secret_ciphertext: 'fixture-only', status: 'inactive' })
+    for (const table of bearerTables) await insert(table, artifactRow(table, artifactIds[table]))
     for (const [label, role] of [['clientAdmin', 'org_admin'], ['clientMember', 'consultant']] as const) {
       actors[label] = await createTestUser(admin, {
         email: `${label}-${randomUUID()}@test.local`, role, clientId, partnerId,
@@ -136,5 +168,75 @@ describe.skipIf(!canRun)('phase-two bearer artifact permissions', () => {
     const result = await admin.from(table).select('id').limit(1)
     expect(result.error).toBeNull()
     expect(Array.isArray(result.data)).toBe(true)
+  })
+
+  it.each(['clientAdmin', 'clientMember', 'partnerAdmin', 'platformAdmin'])(
+    '%s cannot replace a participant token, insert a chosen token, or delete the participant', async actor => {
+      const db = actors[actor].client
+      // No .select(): exercise the review's minimal-return PATCH directly.
+      const replaced = await db.from('campaign_participants')
+        .update({ access_token: randomUUID() }).eq('id', participantId)
+      expect(replaced.error?.code).toBe('42501')
+      const id = randomUUID()
+      const created = await db.from('campaign_participants').insert({ id, campaign_id: campaignId,
+        email: `${id}@test.local`, access_token: randomUUID() })
+      expect(created.error?.code).toBe('42501')
+      const moved = await db.from('campaign_participants')
+        .update({ campaign_id: otherCampaignId }).eq('id', participantId)
+      expect(moved.error?.code).toBe('42501')
+      const removed = await db.from('campaign_participants').delete().eq('id', participantId)
+      expect(removed.error?.code).toBe('42501')
+      const original = await admin.from('campaign_participants')
+        .select('id,access_token,campaign_id').eq('id', participantId).single()
+      expect(original.error).toBeNull()
+      expect(original.data).toEqual({ id: participantId, access_token: privateToken, campaign_id: campaignId })
+      const inserted = await admin.from('campaign_participants').select('id').eq('id', id)
+      expect(inserted.error).toBeNull()
+      expect(inserted.data).toEqual([])
+    },
+  )
+
+  it('retains service-role participant invitation, update, and deletion', async () => {
+    const id = randomUUID(), token = randomUUID(), replacement = randomUUID()
+    const created = await admin.from('campaign_participants').insert({ id, campaign_id: campaignId,
+      email: `${id}@test.local`, access_token: token }).select('access_token').single()
+    expect(created.error).toBeNull()
+    expect(created.data?.access_token).toBe(token)
+    const updated = await admin.from('campaign_participants').update({ access_token: replacement })
+      .eq('id', id).select('access_token').single()
+    expect(updated.error).toBeNull()
+    expect(updated.data?.access_token).toBe(replacement)
+    const deleted = await admin.from('campaign_participants').delete().eq('id', id).select('id')
+    expect(deleted.error).toBeNull()
+    expect(deleted.data).toEqual([{ id }])
+  })
+
+  it.each(bearerTables)('denies authenticated staff INSERT, UPDATE, and DELETE of %s', async table => {
+    for (const actor of Object.values(actors)) {
+      const inserted = await actor.client.from(table).insert(artifactRow(table, randomUUID()))
+      expect(inserted.error?.code).toBe('42501')
+      const updated = await actor.client.from(table).update(artifactPatch(table)).eq('id', artifactIds[table])
+      expect(updated.error?.code).toBe('42501')
+      const deleted = await actor.client.from(table).delete().eq('id', artifactIds[table])
+      expect(deleted.error?.code).toBe('42501')
+    }
+    const retained = await admin.from(table).select('id').eq('id', artifactIds[table]).single()
+    expect(retained.error).toBeNull()
+    expect(retained.data?.id).toBe(artifactIds[table])
+  })
+
+  it.each(bearerTables)('retains service-role INSERT, UPDATE, and DELETE of %s', async table => {
+    const id = randomUUID()
+    const inserted = await admin.from(table).insert(artifactRow(table, id)).select('id').single()
+    expect(inserted.error).toBeNull()
+    expect(inserted.data?.id).toBe(id)
+    const patch = artifactPatch(table)
+    const updated = await admin.from(table).update(patch).eq('id', id)
+      .select(Object.keys(patch).join(',')).single()
+    expect(updated.error).toBeNull()
+    expect(updated.data).toMatchObject(patch)
+    const deleted = await admin.from(table).delete().eq('id', id).select('id')
+    expect(deleted.error).toBeNull()
+    expect(deleted.data).toEqual([{ id }])
   })
 })
