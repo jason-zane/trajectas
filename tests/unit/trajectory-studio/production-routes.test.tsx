@@ -90,6 +90,12 @@ describe('Production Trajectory entry points', () => {
   it.each(['compare', 'individual', 'unified'] as const)('keeps live %s in its authorized experience without demo controls', (experience) => {
     const html = renderToStaticMarkup(<TrajectoryStudio dataset={{ ...createStudioDemo(), demo: false }} initialExperience={experience} />)
     expect(html.includes('aria-label="Analysis view"')).toBe(experience === 'unified')
+    expect(html).not.toContain('<main')
+    expect(html).not.toContain('data-studio-theme')
+    expect(html).not.toContain('Toggle colour theme')
+    expect(html).not.toContain('Skip to results')
+    expect(html).toContain('Insights</p>')
+    expect(html).toContain('data-slot="button"')
     expect(html).not.toContain('Design experiences')
     expect(html).not.toContain('INTERACTIVE DESIGN REVIEW')
     expect(html).not.toContain('example norm')

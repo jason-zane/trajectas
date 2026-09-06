@@ -18,7 +18,7 @@ The studio provides three interactive directions in the existing Trajectas app. 
 
 Each route fixes its experience on the server and checks the existing portal authorization before loading results. Unified has no client route; the shared entry point also rejects that combination. URL mode parameters cannot change a fixed experience. Live saved views are isolated by client and experience. `/participants/studio` redirects through the admin gate to Unified. Existing saved comparisons and URLs with explicit assessment/session configuration retain their original workspace.
 
-Production shows workspace data and portal navigation. The fictional design preview is disabled in production; the three review URLs remain available locally.
+Production shows workspace data and portal navigation. Live analysis inherits WorkspaceShell spacing and theme, uses the shared PageHeader and Button components, and has no nested main landmark or independent theme control. Long assessment names wrap, and the participant picker keeps its search controls and Load action fixed while the results scroll. The fictional design preview is disabled in production; the three review URLs remain available locally.
 
 The preview contains fictional people, roles, campaigns, assessment structures, results and reference values. The authenticated route uses the existing permission-checked participant search and canvas actions. No database migrations or production data changes are included.
 

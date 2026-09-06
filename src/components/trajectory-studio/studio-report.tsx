@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { assessmentOptions, buildStudioCsv, displayDate, exportRows, referenceOptions, snapshotCaption, snapshotSession, type StudioDataset, type StudioSettings } from '@/lib/trajectory-studio/model'
 import { StudioChart, trajectoryChartLines } from './studio-chart'
 import { StudioSnapshot } from './studio-snapshot'
+import { Button } from '@/components/ui/button'
 import styles from './studio.module.css'
 
 export function StudioExport({ dataset, settings, title, open, onOpenChange }: { dataset: StudioDataset; settings: StudioSettings; title: string; open: boolean; onOpenChange: (value: boolean) => void }) {
@@ -36,11 +37,11 @@ export function StudioExport({ dataset, settings, title, open, onOpenChange }: {
     requestAnimationFrame(() => requestAnimationFrame(() => window.print()))
   }
   return <>
-    <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className={`${styles.dialog} sm:max-w-lg`}><DialogHeader><DialogTitle>Export this view</DialogTitle><DialogDescription>Your result selections and reference are carried into the export.</DialogDescription></DialogHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className={`${styles.dialog} ${dataset.demo ? styles.demoDialog : ''} sm:max-w-lg`}><DialogHeader><DialogTitle>Export this view</DialogTitle><DialogDescription>Your result selections and reference are carried into the export.</DialogDescription></DialogHeader>
       <div className={styles.exportSummary}><FileText size={28} /><div><strong>{displayTitle}</strong><p>{settings.people.length} {settings.people.length === 1 ? 'person' : 'people'} · {scopeName}</p><p>{time ? `${displayDate(settings.from)} – ${displayDate(settings.to)}` : snapshotCaption(dataset.result, settings)}</p><p>Reference: {settings.reference === 'group' ? 'Selected group mean' : reference?.name ?? 'None'}</p></div></div>
       {dataset.demo && <p className={styles.demoNotice}>All demo results and reference values are labelled illustrative.</p>}
       <label className={styles.checkLabel}><input type="checkbox" checked={anonymize} onChange={(e) => setAnonymize(e.target.checked)} /><span><strong>Use anonymous labels</strong><small>Replace names with Person 1, Person 2… and omit session IDs.</small></span></label>
-      <div className={styles.exportActions}><button className={styles.secondaryButton} disabled={!rows.length} onClick={downloadCsv}><Download size={16} />Download CSV</button><button className={styles.primaryButton} disabled={!rows.length} onClick={printReport}><Printer size={16} />Print / save PDF</button></div>
+      <div className={styles.exportActions}><Button variant="outline" disabled={!rows.length} onClick={downloadCsv}><Download size={16} />Download CSV</Button><Button disabled={!rows.length} onClick={printReport}><Printer size={16} />Print / save PDF</Button></div>
       <p className={styles.finePrint}>The PDF includes the current chart and a full results appendix. CSV includes all measured dimensions and factors, scores, reference values, sample sizes, differences and campaign provenance. Missing results are omitted. PDF opens your browser’s print dialog.</p>
     </DialogContent></Dialog>
     <article className={styles.printReport}>
