@@ -1,4 +1,5 @@
 import { getAssessSessionProof, verifyAssessSessionProof } from "@/lib/assess/session-proof";
+import { createAssessRouteTiming } from "@/lib/assess/route-timing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logActionError } from "@/lib/security/action-errors";
 import { checkAssessApiTokenRateLimit } from "@/lib/security/rate-limit";
@@ -26,6 +27,11 @@ const MAX_BATCH_BODY_BYTES = 64 * 1024;
  * by the Service Worker on online/sync events.
  */
 export async function POST(request: Request) {
+  const timing = createAssessRouteTiming();
+  return timing.finish(await handlePost(request, timing));
+}
+
+async function handlePost(request: Request, timing: ReturnType<typeof createAssessRouteTiming>) {
   let body: unknown;
   try {
     body = await parseJsonRequestWithLimit(request, MAX_BATCH_BODY_BYTES);
@@ -49,7 +55,9 @@ export async function POST(request: Request) {
 
   // Per-token budget on top of the proxy's per-IP rule; keyed on the token
   // actually submitted, so it can't be dodged by forging request headers.
-  const rateLimit = await checkAssessApiTokenRateLimit("save-batch", token);
+  const rateLimit = await timing.measure("assess_token_rl", () =>
+    checkAssessApiTokenRateLimit("save-batch", token),
+  );
   if (rateLimit && !rateLimit.allowed) {
     return Response.json(
       { error: "Too many requests" },
@@ -61,7 +69,7 @@ export async function POST(request: Request) {
   }
 
   const db = createAdminClient();
-  const { data, error } = await db.rpc("save_responses_batch_for_session", {
+  const { data, error } = await timing.measure("assess_rpc", () => db.rpc("save_responses_batch_for_session", {
     p_access_token: token,
     p_session_id: sessionId,
     p_saves: saves.map((s) => ({
@@ -72,7 +80,7 @@ export async function POST(request: Request) {
       revision: s.revision ?? 0,
       idempotencyKey: s.idempotencyKey,
     })),
-  });
+  })).catch((error: unknown) => ({ data: null, error }));
 
   if (error) {
     logActionError("apiAssessSaveBatch.rpc", error);
