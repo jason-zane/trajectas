@@ -132,6 +132,7 @@ const adminNav: NavSection[] = [
       { title: "Compare", href: "/participants/compare", icon: Scale },
       { title: "Trajectory", href: "/participants/trajectory", icon: TrendingUp },
       { title: "Unified Trajectory", href: "/participants/unified", icon: Layers },
+      { title: "Business Outcomes", href: "/business-outcomes", icon: BarChart3 },
       { title: "Reports", href: "/reports", icon: FileText },
     ],
   },

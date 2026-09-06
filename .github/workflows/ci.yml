@@ -83,6 +83,17 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Use Python 3.12 for statistical verification
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Verify statistical engine
+        run: |
+          pip install -r requirements.txt
+          python -m unittest discover -s tests/outcomes -v
+
       - name: Run Vitest coverage suite
         run: npm run test:coverage
 
