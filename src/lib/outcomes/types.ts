@@ -73,11 +73,70 @@ export interface Estimate {
   p: number;
   q?: number;
 }
+export interface OutcomePlotPoint {
+  x: number;
+  y: number;
+}
+export interface OutcomeModelTerm {
+  id: string;
+  kind: "capability" | "control" | "campaign" | "intercept";
+  label: string;
+  predictorId: string | null;
+  estimate: Estimate | null;
+  standardError: number | null;
+  statistic: number | null;
+  standardizedBeta: number | null;
+  vif: number | null;
+  reference: { mean: number; minimum: number; maximum: number } | null;
+}
+export interface OutcomeModelDetails {
+  kind: "linear" | "logistic" | "poisson";
+  terms: OutcomeModelTerm[];
+  references: { label: string; value: string }[];
+  residualDf: number;
+  outcomeMean: number;
+  r2: number | null;
+  adjustedR2: number | null;
+  contextR2: number | null;
+  addedR2: number | null;
+  rmse: number | null;
+  deviance: number | null;
+  maxCooksDistance: number | null;
+  dispersion: number | null;
+  jointTest: {
+    value: number;
+    p: number;
+    numeratorDf: number;
+    denominatorDf: number;
+  } | null;
+  contributions: {
+    predictorId: string;
+    deltaR2: number;
+    partialR2: number | null;
+  }[];
+  residualKind: "response" | "deviance";
+  residuals: OutcomePlotPoint[];
+}
+export interface OutcomePlots {
+  predictorIds: string[];
+  metricIds: string[];
+  total: number;
+  points: { scores: (number | null)[]; outcomes: (number | null)[] }[];
+}
+export interface OutcomeReportSections {
+  comparison: boolean;
+  interpretation: boolean;
+  recommendation: boolean;
+  technical: boolean;
+}
+
 export interface OutcomeFinding {
   predictorId: string;
   n: number;
   correlation: Estimate | null;
   spearman: number | null;
+  spearmanTest?: { p: number; q: number } | null;
+  trend?: { slope: number; intercept: number } | null;
   groups: {
     low: number;
     high: number;
@@ -109,6 +168,7 @@ export interface OutcomeMetricResult {
     controls: string[];
     warnings: string[];
     unavailable: string | null;
+    details?: OutcomeModelDetails | null;
   };
   validation: {
     method: string;
@@ -122,6 +182,7 @@ export interface OutcomeMetricResult {
   validationReason: string | null;
 }
 export interface OutcomeResult {
+  plots?: OutcomePlots;
   engineVersion: string;
   libraryVersions: Record<string, string>;
   seed: number;
@@ -164,6 +225,7 @@ export interface OutcomeScenario {
   currency: string;
 }
 export interface OutcomeReportDraft {
+  sections?: OutcomeReportSections;
   metricId: string;
   predictorId: string;
   headline: string;

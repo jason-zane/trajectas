@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   flexRender,
@@ -97,6 +97,8 @@ export interface DataTableProps<TData, TValue> {
   bulkActions?: BulkAction<TData>[];
   hiddenColumns?: string[];
   hideClientPagination?: boolean;
+  /** Disable for long analytical tables that must be visible immediately. */
+  revealOnScroll?: boolean;
   serverPaginationControls?: ReactNode;
 }
 
@@ -116,9 +118,11 @@ export function DataTable<TData, TValue>({
   bulkActions = [],
   hiddenColumns = [],
   hideClientPagination = false,
+  revealOnScroll = true,
   serverPaginationControls,
 }: DataTableProps<TData, TValue>) {
   const router = useRouter();
+  const Reveal = revealOnScroll ? ScrollReveal : Fragment;
   const [sorting, setSorting] = useState<SortingState>(() =>
     defaultSort ? [{ id: defaultSort.id, desc: defaultSort.desc }] : []
   );
@@ -313,7 +317,7 @@ export function DataTable<TData, TValue>({
   }
 
   return (
-    <ScrollReveal>
+    <Reveal>
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm ring-1 ring-foreground/[0.06]">
         {hasToolbar ? (
           <DataTableToolbar
@@ -405,6 +409,6 @@ export function DataTable<TData, TValue>({
           <DataTablePagination table={table} totalCount={data.length} />
         )}
       </div>
-    </ScrollReveal>
+    </Reveal>
   );
 }

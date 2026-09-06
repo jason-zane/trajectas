@@ -22,7 +22,7 @@ from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold
 from sklearn.metrics import mean_absolute_error, brier_score_loss
 import pandas as pd
 
-ENGINE_VERSION = '1.0.0'
+ENGINE_VERSION = '1.1.0'
 SEED = 71423
 
 
@@ -156,6 +156,111 @@ def predictive_validation(rows, metric, predictors, controls):
             'baseline': baseline, 'assessment': assessment, 'improvement': baseline-assessment}, None
 
 
+def sample_indices(n, maximum=240):
+    return np.arange(n) if n <= maximum else np.sort(np.random.default_rng(SEED).choice(n, maximum, replace=False))
+
+
+def plot_number(value):
+    parsed = number(value)
+    return round(parsed, 8) if parsed is not None else None
+
+
+def observation_plot(payload):
+    predictors, metrics, rows = payload['predictors'], payload['config']['metrics'], payload['rows']
+    points = []
+    for index in sample_indices(len(rows)):
+        row = rows[int(index)]
+        outcomes = []
+        for metric in metrics:
+            value = number(row['outcomes'].get(metric['id']))
+            if value is not None and metric.get('exposureColumn'):
+                value /= row['exposures'][metric['id']]
+            outcomes.append(plot_number(value))
+        points.append({'scores': [plot_number(row['scores'].get(p['id'])) for p in predictors], 'outcomes': outcomes})
+    return {'predictorIds': [p['id'] for p in predictors], 'metricIds': [m['id'] for m in metrics],
+            'total': len(rows), 'points': points}
+
+
+def model_details(fitted, design, y, rows, predictors, controls, metric):
+    """Diagnostics use the exact fitted design and complete-case sample.
+
+    Plot samples omit identities and are bounded independently of estimation.
+    Client-report projection must remove plots and individual residuals.
+    """
+    linear = metric['kind'] == 'continuous'
+    ci = fitted.conf_int()
+    terms, contributions = [], []
+    score_keys = [f'score_{i}' for i in range(len(predictors))]
+    context_design = design.drop(columns=score_keys)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', RuntimeWarning)
+        columns = [key for key in design.columns if key != 'const']
+        correlation = np.atleast_2d(np.corrcoef(design[columns].to_numpy(), rowvar=False))
+        precision = np.linalg.inv(correlation)
+        vifs = {key: number(float(precision[i, i])) for i, key in enumerate(columns)}
+    for key in design.columns:
+        predictor = predictors[score_keys.index(key)] if key in score_keys else None
+        reference = None
+        if predictor:
+            kind, label = 'capability', predictor.get('label', predictor['id'])
+            reference = {'mean': float(design[key].mean()), 'minimum': float(design[key].min()), 'maximum': float(design[key].max())}
+        elif key == 'const':
+            kind, label = 'intercept', 'Intercept'
+        elif key.startswith('cohort_'):
+            kind, label = 'campaign', key.removeprefix('cohort_')
+        else:
+            kind = 'control'
+            control_index = int(key.split('_')[1])
+            base_key = f'control_{control_index}'
+            suffix = key[len(base_key):].removeprefix('_')
+            label = controls[control_index]['column'] + (f': {suffix}' if suffix else '')
+        term = {'id': key, 'kind': kind, 'label': label, 'predictorId': predictor['id'] if predictor else None,
+                'estimate': estimate(fitted.params[key], ci.loc[key, 0], ci.loc[key, 1], fitted.pvalues[key]),
+                'standardError': number(float(fitted.bse[key])), 'statistic': number(float(fitted.tvalues[key])),
+                'standardizedBeta': number(float(fitted.params[key]*design[key].std(ddof=1)/np.std(y, ddof=1))) if predictor and linear else None,
+                'vif': vifs.get(key), 'reference': reference}
+        terms.append(term)
+        if predictor and linear:
+            reduced = sm.OLS(y, design.drop(columns=[key])).fit()
+            contributions.append({'predictorId': predictor['id'], 'deltaR2': max(0.0, float(fitted.rsquared-reduced.rsquared)),
+                                  'partialR2': number(float((reduced.ssr-fitted.ssr)/reduced.ssr)) if reduced.ssr > 0 else None})
+    context_fit = sm.OLS(y, context_design).fit() if linear else None
+    residual = fitted.resid if linear else fitted.resid_deviance
+    plotted = [{'x': plot_number(float(fitted.fittedvalues.iloc[int(i)])), 'y': plot_number(float(residual.iloc[int(i)]))}
+               for i in sample_indices(len(rows))]
+    plotted = [p for p in plotted if p['x'] is not None and p['y'] is not None]
+    # Categorical effects are relative to the omitted first level.
+    references = []
+    if len({r['cohort'] for r in rows}) > 1:
+        references.append({'label': 'Campaign', 'value': sorted({r['cohort'] for r in rows})[0]})
+    for i, control in enumerate(controls):
+        if control['kind'] == 'category':
+            references.append({'label': control['column'], 'value': sorted({str(r['controls'][control['column']]) for r in rows})[0]})
+    joint = None
+    if linear:
+        restriction = np.eye(len(design.columns))[[i for i, key in enumerate(design.columns) if key != 'const']]
+        covariance = restriction @ fitted.cov_params().to_numpy() @ restriction.T
+        # Cluster covariance can be singular even when the fitted design is full
+        # rank. Do not present a pseudo-inverse test as a test of every slope.
+        if np.linalg.matrix_rank(covariance) == len(restriction):
+            test = fitted.f_test(restriction)
+            if number(float(test.fvalue)) is not None and number(float(test.pvalue)) is not None:
+                joint = {'value': float(test.fvalue), 'p': float(test.pvalue),
+                         'numeratorDf': int(test.df_num), 'denominatorDf': int(test.df_denom)}
+    return {'kind': 'linear' if linear else ('logistic' if metric['kind'] == 'binary' else 'poisson'),
+            'terms': terms, 'references': references, 'residualDf': int(fitted.df_resid),
+            'outcomeMean': float(np.mean(y)), 'r2': number(float(fitted.rsquared)) if linear else None,
+            'adjustedR2': number(float(fitted.rsquared_adj)) if linear else None,
+            'contextR2': number(float(context_fit.rsquared)) if linear else None,
+            'addedR2': number(float(fitted.rsquared-context_fit.rsquared)) if linear else None,
+            'rmse': number(float(np.sqrt(np.mean(fitted.resid**2)))) if linear else None,
+            'maxCooksDistance': number(float(np.max(fitted.get_influence().cooks_distance[0]))) if linear else None,
+            'deviance': number(float(fitted.deviance)) if not linear else None,
+            'dispersion': number(float(fitted.pearson_chi2/fitted.df_resid)) if not linear and fitted.df_resid > 0 else None,
+            'jointTest': joint, 'contributions': contributions,
+            'residualKind': 'response' if linear else 'deviance', 'residuals': plotted}
+
+
 def analyze_metric(payload, metric):
     rows, predictors, controls = payload['rows'], payload['predictors'], payload['config']['controls']
     observed = [r for r in rows if number(r['outcomes'].get(metric['id'])) is not None]
@@ -168,21 +273,25 @@ def analyze_metric(payload, metric):
         pair = [r for r in observed if number(r['scores'].get(p['id'])) is not None]
         x = np.array([r['scores'][p['id']] for r in pair], dtype=float)
         y = np.array([display_value(r) for r in pair], dtype=float)
-        correlation, spearman = None, None
+        correlation, spearman, spearman_test, trend = None, None, None, None
         reason = 'At least 20 people with variation in both measures are required.'
         if len(pair) >= 20 and np.ptp(x) > 0 and np.ptp(y) > 0:
             pearson = stats.pearsonr(x, y)
             ci = pearson.confidence_interval(.95)
             correlation = estimate(pearson.statistic, ci.low, ci.high, pearson.pvalue)
-            spearman = float(stats.spearmanr(x, y).statistic)
+            rank = stats.spearmanr(x, y)
+            spearman = number(float(rank.statistic))
+            spearman_test = {'p': float(rank.pvalue)} if number(float(rank.pvalue)) is not None else None
+            slope = float(pearson.statistic * y.std(ddof=1) / x.std(ddof=1))
+            trend = {'slope': slope, 'intercept': float(y.mean()-slope*x.mean())}
             reason = None
-        findings.append({'predictorId': p['id'], 'n': len(pair), 'correlation': correlation, 'spearman': spearman,
+        findings.append({'predictorId': p['id'], 'n': len(pair), 'correlation': correlation, 'spearman': spearman, 'spearmanTest': spearman_test, 'trend': trend,
                          'groups': group_comparison(x, y) if len(pair) >= 40 else None, 'adjusted': None, 'adjustedPerSd': None,
                          'scoreMin': float(x.min()) if len(x) else None, 'scoreMax': float(x.max()) if len(x) else None,
                          'scoreMean': float(x.mean()) if len(x) else None, 'status': 'unavailable', 'reason': reason})
     complete = [r for r in observed if all(number(r['scores'].get(p['id'])) is not None for p in predictors)
                 and all(r['controls'].get(c['column']) is not None for c in controls)]
-    model = {'method': '', 'n': len(complete), 'parameters': 0, 'controls': [c['column'] for c in controls], 'warnings': [], 'unavailable': None}
+    model = {'method': '', 'n': len(complete), 'parameters': 0, 'controls': [c['column'] for c in controls], 'warnings': [], 'unavailable': None, 'details': None}
     validation, validation_reason = None, None
     try:
         if len(complete) < 30:
@@ -242,9 +351,16 @@ def analyze_metric(payload, metric):
                 finding['adjustedPerSd'] = estimate(fitted.params[key]*sd, ci.loc[key, 0]*sd, ci.loc[key, 1]*sd, fitted.pvalues[key])
             if any(f['adjusted'] is None for f in findings):
                 raise ValueError('The model returned non-finite uncertainty estimates.')
+        try:
+            model['details'] = model_details(fitted, design, y, complete, predictors, controls, metric)
+            if metric['kind'] == 'continuous' and model['details']['jointTest'] is None:
+                model['warnings'].append('A robust joint F test is unavailable for this fit; inspect individual coefficients and held-out performance.')
+        except (ValueError, np.linalg.LinAlgError, FloatingPointError, ZeroDivisionError):
+            model['warnings'].append('Additional model diagnostics could not be calculated; the fitted association estimates remain available.')
         validation, validation_reason = predictive_validation(complete, metric, predictors, controls)
     except (ValueError, np.linalg.LinAlgError, PerfectSeparationWarning, FloatingPointError) as error:
         model['unavailable'] = str(error)
+        model['details'] = None
         validation_reason = 'Resolve the model data checks before validating prediction.'
         for finding in findings:
             finding['adjusted'] = None
@@ -257,9 +373,9 @@ def analyze_metric(payload, metric):
 def analyze(payload):
     validate(payload)
     results = [analyze_metric(payload, m) for m in payload['config']['metrics']]
-    # Two predeclared study-wide families: adjusted associations (report claims)
-    # and exploratory unadjusted correlations. Never correct only the winners.
-    for field in ('adjusted', 'correlation'):
+    # Separate predeclared study-wide families for adjusted coefficients,
+    # Pearson correlations and Spearman correlations. Never correct only winners.
+    for field in ('adjusted', 'correlation', 'spearmanTest'):
         estimates = [f[field] for result in results for f in result['findings'] if f[field] is not None]
         if estimates:
             adjusted_p = multipletests([e['p'] for e in estimates], method='fdr_bh')[1]
@@ -271,10 +387,15 @@ def analyze(payload):
             if finding['adjustedPerSd'] and adjusted:
                 finding['adjustedPerSd']['q'] = adjusted['q']
             finding['status'] = 'supported' if adjusted and adjusted['q'] < .05 else ('inconclusive' if adjusted or finding['correlation'] else 'unavailable')
+            details = result['model']['details']
+            if details:
+                for term in details['terms']:
+                    if term['predictorId'] == finding['predictorId'] and adjusted:
+                        term['estimate']['q'] = adjusted['q']
             if not adjusted:
                 finding['reason'] = result['model']['unavailable'] or finding['reason']
     output = {'engineVersion': ENGINE_VERSION, 'seed': SEED, 'libraryVersions': {'numpy': np.__version__, 'scipy': scipy.__version__, 'statsmodels': statsmodels.__version__, 'scikit-learn': sklearn.__version__},
-              'results': results, 'warnings': ['Observational associations do not establish the effect of developing a competency.',
+              'results': results, 'plots': observation_plot(payload), 'warnings': ['Observational associations do not establish the effect of developing a competency.',
               'Adjusted models and validation use complete cases. Compare missingness and the inclusion ledger before generalising.',
               'High and low score groups are descriptive quartile contrasts; their intervals do not adjust for business context or campaign dependence.']}
     return output

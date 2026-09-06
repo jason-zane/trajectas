@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback, type ReactNode } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -12,8 +12,8 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/page-header";
 import { DataTable } from "@/components/data-table";
+import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,10 +31,9 @@ import {
 } from "@/app/actions/outcomes";
 import {
   defaultReportDraft,
-  groupComparisonText,
   makeReportPreview,
-  metricValue,
   validateOutcomeReport,
+  reportSections,
 } from "@/lib/outcomes/report";
 import type {
   OutcomeReportDraft,
@@ -45,9 +44,12 @@ import type {
   OutcomeRun,
   OutcomeStudy,
 } from "@/lib/outcomes/types";
-import { csvCell, outcomeConfigSchema } from "@/lib/outcomes/validation";
+import { predictorLabel } from "@/lib/outcomes/analysis";
+import { outcomeConfigSchema } from "@/lib/outcomes/validation";
 import { OutcomeExecutiveReport } from "./executive-report";
-import { OutcomeEffectPlot } from "./effect-plot";
+import { OutcomeAnalysisPanel } from "./analysis-panel";
+import { OutcomePanel as Panel } from "./panel";
+import type { OutcomeReportSelection } from "./regression-panel";
 import { OutcomeField, OutcomeSelect } from "./fields";
 interface WorkspaceProps {
   drafts: { runId: string; draft: OutcomeReportDraft; revision: number }[];
@@ -69,27 +71,6 @@ const tabs = [
   "Analysis",
   "Executive report",
 ] as const;
-function Panel({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="rounded-xl border bg-card p-5 md:p-7">
-      <h2 className="text-lg font-semibold">{title}</h2>
-      {description && (
-        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-          {description}
-        </p>
-      )}
-      <div className="mt-6">{children}</div>
-    </section>
-  );
-}
 function newMetric(index: number): OutcomeMetric {
   return {
     id: `kpi_${Date.now()}_${index}`,
@@ -111,6 +92,13 @@ export function OutcomeWorkspace(props: WorkspaceProps) {
   const [runs, setRuns] = useState(props.runs),
     [reportDirty, setReportDirty] = useState(false),
     [pendingRun, setPendingRun] = useState("");
+  const [reportRequest, setReportRequest] = useState<{
+    id: number;
+    runId: string;
+    selection: OutcomeReportSelection;
+  } | null>(null);
+  const [pendingReport, setPendingReport] =
+    useState<OutcomeReportSelection | null>(null);
   useEffect(() => setRuns(props.runs), [props.runs]);
   const onReportDirty = useCallback(
     (dirty: boolean) => setReportDirty(dirty),
@@ -128,6 +116,19 @@ export function OutcomeWorkspace(props: WorkspaceProps) {
     unsaved = useUnsavedChanges(dirty || reportDirty);
   const active = runs.some((r) => ["queued", "running"].includes(r.status)),
     selectedRun = runs.find((r) => r.id === runId) ?? runs[0];
+  const openFindingReport = (selection: OutcomeReportSelection) => {
+    if (!selectedRun) return;
+    setReportRequest((current) => ({
+      id: (current?.id ?? 0) + 1,
+      runId: selectedRun.id,
+      selection,
+    }));
+    setTab("Executive report");
+  };
+  const changeRun = (id: string) => {
+    setReportRequest(null);
+    setRunId(id);
+  };
   const imported = imports.find((i) => i.id === config.importId);
   useEffect(() => {
     if (!active) return;
@@ -173,7 +174,7 @@ export function OutcomeWorkspace(props: WorkspaceProps) {
     setBusy("");
     if (result.error) fail(result.error);
     else {
-      setRunId(result.data!);
+      changeRun(result.data!);
       setTab("Analysis");
       toast.success("Analysis queued");
       router.refresh();
@@ -904,13 +905,20 @@ export function OutcomeWorkspace(props: WorkspaceProps) {
             )}
           </div>
         )}
-        {tab === "Analysis" &&
-          (selectedRun ? (
-            <AnalysisPanel
+        <div hidden={tab !== "Analysis"}>
+          {selectedRun ? (
+            <OutcomeAnalysisPanel
+              key={selectedRun.id}
+              campaigns={campaigns}
+              onReport={(selection) =>
+                reportDirty
+                  ? setPendingReport(selection)
+                  : openFindingReport(selection)
+              }
               run={selectedRun}
               runs={runs}
               setRunId={(id) =>
-                reportDirty ? setPendingRun(id) : setRunId(id)
+                reportDirty ? setPendingRun(id) : changeRun(id)
               }
             />
           ) : (
@@ -918,10 +926,14 @@ export function OutcomeWorkspace(props: WorkspaceProps) {
               title="Ready when your data is"
               description="Choose the population, map your business data, and run an analysis. Every run keeps its inputs and methods for review."
             />
-          ))}
+          )}
+        </div>
         <div hidden={tab !== "Executive report"}>
           {selectedRun?.result ? (
             <ReportBuilder
+              reportRequest={
+                reportRequest?.runId === selectedRun.id ? reportRequest : null
+              }
               onDirty={onReportDirty}
               key={selectedRun.id}
               savedDraft={props.drafts.find((d) => d.runId === selectedRun.id)}
@@ -939,6 +951,19 @@ export function OutcomeWorkspace(props: WorkspaceProps) {
         </div>
       </div>
       <ConfirmDialog
+        open={!!pendingReport}
+        onOpenChange={(open) => {
+          if (!open) setPendingReport(null);
+        }}
+        title="Use a different finding in the report?"
+        description="This will replace unsaved headline, interpretation and scenario edits with the selected finding. Save the current draft first to keep those edits."
+        confirmLabel="Use selected finding"
+        onConfirm={() => {
+          if (pendingReport) openFindingReport(pendingReport);
+          setPendingReport(null);
+        }}
+      />
+      <ConfirmDialog
         open={!!pendingRun}
         onOpenChange={(open) => {
           if (!open) setPendingRun("");
@@ -947,7 +972,7 @@ export function OutcomeWorkspace(props: WorkspaceProps) {
         description="Save the report draft before changing runs, or discard its unsaved edits."
         confirmLabel="Discard edits"
         onConfirm={() => {
-          setRunId(pendingRun);
+          changeRun(pendingRun);
           setPendingRun("");
           setReportDirty(false);
         }}
@@ -965,318 +990,8 @@ export function OutcomeWorkspace(props: WorkspaceProps) {
     </div>
   );
 }
-function AnalysisPanel({
-  run,
-  runs,
-  setRunId,
-}: {
-  run: OutcomeRun;
-  runs: OutcomeRun[];
-  setRunId: (id: string) => void;
-}) {
-  const [metricId, setMetricId] = useState(
-    run.input.config.metrics[0]?.id ?? "",
-  );
-  const result =
-      run.result?.results.find((r) => r.metricId === metricId) ??
-      run.result?.results[0],
-    metric = run.input.config.metrics.find((m) => m.id === result?.metricId);
-  function download() {
-    if (!result) return;
-    const rows = [
-      [
-        "capability",
-        "n",
-        "pearson_r",
-        "spearman_r",
-        "adjusted_coefficient",
-        "ci_lower",
-        "ci_upper",
-        "p",
-        "q",
-        "status",
-      ],
-      ...result.findings.map((f) => [
-        run.input.predictors.find((p) => p.id === f.predictorId)?.label,
-        f.n,
-        f.correlation?.value,
-        f.spearman,
-        f.adjusted?.value,
-        f.adjusted?.lower,
-        f.adjusted?.upper,
-        f.adjusted?.p,
-        f.adjusted?.q,
-        f.status,
-      ]),
-    ];
-    const url = URL.createObjectURL(
-      new Blob([rows.map((r) => r.map(csvCell).join(",")).join("\r\n")], {
-        type: "text/csv",
-      }),
-    );
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "outcome-analysis.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2">
-        <OutcomeField label="Analysis run">
-          <OutcomeSelect
-            value={run.id}
-            onChange={(e) => setRunId(e.target.value)}
-          >
-            {runs.map((r) => (
-              <option key={r.id} value={r.id}>
-                {new Date(r.createdAt).toLocaleString("en-AU")} · {r.status}
-              </option>
-            ))}
-          </OutcomeSelect>
-        </OutcomeField>
-        <OutcomeField label="Business measure">
-          <OutcomeSelect
-            value={result?.metricId ?? metricId}
-            onChange={(e) => setMetricId(e.target.value)}
-          >
-            {run.input.config.metrics.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </OutcomeSelect>
-        </OutcomeField>
-      </div>
-      <Panel title="People behind the findings">
-        <div className="grid gap-6 sm:grid-cols-3">
-          {[
-            ["Business rows imported", run.input.quality.imported],
-            ["Rows matched to people", run.input.quality.matched],
-            ["Unique people included", run.input.quality.eligible],
-          ].map(([label, value]) => (
-            <div key={label}>
-              <p className="text-xs text-muted-foreground">{label}</p>
-              <p className="mt-2 text-3xl font-semibold tabular-nums">
-                {value}
-              </p>
-            </div>
-          ))}
-        </div>
-        {Object.entries(run.input.quality.excluded).length > 0 && (
-          <div className="mt-5 border-t pt-4 text-sm text-muted-foreground">
-            {Object.entries(run.input.quality.excluded).map(([label, n]) => (
-              <p className="mt-1" key={label}>
-                {n} rows excluded: {label.toLowerCase()}
-              </p>
-            ))}
-          </div>
-        )}
-      </Panel>
-      {run.status !== "completed" && (
-        <Alert variant={run.status === "failed" ? "destructive" : "info"}>
-          <AlertDescription>
-            {run.status === "failed"
-              ? "The analysis could not complete. Review the error and start a new run."
-              : run.status === "queued"
-                ? "Your analysis is queued. This view refreshes automatically."
-                : "The engine is fitting models and checking predictions."}
-            {run.error && <span className="mt-2 block">{run.error}</span>}
-          </AlertDescription>
-        </Alert>
-      )}
-      {result && metric && (
-        <>
-          <Panel
-            title={`Relationships with ${metric.label}`}
-            description="Read effect size, uncertainty and sample coverage together. A supported association passes the study-wide false-discovery correction; it does not establish causation."
-          >
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">
-                Average: {metricValue(result.mean, metric)} · {result.n}{" "}
-                observed · {result.missing} missing
-              </p>
-              <Button variant="outline" onClick={download}>
-                <Download className="size-4" />
-                Export estimates
-              </Button>
-            </div>
-            <OutcomeEffectPlot
-              result={result}
-              predictors={run.input.predictors}
-            />
-            <details className="mb-6 text-sm">
-              <summary className="cursor-pointer font-medium">
-                Observed group comparisons and uncertainty
-              </summary>
-              <div className="mt-3 space-y-3 text-xs leading-relaxed text-muted-foreground">
-                {result.findings.map((f) => (
-                  <p key={f.predictorId}>
-                    {groupComparisonText(
-                      f,
-                      metric,
-                      run.input.predictors.find((p) => p.id === f.predictorId)
-                        ?.label ?? "Capability",
-                    )}
-                  </p>
-                ))}
-              </div>
-            </details>
-            <DataTable
-              data={result.findings}
-              searchableColumns={["status"]}
-              columns={[
-                {
-                  id: "name",
-                  header: "Capability",
-                  cell: ({ row }) => (
-                    <span className="font-medium">
-                      {
-                        run.input.predictors.find(
-                          (p) => p.id === row.original.predictorId,
-                        )?.label
-                      }
-                    </span>
-                  ),
-                },
-                { accessorKey: "n", header: "People" },
-                {
-                  id: "r",
-                  header: "Pearson / Spearman",
-                  cell: ({ row }) =>
-                    `${row.original.correlation?.value.toFixed(3) ?? "—"} / ${row.original.spearman?.toFixed(3) ?? "—"}`,
-                },
-                {
-                  id: "coefficient",
-                  header: "Adjusted coefficient",
-                  cell: ({ row }) =>
-                    row.original.adjusted?.value.toFixed(3) ?? "Unavailable",
-                },
-                {
-                  id: "interval",
-                  header: "95% interval",
-                  cell: ({ row }) => {
-                    const e = row.original.adjusted;
-                    return e
-                      ? `${e.lower.toFixed(3)} to ${e.upper.toFixed(3)}`
-                      : "—";
-                  },
-                },
-                {
-                  id: "q",
-                  header: "FDR q",
-                  cell: ({ row }) =>
-                    row.original.adjusted?.q?.toPrecision(3) ?? "—",
-                },
-                {
-                  accessorKey: "status",
-                  header: "Evidence",
-                  cell: ({ row }) => (
-                    <span
-                      className={
-                        row.original.status === "supported"
-                          ? "font-medium text-primary"
-                          : "text-muted-foreground"
-                      }
-                    >
-                      {row.original.status}
-                    </span>
-                  ),
-                },
-              ]}
-            />
-            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-              Coefficients use native score units. Continuous outcomes: KPI
-              units per one score point. Binary outcomes: log odds per score
-              point. Counts: log rates per score point. Compare correlated
-              capabilities cautiously; coefficient magnitude alone is not an
-              importance ranking.
-            </p>
-          </Panel>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Panel title="Adjusted model">
-              <p className="text-sm leading-relaxed">
-                {result.model.method || "Model unavailable"}
-              </p>
-              <p className="mt-3 text-sm text-muted-foreground">
-                {result.model.n} complete people · {result.model.parameters}{" "}
-                parameters
-                <br />
-                Business controls:{" "}
-                {result.model.controls.join(", ") || "None selected"}
-                <br />
-                All selected assessment capabilities enter together.
-              </p>
-              {result.model.unavailable && (
-                <Alert variant="warning" className="mt-4">
-                  <AlertDescription>
-                    {result.model.unavailable}
-                  </AlertDescription>
-                </Alert>
-              )}
-              {result.model.warnings.map((w) => (
-                <p key={w} className="mt-3 text-sm text-muted-foreground">
-                  {w}
-                </p>
-              ))}
-            </Panel>
-            <Panel
-              title="Does assessment improve prediction?"
-              description="Both models use identical held-out people. Encoding and scaling are fitted inside each training fold."
-            >
-              {result.validation ? (
-                <div>
-                  <p className="text-sm">{result.validation.method}</p>
-                  <div className="mt-5 grid grid-cols-2 gap-5">
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Business context alone
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold tabular-nums">
-                        {result.validation.baseline.toFixed(3)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        With assessment scores
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold tabular-nums">
-                        {result.validation.assessment.toFixed(3)}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="mt-4 text-xs text-muted-foreground">
-                    {result.validation.metric} · lower is better ·{" "}
-                    {result.validation.folds} folds · {result.validation.n}{" "}
-                    people
-                  </p>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {result.validationReason}
-                </p>
-              )}
-            </Panel>
-          </div>
-          <Panel title="Interpretation checks">
-            <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
-              {[...run.input.quality.warnings, ...run.result!.warnings].map(
-                (w, i) => (
-                  <p key={i}>{w}</p>
-                ),
-              )}
-            </div>
-            <p className="mt-5 break-all text-xs text-muted-foreground">
-              Engine {run.result!.engineVersion} · source checksum{" "}
-              {run.input.source.checksum}
-            </p>
-          </Panel>
-        </>
-      )}
-    </div>
-  );
-}
 function ReportBuilder({
+  reportRequest,
   study,
   run,
   reports,
@@ -1284,6 +999,11 @@ function ReportBuilder({
   savedDraft,
   onDirty,
 }: {
+  reportRequest: {
+    id: number;
+    runId: string;
+    selection: OutcomeReportSelection;
+  } | null;
   onDirty: (dirty: boolean) => void;
   savedDraft?: WorkspaceProps["drafts"][number];
   study: OutcomeStudy;
@@ -1304,6 +1024,23 @@ function ReportBuilder({
     [savedDraftJson, setSavedDraftJson] = useState(
       JSON.stringify(savedDraft?.draft ?? defaultReportDraft(run)),
     );
+  const [appliedRequest, setAppliedRequest] = useState<number | null>(null);
+  if (reportRequest && appliedRequest !== reportRequest.id) {
+    setAppliedRequest(reportRequest.id);
+    const { metricId, predictorId, shift } = reportRequest.selection;
+    const next = defaultReportDraft(run, metricId, predictorId);
+    setDraft((current) => ({
+      ...next,
+      sections: current.sections,
+      recommendation: current.recommendation,
+      scenario: {
+        ...next.scenario,
+        ...(shift === undefined ? {} : { enabled: true, shift }),
+      },
+    }));
+    setReviewed(false);
+  }
+  const sections = reportSections(draft);
   const payload = makeReportPreview(study, run, draft),
     dirty =
       JSON.stringify(draft) !== publishedDraftJson &&
@@ -1338,6 +1075,7 @@ function ReportBuilder({
                 patch({
                   ...defaultReportDraft(run, e.target.value, draft.predictorId),
                   recommendation: draft.recommendation,
+                  sections: draft.sections,
                 })
               }
             >
@@ -1355,12 +1093,18 @@ function ReportBuilder({
                 patch({
                   ...defaultReportDraft(run, draft.metricId, e.target.value),
                   recommendation: draft.recommendation,
+                  sections: draft.sections,
                 })
               }
             >
               {run.input.predictors.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.label} · {p.assessment}
+                  {predictorLabel(p, run.input.predictors)}
+                  {run.input.predictors.filter(
+                    (candidate) => candidate.label === p.label,
+                  ).length === 1
+                    ? ` · ${p.assessment}`
+                    : ""}
                 </option>
               ))}
             </OutcomeSelect>
@@ -1391,6 +1135,42 @@ function ReportBuilder({
             />
           </OutcomeField>
         </div>
+        <fieldset className="mt-6 border-t pt-5">
+          <legend className="pt-5 text-sm font-semibold">
+            Executive briefing sections
+          </legend>
+          <p className="mt-2 text-xs text-muted-foreground">
+            These choices are saved with the report and apply to both the client
+            view and PDF.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                ["comparison", "Observed comparison chart"],
+                ["interpretation", "Business interpretation"],
+                ["recommendation", "Recommended next step"],
+                ["technical", "Technical appendix"],
+              ] as const
+            ).map(([key, label]) => (
+              <label
+                key={key}
+                className="flex min-h-10 items-center gap-3 text-sm"
+              >
+                <input
+                  type="checkbox"
+                  className="accent-primary"
+                  checked={sections[key]}
+                  onChange={(e) =>
+                    patch({
+                      sections: { ...sections, [key]: e.target.checked },
+                    })
+                  }
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <div className="mt-6 border-t pt-5">
           <label className="flex items-center gap-3 text-sm font-medium">
             <input
@@ -1487,15 +1267,17 @@ function ReportBuilder({
             scenario into a new report version.
           </p>
         </div>
-        <label className="flex items-center gap-3 text-sm">
-          <input
-            type="checkbox"
-            checked={technical}
-            className="accent-primary"
-            onChange={(e) => setTechnical(e.target.checked)}
-          />
-          Show technical appendix
-        </label>
+        {sections.technical && (
+          <label className="flex items-center gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={technical}
+              className="accent-primary"
+              onChange={(e) => setTechnical(e.target.checked)}
+            />
+            Show technical appendix
+          </label>
+        )}
       </div>
       <OutcomeExecutiveReport payload={payload} technical={technical} />
       <div className="space-y-4 rounded-xl border bg-card p-6">

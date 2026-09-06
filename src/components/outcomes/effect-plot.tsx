@@ -23,7 +23,7 @@ export function OutcomeEffectPlot({
     max = high + pad;
   const x = (value: number) => ((value - min) / (max - min)) * 100;
   return (
-    <figure className="mb-7 rounded-lg border p-5">
+    <figure className="mb-7">
       <figcaption>
         <p className="text-sm font-semibold">
           Compare relationships on a common score scale

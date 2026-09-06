@@ -1,3 +1,4 @@
+import { coefficientContrast } from "./analysis";
 import type {
   OutcomeFinding,
   OutcomeMetric,
@@ -58,29 +59,9 @@ export function scenarioValues(payload: OutcomeReportPayload) {
     throw new Error(
       "Scenarios need a supported, adjusted continuous outcome relationship.",
     );
-  if (
-    finding.scoreMean === null ||
-    finding.scoreMin === null ||
-    finding.scoreMax === null ||
-    finding.scoreMean + scenario.shift < finding.scoreMin ||
-    finding.scoreMean + scenario.shift > finding.scoreMax
-  )
-    throw new Error(
-      "Keep the scenario score shift within the observed score range.",
-    );
-  const delta = finding.adjusted.value * scenario.shift;
-  if (
-    result.mean !== null &&
-    ((metric.minimum !== null && result.mean + delta < metric.minimum) ||
-      (metric.maximum !== null && result.mean + delta > metric.maximum))
-  )
-    throw new Error(
-      "The scenario would move the average outcome beyond its declared scale. Reduce the score shift.",
-    );
-  const interval = [
-    finding.adjusted.lower * scenario.shift,
-    finding.adjusted.upper * scenario.shift,
-  ].sort((a, b) => a - b);
+  const contrast = coefficientContrast(metric, result, finding, scenario.shift);
+  const delta = contrast.value;
+  const interval = [contrast.lower, contrast.upper];
   // An additive business quantity can be monetised only when its per-person,
   // per-period unit conversion is explicitly supplied by the consultant.
   const sign = metric.direction === "higher" ? 1 : -1;
@@ -150,6 +131,7 @@ export function defaultReportDraft(
       : "The available data does not yet establish a clear adjusted relationship. Use the findings to guide further measurement and a larger validation study.",
     recommendation:
       "Test a focused development initiative, define a meaningful KPI change in advance, and measure outcomes against a suitable comparison group.",
+    sections: reportSections(),
     scenario: {
       enabled: false,
       shift: 1,
@@ -195,16 +177,47 @@ export function findingSummary(
     : "Adverse adjusted relationship";
 }
 
+export function reportSections(draft?: Pick<OutcomeReportDraft, "sections">) {
+  return {
+    comparison: true,
+    interpretation: true,
+    recommendation: true,
+    technical: true,
+    ...draft?.sections,
+  };
+}
+
 export function redactSmallOutcomeCells(
   payload: OutcomeReportPayload,
 ): OutcomeReportPayload {
+  const result = { ...payload.result };
+  // Individual plot observations are for the authorised consultant only.
+  delete result.plots;
   return {
     ...payload,
     result: {
-      ...payload.result,
-      results: payload.result.results.map((result) => ({
-        ...result,
-        ...(result.n < 10
+      ...result,
+      results: result.results.map((r) => ({
+        ...r,
+        model: {
+          ...r.model,
+          ...(r.model.details
+            ? {
+                details:
+                  r.model.n < 10
+                    ? null
+                    : {
+                        ...r.model.details,
+                        residuals: [],
+                        references: [],
+                        terms: r.model.details.terms.filter(
+                          (t) => t.kind === "capability",
+                        ),
+                      },
+              }
+            : {}),
+        },
+        ...(r.n < 10
           ? {
               mean: null,
               sd: null,
@@ -213,7 +226,7 @@ export function redactSmallOutcomeCells(
                 "Small-cell output is suppressed in client reports.",
             }
           : {}),
-        findings: result.findings.map((f) =>
+        findings: r.findings.map((f) =>
           f.n < 10
             ? {
                 ...f,
@@ -222,6 +235,8 @@ export function redactSmallOutcomeCells(
                 scoreMean: null,
                 correlation: null,
                 spearman: null,
+                spearmanTest: null,
+                trend: null,
                 groups: null,
                 adjusted: null,
                 adjustedPerSd: null,

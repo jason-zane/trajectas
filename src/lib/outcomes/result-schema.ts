@@ -7,11 +7,70 @@ const estimate = z.object({
   p: finite.min(0).max(1),
   q: finite.min(0).max(1),
 });
+const test = z.object({ p: finite.min(0).max(1), q: finite.min(0).max(1) });
+const point = z.object({ x: finite, y: finite });
+const modelDetails = z.object({
+  kind: z.enum(["linear", "logistic", "poisson"]),
+  terms: z
+    .array(
+      z.object({
+        id: z.string(),
+        kind: z.enum(["capability", "control", "campaign", "intercept"]),
+        label: z.string(),
+        predictorId: z.string().nullable(),
+        estimate: estimate
+          .omit({ q: true })
+          .extend({ q: finite.min(0).max(1).optional() })
+          .nullable(),
+        standardError: finite.nullable(),
+        statistic: finite.nullable(),
+        standardizedBeta: finite.nullable(),
+        vif: finite.nullable(),
+        reference: z
+          .object({ mean: finite, minimum: finite, maximum: finite })
+          .nullable(),
+      }),
+    )
+    .max(160),
+  references: z.array(z.object({ label: z.string(), value: z.string() })),
+  residualDf: z.number().int().min(0),
+  outcomeMean: finite,
+  r2: finite.nullable(),
+  adjustedR2: finite.nullable(),
+  contextR2: finite.nullable(),
+  addedR2: finite.nullable(),
+  rmse: finite.nullable(),
+  deviance: finite.nullable(),
+  maxCooksDistance: finite.nullable(),
+  dispersion: finite.nullable(),
+  jointTest: z
+    .object({
+      value: finite,
+      p: finite.min(0).max(1),
+      numeratorDf: z.number().int(),
+      denominatorDf: z.number().int(),
+    })
+    .nullable(),
+  contributions: z
+    .array(
+      z.object({
+        predictorId: z.string(),
+        deltaR2: finite,
+        partialR2: finite.nullable(),
+      }),
+    )
+    .max(10),
+  residualKind: z.enum(["response", "deviance"]),
+  residuals: z.array(point).max(240),
+});
+
 const finding = z.object({
   predictorId: z.string(),
   n: z.number().int().min(0),
   correlation: estimate.nullable(),
   spearman: finite.nullable(),
+  spearmanTest: test.nullable().optional(),
+  trend: z.object({ slope: finite, intercept: finite }).nullable().optional(),
   groups: z
     .object({
       low: finite,
@@ -32,6 +91,21 @@ const finding = z.object({
   reason: z.string().nullable(),
 });
 export const outcomeResultSchema = z.object({
+  plots: z
+    .object({
+      predictorIds: z.array(z.string()).max(10),
+      metricIds: z.array(z.string()).max(8),
+      total: z.number().int().min(0).max(5000),
+      points: z
+        .array(
+          z.object({
+            scores: z.array(finite.nullable()).max(10),
+            outcomes: z.array(finite.nullable()).max(8),
+          }),
+        )
+        .max(240),
+    })
+    .optional(),
   engineVersion: z.string(),
   libraryVersions: z.record(z.string(), z.string()),
   seed: z.number().int(),
@@ -51,6 +125,7 @@ export const outcomeResultSchema = z.object({
         controls: z.array(z.string()),
         warnings: z.array(z.string()),
         unavailable: z.string().nullable(),
+        details: modelDetails.nullable().optional(),
       }),
       validation: z
         .object({

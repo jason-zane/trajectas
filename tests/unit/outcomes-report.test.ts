@@ -9,133 +9,7 @@ import {
   escapeReportHtml,
   outcomeReportHtml,
 } from "@/lib/outcomes/pdf-document";
-import type { OutcomeReportPayload } from "@/lib/outcomes/types";
-import { EMPTY_OUTCOME_CONFIG } from "@/lib/outcomes/types";
-function report(): OutcomeReportPayload {
-  const metric = {
-    id: "kpi",
-    column: "csat",
-    label: "Customer satisfaction",
-    kind: "continuous" as const,
-    unit: "points",
-    display: "number" as const,
-    direction: "higher" as const,
-    currency: "AUD",
-    minimum: 0,
-    maximum: 100,
-    exposureColumn: "",
-  };
-  return {
-    version: 1,
-    study: {
-      title: "Test study",
-      question: "What is associated with satisfaction?",
-      clientName: "Example",
-    },
-    draft: {
-      metricId: "kpi",
-      predictorId: "p",
-      headline: "A customer satisfaction relationship",
-      interpretation: "Observed association.",
-      recommendation: "Test a targeted initiative.",
-      scenario: {
-        enabled: false,
-        shift: 1,
-        people: 100,
-        periods: 1,
-        valuePerUnit: null,
-        cost: 0,
-        currency: "AUD",
-      },
-    },
-    config: { ...EMPTY_OUTCOME_CONFIG, metrics: [metric] },
-    predictors: [
-      {
-        id: "p",
-        label: "Empathy",
-        assessment: "Service",
-        assessmentId: "a",
-        factorId: "f",
-        scoreField: "scaled_score",
-        scoringMethod: "ctt",
-        metric: "overall",
-        variant: "",
-        parameterScale: "",
-        normVersion: "",
-        normGroupId: "",
-      },
-    ],
-    quality: {
-      imported: 80,
-      matched: 80,
-      eligible: 80,
-      excluded: {},
-      warnings: [],
-    },
-    source: {
-      checksum: "hash",
-      filename: "test.csv",
-      extractedAt: "2026-01-01",
-      formVersions: [],
-    },
-    runId: "run",
-    runCreatedAt: "2026-01-01",
-    result: {
-      engineVersion: "test",
-      seed: 1,
-      libraryVersions: {},
-      warnings: [],
-      results: [
-        {
-          metricId: "kpi",
-          n: 80,
-          missing: 0,
-          mean: 70,
-          sd: 10,
-          findings: [
-            {
-              predictorId: "p",
-              n: 80,
-              correlation: {
-                value: 0.5,
-                lower: 0.3,
-                upper: 0.7,
-                p: 0.01,
-                q: 0.02,
-              },
-              spearman: 0.4,
-              groups: {
-                low: 65,
-                high: 75,
-                lowN: 20,
-                highN: 20,
-                difference: 10,
-                lower: 6,
-                upper: 14,
-              },
-              adjusted: { value: 3, lower: 2, upper: 4, p: 0.01, q: 0.02 },
-              scoreMin: 1,
-              scoreMax: 5,
-              scoreMean: 3,
-              status: "supported",
-              reason: null,
-            },
-          ],
-          model: {
-            method: "Linear regression",
-            n: 80,
-            parameters: 2,
-            controls: [],
-            warnings: [],
-            unavailable: null,
-          },
-          validation: null,
-          validationReason: "Test fixture",
-        },
-      ],
-    },
-  };
-}
+import { outcomeReportFixture as report } from "../fixtures/business-outcomes";
 describe("business outcomes executive reporting", () => {
   it("uses KPI units and does not invent a financial story", () => {
     const p = report();
@@ -234,4 +108,23 @@ it("allows a non-financial draft after clearing the optional money conversion", 
   expect(reportDraftSchema.safeParse(p.draft).success).toBe(true);
   p.draft.scenario.valuePerUnit = 10;
   expect(reportDraftSchema.safeParse(p.draft).success).toBe(false);
+});
+
+it("persists optional report sections and leaves legacy report defaults intact", () => {
+  const p = report();
+  expect(outcomeReportHtml(p)).toContain('class="appendix"');
+  p.draft.sections = {
+    comparison: false,
+    interpretation: false,
+    recommendation: false,
+    technical: false,
+  };
+  expect(reportDraftSchema.parse(p.draft).sections).toEqual(p.draft.sections);
+  const html = outcomeReportHtml(p);
+  expect(html).not.toContain("<figure");
+  expect(html).not.toContain('<section class="meaning"');
+  expect(html).not.toContain('<section class="recommendation"');
+  expect(html).not.toContain('<section class="appendix"');
+  expect(html).toContain("Observed associations do not establish");
+  expect(html).toContain(p.draft.headline);
 });

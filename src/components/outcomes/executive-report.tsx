@@ -5,8 +5,10 @@ import {
   selectedReportFinding,
   scenarioValues,
   findingSummary,
+  reportSections,
 } from "@/lib/outcomes/report";
 import { DataTable } from "@/components/data-table";
+import { predictorLabel } from "@/lib/outcomes/analysis";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 function GroupChart({
   low,
@@ -86,6 +88,13 @@ export function OutcomeExecutiveReport({
     scenarioError =
       error instanceof Error ? error.message : "Review the scenario.";
   }
+  const sections = reportSections(payload.draft);
+  const capabilityLabel = (id: string) => {
+    const capability = payload.predictors.find((p) => p.id === id);
+    return capability
+      ? predictorLabel(capability, payload.predictors)
+      : "Capability";
+  };
   const groups = finding.groups,
     difference = groups?.difference ?? null;
   const money = (n: number) =>
@@ -120,7 +129,7 @@ export function OutcomeExecutiveReport({
           </p>
         </header>
         <section
-          className="grid gap-8 border-y py-8 md:grid-cols-[.85fr_1.15fr]"
+          className={`grid gap-8 border-y py-8 ${sections.comparison ? "md:grid-cols-[.85fr_1.15fr]" : ""}`}
           aria-label="The business finding"
         >
           <div>
@@ -151,24 +160,28 @@ export function OutcomeExecutiveReport({
               {metric.direction === "higher" ? "Higher" : "Lower"} is better
             </p>
           </div>
-          <div>
-            {groups ? (
-              <GroupChart {...groups} metric={metric} />
-            ) : (
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                A reliable high-versus-low score comparison is not available for
-                this sample. The supporting analysis records what can and cannot
-                be concluded.
-              </p>
-            )}
-          </div>
+          {sections.comparison && (
+            <div>
+              {groups ? (
+                <GroupChart {...groups} metric={metric} />
+              ) : (
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  A reliable high-versus-low score comparison is not available
+                  for this sample. The supporting analysis records what can and
+                  cannot be concluded.
+                </p>
+              )}
+            </div>
+          )}
         </section>
-        <section>
-          <h3 className="text-section">What this means for the business</h3>
-          <p className="mt-3 whitespace-pre-line text-base leading-relaxed">
-            {payload.draft.interpretation}
-          </p>
-        </section>
+        {sections.interpretation && (
+          <section>
+            <h3 className="text-section">What this means for the business</h3>
+            <p className="mt-3 whitespace-pre-line text-base leading-relaxed">
+              {payload.draft.interpretation}
+            </p>
+          </section>
+        )}
         {scenarioError && (
           <Alert variant="warning">
             <AlertDescription>{scenarioError}</AlertDescription>
@@ -183,8 +196,13 @@ export function OutcomeExecutiveReport({
                   {metricValue(Math.abs(scenario.delta), metric, true)}
                 </p>
                 <p className="mt-2 text-sm">
-                  {scenario.delta >= 0 ? "Increase" : "Decrease"} in average{" "}
-                  {metric.label.toLowerCase()} per person per outcome period.
+                  {scenario.delta > 0
+                    ? "Increase"
+                    : scenario.delta < 0
+                      ? "Decrease"
+                      : "No change"}{" "}
+                  in average {metric.label.toLowerCase()} per person per outcome
+                  period.
                 </p>
               </div>
               {scenario.gross !== null && (
@@ -216,12 +234,14 @@ export function OutcomeExecutiveReport({
             </p>
           </section>
         )}
-        <section className="grid gap-4 border-t pt-7 md:grid-cols-[.35fr_1fr]">
-          <h3 className="text-section">Recommended next step</h3>
-          <p className="whitespace-pre-line text-sm leading-relaxed">
-            {payload.draft.recommendation}
-          </p>
-        </section>
+        {sections.recommendation && (
+          <section className="grid gap-4 border-t pt-7 md:grid-cols-[.35fr_1fr]">
+            <h3 className="text-section">Recommended next step</h3>
+            <p className="whitespace-pre-line text-sm leading-relaxed">
+              {payload.draft.recommendation}
+            </p>
+          </section>
+        )}
         <footer className="flex flex-wrap gap-x-8 gap-y-2 border-t pt-5 text-xs text-muted-foreground">
           <span>
             {payload.quality.eligible} people included of{" "}
@@ -229,11 +249,15 @@ export function OutcomeExecutiveReport({
           </span>
           <span>Assessment results precede the outcome period</span>
           <span>
+            Observed associations do not establish the effect of a development
+            programme.
+          </span>
+          <span>
             Analysis dated{" "}
             {new Date(payload.runCreatedAt).toLocaleDateString("en-AU")}
           </span>
         </footer>
-        {technical && (
+        {technical && sections.technical && (
           <section
             className="space-y-6 border-t pt-8"
             aria-label="Technical appendix"
@@ -261,6 +285,15 @@ export function OutcomeExecutiveReport({
                     {appendix.model.method || appendix.model.unavailable} ·{" "}
                     {appendix.model.n} complete people
                   </p>
+                  {appendix.model.details?.kind === "linear" && (
+                    <p className="mb-3 text-xs text-muted-foreground">
+                      In-sample R²:{" "}
+                      {appendix.model.details.r2?.toFixed(3) ?? "—"}; adjusted
+                      R²: {appendix.model.details.adjustedR2?.toFixed(3) ?? "—"}
+                      . Added R² beyond context:{" "}
+                      {appendix.model.details.addedR2?.toFixed(3) ?? "—"}.
+                    </p>
+                  )}
                   <DataTable
                     data={appendix.findings}
                     pageSize={10}
@@ -269,9 +302,7 @@ export function OutcomeExecutiveReport({
                         id: "capability",
                         header: "Capability",
                         cell: ({ row }) =>
-                          payload.predictors.find(
-                            (p) => p.id === row.original.predictorId,
-                          )?.label,
+                          capabilityLabel(row.original.predictorId),
                       },
                       { accessorKey: "n", header: "People" },
                       {
@@ -308,8 +339,7 @@ export function OutcomeExecutiveReport({
                           payload.config.metrics.find(
                             (m) => m.id === appendix.metricId,
                           )!,
-                          payload.predictors.find((p) => p.id === f.predictorId)
-                            ?.label ?? "Capability",
+                          capabilityLabel(f.predictorId),
                         )}
                       </p>
                     ))}
