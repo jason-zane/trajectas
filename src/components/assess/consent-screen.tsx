@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { saveConsent } from "@/app/actions/experience";
 import type { ConsentContent } from "@/lib/experience/types";
 import type { ConfidentialityMode } from "@/types/database";
@@ -14,6 +15,8 @@ interface ConsentScreenProps {
   content: ConsentContent;
   /** URL to navigate after consent. Determined server-side from flow config. */
   nextUrl: string;
+  /** Design preview only: never writes consent or navigates. */
+  isPreview?: boolean;
   // Unused in dark-editorial design, but kept in interface for consistency with page API
   brandLogoUrl?: string;
   brandName?: string;
@@ -30,18 +33,28 @@ export function ConsentScreen({
   participantId,
   content,
   nextUrl,
+  isPreview = false,
 }: ConsentScreenProps) {
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const saving = useRef(false);
 
   async function handleContinue() {
-    if (!agreed) return;
+    if (isPreview || !agreed || saving.current) return;
+    saving.current = true;
     setSubmitting(true);
-
-    // Save consent — IP will be captured server-side
-    await saveConsent(token, participantId);
-
-    window.location.href = nextUrl;
+    setSaveError(null);
+    try {
+      // Continue only after the server acknowledges consent persistence.
+      const result = await saveConsent(token, participantId);
+      if (result.error) throw new Error('Consent was not saved');
+      window.location.href = nextUrl;
+    } catch {
+      setSaveError("We couldn’t save your consent. Please try again.");
+      saving.current = false;
+      setSubmitting(false);
+    }
   }
 
   // Parse body lines for rendering
@@ -161,6 +174,12 @@ export function ConsentScreen({
               {content.consentCheckboxLabel}
             </label>
           </div>
+
+          {saveError && (
+            <Alert variant="destructive">
+              <AlertDescription>{saveError}</AlertDescription>
+            </Alert>
+          )}
 
           {/* CTA — one per screen */}
           <div className="pt-2">

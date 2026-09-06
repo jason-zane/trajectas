@@ -73,7 +73,9 @@ test.describe("seeded participant runtime", () => {
     await expect(
       page.getByRole("heading", { name: /this is about how you work best/i })
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Begin assessment" })).toBeVisible();
+    const begin = page.getByRole("link", { name: "Begin assessment" });
+    await expect(begin).toBeVisible();
+    await expect(begin).toHaveAttribute("href", new RegExp(`^/assess/${seededTokens.invited}/`));
   });
 
   test("routes an in-progress participant back into the active section", async ({ page }) => {
