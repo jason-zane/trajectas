@@ -1,3 +1,4 @@
+import { connection } from "next/server"
 import { getPlatformExperienceTemplate } from "@/app/actions/experience";
 import { getCachedPlatformBrand } from "@/app/actions/brand";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -6,6 +7,7 @@ import { PageHeader } from "@/components/page-header";
 import { FlowEditor } from "@/components/flow-editor";
 
 export default async function ExperienceSettingsPage() {
+  await connection()
   const db = createAdminClient()
   const [record, brandRecord, clientsResult] = await Promise.all([
     getPlatformExperienceTemplate(),

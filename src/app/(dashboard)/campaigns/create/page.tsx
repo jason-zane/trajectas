@@ -1,8 +1,10 @@
+import { connection } from "next/server"
 import { CampaignForm } from "../campaign-form";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mapClientRow } from "@/lib/supabase/mappers";
 
 export default async function CreateCampaignPage() {
+  await connection()
   const db = createAdminClient();
   const { data } = await db
     .from("clients")

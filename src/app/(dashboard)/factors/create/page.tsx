@@ -1,3 +1,4 @@
+import { connection } from "next/server"
 import {
   getDimensionsForSelect,
   getConstructsForSelect,
@@ -8,6 +9,7 @@ import { getLibraryCategories } from "@/app/actions/categories";
 import { FactorForm } from "../factor-form";
 
 export default async function CreateFactorPage() {
+  await connection()
   const [dimensions, constructs, clients, contentSources, categories] = await Promise.all([
     getDimensionsForSelect(),
     getConstructsForSelect(),

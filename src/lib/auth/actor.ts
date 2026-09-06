@@ -59,25 +59,27 @@ async function resolveSessionActorImpl(): Promise<ResolvedActor | null> {
   if (!userId) return null;
 
   const db = createAdminClient();
-  const [profileResult, partnerMembershipResult, clientMembershipResult, activeContext] =
-    await Promise.all([
-      db
-        .from("profiles")
-        .select("id, email, role, display_name, is_active")
-        .eq("id", userId)
-        .single(),
-      db
-        .from("partner_memberships")
-        .select("id, partner_id, role, is_default, created_at")
-        .eq("profile_id", userId)
-        .is("revoked_at", null),
-      db
-        .from("client_memberships")
-        .select("id, client_id, role, is_default, created_at")
-        .eq("profile_id", userId)
-        .is("revoked_at", null),
-      resolveSignedActiveContext(),
-    ]);
+  // Fetch the profile and its active memberships in one database snapshot.
+  // Pin each join to profile_id: created_by/revoked_by also reference profiles.
+  // Left joins retain platform admins and accounts with no memberships.
+  const [profileResult, activeContext] = await Promise.all([
+    db
+      .from("profiles")
+      .select(`
+        id, email, role, display_name, is_active,
+        partner_memberships!partner_memberships_profile_id_fkey(
+          id, partner_id, role, is_default, created_at
+        ),
+        client_memberships!client_memberships_profile_id_fkey(
+          id, client_id, role, is_default, created_at
+        )
+      `)
+      .eq("id", userId)
+      .is("partner_memberships.revoked_at", null)
+      .is("client_memberships.revoked_at", null)
+      .single(),
+    resolveSignedActiveContext(),
+  ]);
 
   if (profileResult.error || !profileResult.data) {
     return null;
@@ -89,8 +91,8 @@ async function resolveSessionActorImpl(): Promise<ResolvedActor | null> {
     role: profileResult.data.role,
     displayName: profileResult.data.display_name,
     isActive: profileResult.data.is_active,
-    partnerMemberships: (partnerMembershipResult.data ?? []).map(mapPartnerMembership),
-    clientMemberships: (clientMembershipResult.data ?? []).map(mapClientMembership),
+    partnerMemberships: (profileResult.data.partner_memberships ?? []).map(mapPartnerMembership),
+    clientMemberships: (profileResult.data.client_memberships ?? []).map(mapClientMembership),
     activeContext,
   };
 }
