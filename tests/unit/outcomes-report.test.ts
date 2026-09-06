@@ -17,6 +17,8 @@ describe("business outcomes executive reporting", () => {
     expect(scenarioValues(p)).toBeNull();
     const html = outcomeReportHtml(p);
     expect(html).toContain("Customer satisfaction");
+    expect(html).toContain('aria-label="Trajectas"');
+    expect(html).not.toContain("trajectas<span");
     expect(html).not.toContain("Estimated gross value");
     expect(html).toContain("Observed difference");
     expect(html).toContain("Evidence and methods");

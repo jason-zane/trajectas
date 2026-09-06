@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLogo, BrandFooter } from "@/components/brand/brand-logo";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, AlertCircle, ArrowLeft } from "lucide-react";
@@ -134,40 +136,7 @@ export function ReviewScreen({
         className="flex items-center justify-between px-6 py-6 sm:px-10 lg:px-[120px]"
       >
         <div className="flex items-center gap-2.5">
-          {brandLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- brand logo URLs are runtime-configured and can point to arbitrary remote assets
-            <img
-              src={brandLogoUrl}
-              alt={brandName ?? "Logo"}
-              className="h-6 w-auto object-contain"
-            />
-          ) : (
-            <div className="flex items-center gap-2">
-              <svg
-                className="size-[15px]"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{
-                  color: "var(--runner-accent, var(--brand-accent, hsl(var(--primary))))",
-                }}
-              >
-                <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-              <span
-                className="text-[13px] font-semibold tracking-tight"
-                style={{
-                  color: "var(--runner-text, hsl(var(--foreground)))",
-                }}
-              >
-                {brandName ?? "Trajectas"}
-              </span>
-            </div>
-          )}
+          <BrandLogo name={brandName} logoUrl={brandLogoUrl} height={28} runner />
         </div>
 
         <button
@@ -396,8 +365,8 @@ export function ReviewScreen({
             color: "var(--runner-text-faint, hsl(var(--muted-foreground)))",
           }}
         >
-          {content.footerText ??
-            (isCustomBrand ? "Powered by Trajectas" : "Your responses are confidential")}
+          <BrandFooter text={content.footerText ??
+            (isCustomBrand ? "Powered by Trajectas" : "Your responses are confidential")} runner />
         </span>
         {privacyUrl && (
           <a

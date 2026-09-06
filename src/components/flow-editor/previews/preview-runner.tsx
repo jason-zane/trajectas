@@ -1,5 +1,7 @@
 "use client"
 
+import { TrajectasLogo } from "@/components/brand/trajectas-logo";
+
 import type { RunnerContent } from "@/lib/experience/types"
 
 interface PreviewRunnerProps {
@@ -36,22 +38,7 @@ export function PreviewRunner({ content }: PreviewRunnerProps) {
         className="flex items-center justify-between px-6 py-4"
         style={{ borderBottom: `1px solid var(--runner-hairline)` }}
       >
-        <div className="flex items-center gap-2">
-          <div
-            className="size-5 rounded"
-            style={{ backgroundColor: "var(--runner-accent)" }}
-          />
-          <span
-            className="text-sm font-semibold"
-            style={{
-              color: "var(--runner-text)",
-              fontFamily: '"Source Serif 4", Georgia, serif',
-              fontWeight: 600,
-            }}
-          >
-            Trajectas
-          </span>
-        </div>
+        <TrajectasLogo variant="horizontal" runner height={26} />
         <button
           type="button"
           className="text-[10px] transition-colors"

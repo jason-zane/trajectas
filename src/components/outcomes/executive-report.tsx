@@ -1,3 +1,4 @@
+import { TrajectasLogo } from "@/components/brand/trajectas-logo";
 import type { OutcomeMetric, OutcomeReportPayload } from "@/lib/outcomes/types";
 import {
   metricValue,
@@ -107,9 +108,7 @@ export function OutcomeExecutiveReport({
     <article className="overflow-hidden rounded-2xl border bg-card text-card-foreground shadow-sm">
       <div className="border-b px-6 py-5 md:px-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-lg font-extrabold tracking-tight">
-            trajectas<span className="text-primary">.</span>
-          </span>
+          <TrajectasLogo variant="wordmark" height={26} />
           <span className="text-xs uppercase tracking-widest text-muted-foreground">
             Business Outcomes · {payload.study.clientName}
           </span>

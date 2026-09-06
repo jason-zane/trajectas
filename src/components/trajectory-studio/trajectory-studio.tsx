@@ -122,7 +122,7 @@ function StudioWorkspace({ dataset, initialExperience = 'compare', initialLens, 
   return <div className={`${styles.studio} ${dataset.demo ? styles.withRail : styles.live}`}>
     {dataset.demo && <a href="#studio-main" className={styles.skipLink}>Skip to results</a>}
     {dataset.demo && <aside className={styles.reviewRail}>
-      <Image src="/brand/span-lockup-horizontal-light.svg" alt="Trajectas" width={151} height={40} className={styles.brand} priority />
+      <Image src="/brand/span-lockup-horizontal-light.svg" alt="Trajectas" width={187} height={40} className={styles.brand} priority />
       <div className={styles.railWorkspace}><span className={styles.workspaceInitial}>N</span><div><strong>{dataset.workspaceName}</strong><span>Design workspace</span></div></div>
       <p className={styles.railLabel}>THREE WAYS TO SEE MORE</p>
       <nav aria-label="Design experiences">{experiences.map(({ id, number, name, caption, icon: Icon }) => <button key={id} className={experience === id ? styles.railActive : ''} onClick={() => switchExperience(id)} aria-current={experience === id ? 'page' : undefined}><span className={styles.railNavTitle}><Icon size={18} /><strong>{name}</strong></span><span className={styles.railNavCaption}>{caption}</span><span className={styles.railNumber}>{number}</span></button>)}</nav>

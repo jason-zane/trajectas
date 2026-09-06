@@ -20,6 +20,10 @@ Every page in this platform must feel premium and intentional. Follow these patt
 - Meta/counts: use `.text-caption` class
 - Eyebrow labels: use `.text-overline` class with taxonomy-appropriate colour
 
+## Platform identity
+
+Follow [the approved Trajectas identity](brand-identity.md): lowercase wordmark without a full stop, paired with the existing Span mark. Use the shared brand components for site and report signatures.
+
 ## Colour Usage
 - Never use raw hex/oklch values in components — always reference CSS variables or Tailwind utilities
 - Brand tokens are unified across admin/partner/client portals — no per-portal primary hue

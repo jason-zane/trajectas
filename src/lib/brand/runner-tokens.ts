@@ -201,6 +201,9 @@ export function generateRunnerTokens(config: BrandConfig): RunnerTokens {
   t['--runner-save-dot'] = SAVE_DOT
   t['--runner-progress'] = a.accent
 
+  t['--runner-logo-mark'] = mode === 'dark' ? '#ffffff' : '#2d6a5a'
+  t['--runner-logo-wordmark'] = mode === 'dark' ? '#ffffff' : '#1a1a1a'
+
   if (mode === 'dark') {
     // Surfaces
     t['--runner-page'] =

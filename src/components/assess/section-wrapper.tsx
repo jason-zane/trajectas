@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLogo, BrandFooter } from "@/components/brand/brand-logo";
+
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -580,41 +582,7 @@ export function SectionWrapper({
       >
         {/* Logo left */}
         <div className="flex items-center gap-2.5">
-          {brandLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- brand logo URLs are runtime-configured and can point to arbitrary remote assets
-            <img
-              src={brandLogoUrl}
-              alt={brandName ?? "Logo"}
-              className="h-6 w-auto object-contain"
-            />
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <div
-                className="flex size-6 items-center justify-center rounded-lg"
-                style={{ background: "var(--runner-ghost-fill)" }}
-              >
-                <svg
-                  className="size-3.5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ color: "var(--runner-accent)" }}
-                >
-                  <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-              </div>
-              <span
-                className="text-xs font-semibold"
-                style={{ color: "var(--runner-text)" }}
-              >
-                {brandName ?? "Trajectas"}
-              </span>
-            </div>
-          )}
+          <BrandLogo name={brandName} logoUrl={brandLogoUrl} height={28} runner />
         </div>
 
         {/* Right side: section + completion % + timer + back button */}
@@ -803,7 +771,7 @@ export function SectionWrapper({
             className="text-xs"
             style={{ color: "var(--runner-text-faint)" }}
           >
-            {runnerContent?.footerText ?? "Powered by Trajectas"}
+            <BrandFooter text={runnerContent?.footerText ?? "Powered by Trajectas"} runner />
           </span>
         )}
       </footer>

@@ -1,3 +1,4 @@
+import { TrajectasLogo } from "@/components/brand/trajectas-logo";
 import { notFound } from 'next/navigation'
 import { verifyInstrumentReportPdfToken } from '@/lib/reports/pdf-token'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -53,7 +54,8 @@ export default async function PrintInstrumentReportPage({
         }
       `}</style>
 
-      <div className="page-break flex flex-col justify-center gap-8 px-12 py-24 text-center">
+      <div className="page-break flex flex-col items-center justify-center gap-8 px-12 py-24 text-center">
+        <TrajectasLogo variant="horizontal" height={32} />
         <div>
           <h1 className="text-4xl font-bold">{instrumentName}</h1>
           <p className="mt-2 text-lg text-gray-600">Technical Report</p>

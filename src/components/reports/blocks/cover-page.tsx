@@ -1,3 +1,4 @@
+import { BrandLogo, BrandFooter } from "@/components/brand/brand-logo";
 import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
 
 interface CoverPageData {
@@ -105,32 +106,12 @@ export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?:
         <span className="font-mono text-[11px] tracking-[0.16em]" style={{ color: 'rgba(255,255,255,0.4)' }}>
           {date ? date.toUpperCase() : ''}
         </span>
-        {(d.showPoweredBy || (d.showLogo !== false && d.primaryLogoUrl)) && (
+        {(d.showPoweredBy || d.showLogo !== false) && (
           <span className="flex flex-col items-end gap-2">
-            {d.showLogo !== false && d.primaryLogoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={d.primaryLogoUrl} alt="Logo" className="h-7 object-contain opacity-70" />
+            {d.showLogo !== false ? (
+              <BrandLogo name="Trajectas" logoUrl={d.primaryLogoUrl} light height={28} />
             ) : (
-              <span className="flex items-center gap-2">
-                <svg
-                  viewBox="0 0 64 64"
-                  width="15"
-                  height="15"
-                  role="img"
-                  aria-label="Trajectas"
-                  className="opacity-70"
-                >
-                  <rect x="9" y="46" width="7" height="10" rx="3.5" fill="currentColor" />
-                  <rect x="22" y="36" width="7" height="20" rx="3.5" fill="currentColor" />
-                  <rect x="35" y="24" width="7" height="32" rx="3.5" fill="currentColor" />
-                  <rect x="48" y="10" width="7" height="46" rx="3.5" fill="#c9a962" />
-                </svg>
-                {d.showPoweredBy && d.poweredByText && (
-                  <span className="font-mono text-[10px] tracking-[0.2em] uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                    {d.poweredByText.replace(/^powered by\s*/i, '')}
-                  </span>
-                )}
-              </span>
+              <BrandFooter text={d.poweredByText || 'Powered by Trajectas'} light />
             )}
           </span>
         )}

@@ -1,3 +1,4 @@
+import { trajectasSvg } from "@/lib/brand/svg";
 import { ImageResponse } from "next/og";
 import {
   PUBLIC_SITE_DESCRIPTION,
@@ -52,23 +53,8 @@ export default async function OpengraphImage() {
             zIndex: 1,
           }}
         >
-          {/* Four-pill mark */}
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
-            <div style={{ width: 10, height: 22, background: CREAM, borderRadius: 3, display: "flex" }} />
-            <div style={{ width: 10, height: 32, background: CREAM, borderRadius: 3, display: "flex" }} />
-            <div style={{ width: 10, height: 44, background: CREAM, borderRadius: 3, display: "flex" }} />
-            <div style={{ width: 10, height: 56, background: GOLD_500, borderRadius: 3, display: "flex" }} />
-          </div>
-          <span
-            style={{
-              fontSize: 32,
-              fontWeight: 700,
-              letterSpacing: "-0.01em",
-              color: CREAM,
-            }}
-          >
-            {PUBLIC_SITE_NAME}
-          </span>
+          {/* The approved outlined logo, embedded in the generated social image. */}
+          <img src={`data:image/svg+xml;base64,${btoa(trajectasSvg({ variant: 'horizontal', height: 60, light: true }))}`} width={280.5} height={60} alt="Trajectas" />
         </div>
 
         {/* Tagline + supporting copy */}

@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
+
 import { Download, Printer } from "lucide-react";
 import { ReportRenderer } from "@/components/reports/report-renderer";
 import type { ReportContent } from "@/lib/experience/types";
@@ -73,17 +75,7 @@ export function ReportExportScreen({
                 </p>
               </div>
               <div className="shrink-0 text-right">
-                {brandLogoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- export rendering uses runtime brand URLs without image optimization
-                  <img
-                    src={brandLogoUrl}
-                    alt={brandName ?? "Brand logo"}
-                    className="ml-auto h-10 w-auto object-contain"
-                  />
-                ) : null}
-                <p className="mt-3 text-sm font-medium text-foreground">
-                  {brandName ?? "Trajectas"}
-                </p>
+                <BrandLogo name={brandName} logoUrl={brandLogoUrl} height={28}  />
               </div>
             </div>
           </header>

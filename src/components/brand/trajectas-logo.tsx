@@ -1,80 +1,67 @@
 import { cn } from "@/lib/utils";
+import { WORDMARK_PATH, WORDMARK_WIDTH } from "@/lib/brand/wordmark-path";
 
-type Variant = "mark" | "horizontal" | "stacked" | "wordmark";
+export type TrajectasLogoVariant = "mark" | "horizontal" | "stacked" | "wordmark";
 
 interface TrajectasLogoProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: Variant;
-  /** Use the light treatment (white pills + white wordmark) for dark grounds. */
+  variant?: TrajectasLogoVariant;
+  /** White wordmark and Span, with the gold accent, for dark grounds. */
   light?: boolean;
-  /** Mark-only variant: use the gold accent on the tallest pill. */
+  /** Use the assessment runner's light/dark logo tokens. */
+  runner?: boolean;
   gold?: boolean;
-  /** Pixel height of the rendered logo. Width scales by the asset aspect ratio. */
   height?: number;
   title?: string;
 }
 
-function resolveSrc({
-  variant,
-  light,
-  gold,
-}: Required<Pick<TrajectasLogoProps, "variant" | "light" | "gold">>): string {
-  switch (variant) {
-    case "horizontal":
-      return light
-        ? "/brand/span-lockup-horizontal-light.svg"
-        : "/brand/span-lockup-horizontal.svg";
-    case "stacked":
-      return light
-        ? "/brand/span-lockup-stacked-light.svg"
-        : "/brand/span-lockup-stacked.svg";
-    case "wordmark":
-      return light
-        ? "/brand/span-wordmark-light.svg"
-        : "/brand/span-wordmark.svg";
-    case "mark":
-    default:
-      if (light) {
-        return gold ? "/brand/span-mark-light-gold.svg" : "/brand/span-mark-light.svg";
-      }
-      return "/brand/span-mark.svg";
-  }
-}
-
-/**
- * The Trajectas mark — the "Span" pills + wordmark in approved lockups.
- *
- * Honour the brand book: clear space = one pill width, sage + gold only,
- * never stretch, rotate, recolour, or add effects.
- */
+/** Approved identity: lowercase trajectas, no full stop, with the original Span. */
 export function TrajectasLogo({
   variant = "mark",
   light = false,
+  runner = false,
   gold = true,
   height = 32,
   className,
   title = "Trajectas",
+  style,
   ...rest
 }: TrajectasLogoProps) {
-  const src = resolveSrc({ variant, light, gold });
+  const primary = runner ? "var(--runner-logo-mark, #2d6a5a)" : light ? "#ffffff" : "#2d6a5a";
+  const ink = runner ? "var(--runner-logo-wordmark, #1a1a1a)" : light ? "#ffffff" : "#1a1a1a";
+  const accent = gold ? "#c9a962" : primary;
+  const width = variant === "mark" ? 64 : variant === "stacked" ? 120 : WORDMARK_WIDTH + (variant === "horizontal" ? 49 : 0);
+  const viewHeight = variant === "mark" ? 64 : variant === "stacked" ? 106 : 40;
+  const wordTransform = variant === "stacked"
+    ? `translate(${(120 - WORDMARK_WIDTH * .7) / 2} 94) scale(.0238 -.0238)`
+    : `translate(${variant === "horizontal" ? 49 : 0} 29) scale(.034 -.034)`;
 
   return (
     <span
-      role="img"
-      aria-label={title}
-      className={cn("inline-flex items-center align-middle", className)}
-      style={{ height }}
+      role={title ? "img" : undefined}
+      aria-label={title || undefined}
+      aria-hidden={title ? undefined : true}
+      className={cn("inline-flex shrink-0 items-center align-middle", className)}
+      style={{ height, ...style }}
       {...rest}
     >
-      {/* Plain <img> keeps the SVG inlined as text (preserves crisp scaling
-          and avoids next/image priority cost for a tiny inline asset). */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={title}
+      <svg
+        viewBox={`0 0 ${width} ${viewHeight}`}
+        width={width / viewHeight * height}
         height={height}
-        style={{ height, width: "auto", display: "block" }}
-        draggable={false}
-      />
+        aria-hidden="true"
+        focusable="false"
+        style={{ display: "block", height, width: "auto" }}
+      >
+        {variant !== "wordmark" && (
+          <g transform={variant === "horizontal" ? "scale(.625)" : variant === "stacked" ? "translate(28 0)" : undefined}>
+            <rect x="9" y="46" width="7" height="10" rx="3.5" fill={primary} />
+            <rect x="22" y="36" width="7" height="20" rx="3.5" fill={primary} />
+            <rect x="35" y="24" width="7" height="32" rx="3.5" fill={primary} />
+            <rect x="48" y="10" width="7" height="46" rx="3.5" fill={accent} />
+          </g>
+        )}
+        {variant !== "mark" && <path d={WORDMARK_PATH} transform={wordTransform} fill={ink} />}
+      </svg>
     </span>
   );
 }

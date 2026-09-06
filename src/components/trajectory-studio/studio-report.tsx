@@ -1,5 +1,7 @@
 'use client'
 
+import { TrajectasLogo } from "@/components/brand/trajectas-logo";
+
 import { useState } from 'react'
 import { Download, FileText, Printer } from 'lucide-react'
 import { toast } from 'sonner'
@@ -45,7 +47,7 @@ export function StudioExport({ dataset, settings, title, open, onOpenChange }: {
       <p className={styles.finePrint}>The PDF includes the current chart and a full results appendix. CSV includes all measured dimensions and factors, scores, reference values, sample sizes, differences and campaign provenance. Missing results are omitted. PDF opens your browser’s print dialog.</p>
     </DialogContent></Dialog>
     <article className={styles.printReport}>
-      <header><span>TRAJECTAS · {dataset.workspaceName}</span><h1>{displayTitle}</h1><p>{scopeName} · {time ? 'Over time' : 'Snapshot'} · {settings.people.length} selected {settings.people.length === 1 ? 'person' : 'people'}</p><p>{time ? `${displayDate(settings.from)} – ${displayDate(settings.to)}` : snapshotCaption(dataset.result, settings)}</p></header>
+      <header><div className="flex items-center gap-3"><TrajectasLogo variant="wordmark" height={24} /><span>{dataset.workspaceName}</span></div><h1>{displayTitle}</h1><p>{scopeName} · {time ? 'Over time' : 'Snapshot'} · {settings.people.length} selected {settings.people.length === 1 ? 'person' : 'people'}</p><p>{time ? `${displayDate(settings.from)} – ${displayDate(settings.to)}` : snapshotCaption(dataset.result, settings)}</p></header>
       {dataset.demo && <p><strong>ILLUSTRATIVE DEMO DATA — fictional people, results and reference values.</strong></p>}
       <p>Scaled scores, 0–100. Each assessment retains its own measures and reference basis. {time ? 'Change is latest minus first for each measure, in the selected history range.' : 'Each person contributes one selected completed campaign result per assessment. Missing measures are not filled from earlier attempts.'}</p>
       {settings.reference === 'group' ? <><p><strong>Reference: selected group mean.</strong> The arithmetic mean of available scores in the selected snapshot results, calculated separately for each measure. Includes the person being compared; n varies with missing scores. At least two results are required. This is a descriptive average, not a population norm.{time && ' This reference is fixed for the full history; it is not a changing cohort average.'}</p><div className={styles.reportSources}>{settings.people.map((key, index) => { const session = snapshotSession(dataset.result, key, settings); return <p key={key}>{nameFor(key, index)}: {session ? `${session.campaignTitle} · ${displayDate(session.completedAt)} · attempt ${session.attemptNumber}` : 'No reference result selected'}</p> })}</div></> : reference && <p><strong>Reference: {reference.name}.</strong> {reference.description} Version: {reference.version}.</p>}
@@ -60,7 +62,7 @@ export function StudioExport({ dataset, settings, title, open, onOpenChange }: {
         const columnCount = 2 + (time ? 3 : 0) + (hasReference ? 2 : 0)
         return <section key={`${key}-${a.id}`}>{!ownRows.length ? <><h2>{nameFor(key, index)} · {a.name}</h2><p>No completed result in this scope.</p></> : <table><thead><tr><th colSpan={columnCount} className={styles.reportPersonHeader}>{nameFor(key, index)} · {a.name}</th></tr>{!time && <tr><th colSpan={columnCount}>{source?.campaignTitle} · {displayDate(source?.completedAt)} · attempt {source?.attemptNumber}</th></tr>}<tr><th>Measure</th><th>Score</th>{time && <><th>Date / campaign / attempt</th><th>Baseline</th><th>Change</th></>}{hasReference && <><th>Reference / n</th><th>Difference</th></>}</tr></thead><tbody>{ownRows.map((r, rowIndex) => <tr key={rowIndex}><td>{r.measure}</td><td>{r.score}</td>{time && <><td>{displayDate(r.completed)}<br />{r.campaign} / {r.attempt}</td><td>{displayDate(r.baseline)}</td><td>{r.change || '—'}</td></>}{hasReference && <><td>{r.referenceValue || '—'}{r.referenceN && ` / n=${r.referenceN}`}</td><td>{r.difference || '—'}</td></>}</tr>)}</tbody></table>}</section>
       }))}
-      <footer>Trajectas · {dataset.demo ? 'Design review / illustrative data' : 'Confidential assessment results'}</footer>
+      <footer><TrajectasLogo variant="wordmark" height={16} /> · {dataset.demo ? 'Design review / illustrative data' : 'Confidential assessment results'}</footer>
     </article>
   </>
 }

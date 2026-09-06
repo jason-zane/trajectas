@@ -1,5 +1,7 @@
 "use client"
 
+import { BrandLogo, BrandFooter } from "@/components/brand/brand-logo";
+
 interface PreviewShellProps {
   brandName?: string
   children: React.ReactNode
@@ -33,20 +35,7 @@ export function PreviewShell({ brandName = "Trajectas", children, footerText }: 
           borderBottom: `1px solid var(--runner-hairline)`,
         }}
       >
-        <div
-          className="size-5 rounded"
-          style={{ backgroundColor: "var(--runner-accent)" }}
-        />
-        <span
-          className="text-sm font-semibold"
-          style={{
-            color: "var(--runner-text)",
-            fontFamily: '"Source Serif 4", Georgia, serif',
-            fontWeight: 600,
-          }}
-        >
-          {brandName}
-        </span>
+        <BrandLogo name={brandName} runner height={26} />
       </div>
 
       {/* Content */}
@@ -64,7 +53,7 @@ export function PreviewShell({ brandName = "Trajectas", children, footerText }: 
             fontSize: "0.6875rem",
           }}
         >
-          <span>{footerText}</span>
+          <span><BrandFooter text={footerText} runner /></span>
         </div>
       )}
     </div>

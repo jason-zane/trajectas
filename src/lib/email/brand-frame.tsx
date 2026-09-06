@@ -1,3 +1,4 @@
+import { isTrajectasName, isTrajectasLogoUrl, TRAJECTAS_EMAIL_LOGO } from '@/lib/brand/identity'
 import {
   Body,
   Container,
@@ -29,6 +30,8 @@ export function EmailBrandFrame({
   previewText,
   bodyHtml,
 }: BrandFrameProps) {
+  const logoUrl = isTrajectasLogoUrl(brandLogoUrl) || (!brandLogoUrl && isTrajectasName(brandName))
+    ? TRAJECTAS_EMAIL_LOGO : brandLogoUrl
   return (
     <Html>
       <Head />
@@ -54,9 +57,9 @@ export function EmailBrandFrame({
               padding: '40px 32px',
             }}
           >
-            {brandLogoUrl ? (
+            {logoUrl ? (
               <Img
-                src={brandLogoUrl}
+                src={logoUrl}
                 alt={brandName}
                 height={32}
                 style={{ marginBottom: '24px' }}
