@@ -73,7 +73,26 @@ test.describe("seeded participant runtime", () => {
     await expect(
       page.getByRole("heading", { name: /this is about how you work best/i })
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Begin assessment" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Begin assessment" })).toBeVisible();
+  });
+
+  test("welcome navigation works before JavaScript loads", async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ baseURL, javaScriptEnabled: false });
+    try {
+      const page = await context.newPage();
+      await page.goto(`/assess/${seededTokens.invited}/welcome`);
+      const begin = page.getByRole("link", { name: "Begin assessment" });
+      const destination = await begin.getAttribute("href");
+      expect(destination).toMatch(new RegExp(`^/assess/${seededTokens.invited}/`));
+      // Prove native navigation without starting/mutating the shared seeded session.
+      await page.route(`**${destination}`, route => route.fulfill({
+        status: 200, contentType: "text/html", body: "<h1>Navigation reached</h1>",
+      }));
+      await begin.click();
+      await expect(page.getByRole("heading", { name: "Navigation reached" })).toBeVisible();
+    } finally {
+      await context.close();
+    }
   });
 
   test("routes an in-progress participant back into the active section", async ({ page }) => {

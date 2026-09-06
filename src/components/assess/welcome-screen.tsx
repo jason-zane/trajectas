@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Lock } from "lucide-react";
 import type { WelcomeContent } from "@/lib/experience/types";
 import { getTimeOfDayGreeting } from "@/lib/experience/time-greeting";
@@ -48,8 +48,6 @@ export function WelcomeScreen({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ...rest
 }: WelcomeScreenProps & Record<string, unknown>) {
-  const router = useRouter();
-
   // Greeting is computed at first render: during SSR this uses server time,
   // and on the client the initializer re-runs with the participant's local
   // time — the heading text node carries suppressHydrationWarning so the
@@ -57,10 +55,6 @@ export function WelcomeScreen({
   const [greetingWord] = useState<string>(
     () => getTimeOfDayGreeting(new Date()).split(" ")[1],
   );
-
-  function handleBegin() {
-    router.push(nextUrl);
-  }
 
   const totalSections = assessments.reduce((sum, a) => sum + a.sectionCount, 0);
 
@@ -256,7 +250,9 @@ export function WelcomeScreen({
                         DONE
                       </span>
                     ) : (
-                      <button
+                      <Link
+                        href={nextUrl}
+                        prefetch={false}
                         className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.12em] rounded-[10px] border px-4 py-2 transition-all"
                         style={{
                           color: "var(--runner-text)",
@@ -264,20 +260,20 @@ export function WelcomeScreen({
                           backgroundColor: "var(--runner-ghost-fill)",
                         }}
                         onMouseEnter={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                          (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
                             "var(--runner-ghost-fill-hover)";
-                          (e.currentTarget as HTMLButtonElement).style.borderColor =
+                          (e.currentTarget as HTMLAnchorElement).style.borderColor =
                             "var(--runner-ghost-border-hover)";
                         }}
                         onMouseLeave={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                          (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
                             "var(--runner-ghost-fill)";
-                          (e.currentTarget as HTMLButtonElement).style.borderColor =
+                          (e.currentTarget as HTMLAnchorElement).style.borderColor =
                             "var(--runner-ghost-border)";
                         }}
                       >
                         {status === "in_progress" ? "Resume" : "Begin"}
-                      </button>
+                      </Link>
                     )}
                   </div>
                 );
@@ -287,24 +283,25 @@ export function WelcomeScreen({
 
           {/* CTA Button */}
           <div className="flex justify-start pt-4">
-            <button
-              onClick={handleBegin}
+            <Link
+              href={nextUrl}
+              prefetch={false}
               className="rounded-[12px] px-7 py-3 font-sans text-[0.9375rem] font-semibold transition-all"
               style={{
                 backgroundColor: "var(--runner-cta-fill)",
                 color: "var(--runner-cta-text)",
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
                   "var(--runner-cta-fill-hover)";
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                (e.currentTarget as HTMLAnchorElement).style.backgroundColor =
                   "var(--runner-cta-fill)";
               }}
             >
               {hasInProgressSession ? "Resume Assessment" : "Begin Assessment"}
-            </button>
+            </Link>
           </div>
 
           {/* Confidentiality statement */}
