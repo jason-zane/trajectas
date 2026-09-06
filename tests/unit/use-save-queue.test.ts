@@ -251,11 +251,8 @@ describe('useSaveQueue (IndexedDB-backed)', () => {
     // arrives. The value-5 row must stay pending (its idempotencyKey differs
     // from the acknowledged write) and must reach the server on the next
     // flush pass — never be marked synced by the stale ACK.
-    //
-    // Own sessionId: earlier failure-path tests leave backoff flush timers
-    // running past unmount; with the shared sessionId those zombie flushers
-    // would steal this test's held mock call.
-    const raceCfg = { token: 'tok', sessionId: '00000000-0000-0000-0000-0000000000a2' }
+    // Reuse the shared session: earlier tests must release their flushers.
+    const raceCfg = cfg
     let release: (() => void) | null = null
     mockFetch.mockImplementationOnce(
       () =>

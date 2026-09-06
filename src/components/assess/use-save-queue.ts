@@ -14,6 +14,11 @@ type SaveStatus = "idle" | "saving" | "saved";
 
 type LocalResponses = Record<string, { value: number; data: Record<string, unknown> }>;
 
+type SaveEntry = { itemId: string; sectionId: string; value: number; data?: Record<string, unknown>; responseTimeMs?: number };
+type QueueConfig = { token: string; sessionId: string; sessionProof?: string; initialRevisions?: Record<string, number> };
+type LocalWrite = { entry: SaveEntry; config: QueueConfig; inFlight: boolean };
+type QueueLifetime = { active: boolean; writes: Set<Promise<void>>; localWrites: Map<string, LocalWrite> };
+
 /** Soft cap on entries per batched POST. The server validator caps at 50 too. */
 const BATCH_LIMIT = 25;
 /** Flush when pending count reaches this — keeps small clicks moving without
@@ -27,10 +32,6 @@ const SAVE_TIMEOUT_MS = 15_000;
 const FLUSH_TIMEOUT_MS = 45_000;
 /** Maximum consecutive flush failures before surfacing the error banner. */
 const MAX_CONSECUTIVE_FAILURES = 5;
-
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /** Exponential backoff with jitter, ceiling at 10s, integer ms. */
 function retryDelay(attempt: number) {
@@ -120,14 +121,16 @@ async function postBatch(
  * marked synced=1 in IDB; everything else stays pending and the flusher
  * retries with exponential backoff. This survives tab close, refresh, and
  * offline windows — the user's responses live in their browser's persistent
- * storage until the server confirms them.
+ * storage until the server confirms them. If the local write itself fails,
+ * the latest edit stays in memory with an error and unload warning; Retry
+ * must persist it before a boundary can succeed.
  *
  * `localResponses` exposes the IDB-hydrated map on mount so section-wrapper
  * can merge it into its server-rendered `existingResponses` (an in-progress
  * participant who had unsynced rows last session resumes with their work
  * visible, not lost).
  */
-export function useSaveQueue(config: { token: string; sessionId: string; sessionProof?: string; initialRevisions?: Record<string, number> }) {
+export function useSaveQueue(config: QueueConfig) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [saveError, setSaveError] = useState(false);
   const [localResponses, setLocalResponses] = useState<LocalResponses | null>(null);
@@ -143,9 +146,32 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
 
   const consecutiveFailuresRef = useRef(0);
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isFlushingRef = useRef(false);
+  const isFlushingRef = useRef<QueueLifetime | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const drainWaitersRef = useRef<Array<(ok: boolean) => void>>([]);
+  const drainWaitersRef = useRef(new Set<(ok: boolean) => void>());
+  const lifetimeRef = useRef<QueueLifetime | null>(null);
+  const isCurrent = useCallback((lifetime: QueueLifetime | null) =>
+    lifetime !== null && lifetime.active && lifetimeRef.current === lifetime, []);
+
+  useEffect(() => {
+    // A new identity also covers StrictMode's cleanup/setup cycle: late work
+    // from the old effect must not become active again when the hook resumes.
+    const lifetime: QueueLifetime = { active: true, writes: new Set(), localWrites: new Map() };
+    const drainWaiters = drainWaitersRef.current;
+    lifetimeRef.current = lifetime;
+    consecutiveFailuresRef.current = 0;
+    return () => {
+      lifetime.active = false;
+      if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      flushTimerRef.current = null;
+      savedTimerRef.current = null;
+      for (const finish of drainWaiters) finish(false);
+      // Leave accepted IDB writes and any already-issued 15s-bounded POST
+      // to finish. ACKs still match idempotency keys, but neither continuation
+      // may start another flush or retry. Pending rows survive for remount.
+    };
+  }, [config.sessionId]);
 
   // ---------------------------------------------------------------------------
   // Hydration — read IDB once on mount, expose as localResponses for merge.
@@ -160,15 +186,17 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
         map.forEach((v, k) => {
           obj[k] = v;
         });
+        for (const { entry } of lifetimeRef.current?.localWrites.values() ?? []) {
+          obj[entry.itemId] = { value: entry.value, data: entry.data ?? {} };
+        }
         setLocalResponses(obj);
         // If hydration shows pending rows, kick a flush.
         const pending = await countPending(config.sessionId);
         if (pending > 0 && !cancelled) scheduleFlushSoon();
       } catch {
-        // IDB unavailable (private mode, quota, etc.) — degrade silently:
-        // the queue still works in-memory via the existing per-save fetch
-        // pathway, just without durability guarantees.
-        setLocalResponses({});
+        // A later write will surface storage failure. Never assume an empty
+        // failed read proves that an accepted answer has been persisted.
+        if (!cancelled) setLocalResponses((prev) => prev ?? {});
       }
     })();
     return () => {
@@ -183,26 +211,31 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
   const flushOnceRef = useRef<() => Promise<boolean>>(async () => true);
 
   const notifyDrainWaiters = useCallback((ok: boolean) => {
-    const waiters = drainWaitersRef.current.splice(0);
-    for (const resolve of waiters) resolve(ok);
+    for (const finish of drainWaitersRef.current) finish(ok);
   }, []);
 
   const flushOnce = useCallback(async (): Promise<boolean> => {
-    if (isFlushingRef.current) return true;
-    const { token, sessionId } = configRef.current;
-    isFlushingRef.current = true;
+    const lifetime = lifetimeRef.current;
+    if (!isCurrent(lifetime)) return false;
+    if (isFlushingRef.current === lifetime) return true;
+    const { token, sessionId, sessionProof } = configRef.current;
+    isFlushingRef.current = lifetime;
+    let storageFailed = false;
     try {
       // Loop so a single flushOnce call drains everything that's currently
       // pending — multiple batches if the queue is bigger than BATCH_LIMIT.
       for (;;) {
         const rows = await getPendingResponses(sessionId, BATCH_LIMIT);
+        if (!isCurrent(lifetime)) return false;
         if (rows.length === 0) {
-          consecutiveFailuresRef.current = 0;
-          setSaveError(false);
+          if (!lifetime?.localWrites.size) {
+            consecutiveFailuresRef.current = 0;
+            setSaveError(false);
+          }
           return true;
         }
         setSaveStatus("saving");
-        const result = await postBatch(token, sessionId, rows, configRef.current.sessionProof);
+        const result = await postBatch(token, sessionId, rows, sessionProof);
         // Mark ONLY the ids the server confirmed saved — and only when the
         // IDB row is still the exact write we sent (idempotency-key match
         // inside markSynced). An answer changed while this POST was in
@@ -229,6 +262,7 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
             })),
           );
         }
+        if (!isCurrent(lifetime)) return false;
         if (terminal.length > 0) {
           setLostSaves((n) => n + terminal.length);
         }
@@ -240,38 +274,56 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
           return false;
         }
         consecutiveFailuresRef.current = 0;
-        setSaveError(false);
+        if (!lifetime?.localWrites.size) setSaveError(false);
         // Loop — there may be more pending (or more arrived during the POST).
       }
+    } catch {
+      storageFailed = true;
+      // Storage can be unavailable even when the network works. A failed
+      // read/ACK transaction is not an empty queue and must fail closed.
+      if (isCurrent(lifetime)) {
+        consecutiveFailuresRef.current++;
+        setSaveError(true);
+        notifyDrainWaiters(false);
+      }
+      return false;
     } finally {
-      isFlushingRef.current = false;
-      const remaining = await countPending(configRef.current.sessionId).catch(() => 0);
-      if (remaining === 0) {
+      if (isFlushingRef.current === lifetime) isFlushingRef.current = null;
+      const remaining = isCurrent(lifetime) ? await countPending(sessionId).catch(() => null) : null;
+      if (isCurrent(lifetime) && remaining === null) setSaveError(true);
+      if (isCurrent(lifetime) && !storageFailed && remaining === 0 && !lifetime?.localWrites.size) {
         setSaveStatus("saved");
         if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-        savedTimerRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
+        savedTimerRef.current = setTimeout(() => {
+          savedTimerRef.current = null;
+          if (isCurrent(lifetime)) setSaveStatus("idle");
+        }, 2000);
       }
     }
-  }, []);
+  }, [isCurrent, notifyDrainWaiters]);
   useEffect(() => {
     flushOnceRef.current = flushOnce;
   }, [flushOnce]);
 
   /** Schedule a flush after FLUSH_INTERVAL_MS unless one is already pending. */
   const scheduleFlushSoon = useCallback(() => {
-    if (flushTimerRef.current) return;
+    const lifetime = lifetimeRef.current;
+    if (!isCurrent(lifetime) || flushTimerRef.current) return;
     flushTimerRef.current = setTimeout(() => {
       flushTimerRef.current = null;
       // runFlushLoop is bound via runFlushLoopRef so this useCallback doesn't
       // need to depend on it (avoids the chicken/egg cycle of the two
       // mutually-recursive callbacks).
-      void runFlushLoopRef.current();
+      if (isCurrent(lifetime)) void runFlushLoopRef.current();
     }, FLUSH_INTERVAL_MS);
-  }, []);
+  }, [isCurrent]);
 
   const runFlushLoopRef = useRef<() => Promise<void>>(async () => {});
   const runFlushLoop = useCallback(async () => {
+    const lifetime = lifetimeRef.current;
+    if (!isCurrent(lifetime)) return;
     const ok = await flushOnceRef.current();
+    if (!isCurrent(lifetime)) return;
     if (!ok) {
       // Schedule a retry with exponential backoff based on consecutive failures.
       const attempt = consecutiveFailuresRef.current;
@@ -279,15 +331,21 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
       if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
       flushTimerRef.current = setTimeout(() => {
         flushTimerRef.current = null;
-        void runFlushLoopRef.current();
+        if (isCurrent(lifetime)) void runFlushLoopRef.current();
       }, backoff);
     } else {
       // Check if more landed during the flush; schedule another sweep if so.
-      const remaining = await countPending(configRef.current.sessionId).catch(() => 0);
+      const remaining = await countPending(configRef.current.sessionId).catch(() => null);
+      if (!isCurrent(lifetime)) return;
+      if (remaining === null) {
+        setSaveError(true);
+        notifyDrainWaiters(false);
+        return;
+      }
       if (remaining > 0) scheduleFlushSoon();
-      else notifyDrainWaiters(true);
+      else if (!lifetime?.writes.size) notifyDrainWaiters(!lifetime?.localWrites.size);
     }
-  }, [notifyDrainWaiters, scheduleFlushSoon]);
+  }, [isCurrent, notifyDrainWaiters, scheduleFlushSoon]);
   useEffect(() => {
     runFlushLoopRef.current = runFlushLoop;
   }, [runFlushLoop]);
@@ -296,23 +354,14 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
   // Public API — enqueueSave / flushSaves / retryFailedSaves.
   // ---------------------------------------------------------------------------
 
-  const enqueueSave = useCallback(
-    (entry: {
-      itemId: string;
-      sectionId: string;
-      value: number;
-      data?: Record<string, unknown>;
-      responseTimeMs?: number;
-    }) => {
-      const { sessionId } = configRef.current;
+  const persistLocalWrite = useCallback(
+    (lifetime: QueueLifetime, pending: LocalWrite) => {
+      if (!isCurrent(lifetime) || pending.inFlight) return;
+      pending.inFlight = true;
+      const { entry, config: acceptedConfig } = pending;
+      const { sessionId, initialRevisions } = acceptedConfig;
       setSaveStatus("saving");
-      // Optimistically update the localResponses map so resume / merge sees
-      // it immediately, without waiting for the IDB write to settle.
-      setLocalResponses((prev) => ({
-        ...(prev ?? {}),
-        [entry.itemId]: { value: entry.value, data: entry.data ?? {} },
-      }));
-      void (async () => {
+      const write = (async () => {
         try {
           await putResponse({
             sessionId,
@@ -321,10 +370,14 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
             value: entry.value,
             data: entry.data,
             responseTimeMs: entry.responseTimeMs,
-            serverRevision: configRef.current.initialRevisions?.[entry.itemId],
+            serverRevision: initialRevisions?.[entry.itemId],
           });
-          const pending = await countPending(sessionId).catch(() => 0);
-          if (pending >= FLUSH_PENDING_THRESHOLD) {
+          // A newer edit may have replaced this one while IDB was writing.
+          if (lifetime.localWrites.get(entry.itemId) === pending) lifetime.localWrites.delete(entry.itemId);
+          const pendingCount = await countPending(sessionId).catch(() => null);
+          if (!isCurrent(lifetime)) return;
+          if (pendingCount === null) setSaveError(true);
+          if (pendingCount !== null && pendingCount >= FLUSH_PENDING_THRESHOLD) {
             // Fast-path: flush immediately when the queue gets long enough.
             if (flushTimerRef.current) {
               clearTimeout(flushTimerRef.current);
@@ -335,63 +388,83 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
             scheduleFlushSoon();
           }
         } catch {
-          // IDB write failed (rare — quota exhausted, etc). Try a direct
-          // network flush of just this one entry as a last-ditch fallback.
-          const result = await postBatch(configRef.current.token, sessionId, [
-            {
-              sessionId,
-              itemId: entry.itemId,
-              sectionId: entry.sectionId,
-              value: entry.value,
-              data: entry.data ?? {},
-              responseTimeMs: entry.responseTimeMs,
-              idempotencyKey: `inline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-              synced: 0,
-              updatedAt: Date.now(),
-            },
-          ], configRef.current.sessionProof);
-          if (!result.ok || !result.savedItemIds?.includes(entry.itemId)) {
+          // Do not bypass transactional revision allocation with a version-0
+          // POST. Keep the latest accepted edit in memory, block navigation,
+          // and let Retry persist it through the normal IDB/ACK path.
+          if (isCurrent(lifetime) && lifetime.localWrites.get(entry.itemId) === pending) {
             setSaveError(true);
           }
+        } finally {
+          pending.inFlight = false;
         }
       })();
+      lifetime.writes.add(write);
+      void write.finally(() => lifetime.writes.delete(write));
     },
-    [scheduleFlushSoon],
+    [isCurrent, scheduleFlushSoon],
   );
+
+  const enqueueSave = useCallback((entry: SaveEntry) => {
+    const lifetime = lifetimeRef.current;
+    if (!lifetime || !isCurrent(lifetime)) return;
+    setLocalResponses((prev) => ({
+      ...(prev ?? {}),
+      [entry.itemId]: { value: entry.value, data: entry.data ?? {} },
+    }));
+    const pending: LocalWrite = { entry, config: configRef.current, inFlight: false };
+    lifetime.localWrites.set(entry.itemId, pending);
+    persistLocalWrite(lifetime, pending);
+  }, [isCurrent, persistLocalWrite]);
 
   /**
    * Drain everything currently pending. Used by section/assessment boundaries
    * to guarantee persistence before navigating away. Returns true if the queue
    * is empty (all synced), false if a permanent failure prevented draining.
    */
-  const flushSaves = useCallback(async (): Promise<boolean> => {
+  const flushSaves = useCallback((): Promise<boolean> => {
+    const lifetime = lifetimeRef.current;
+    if (!lifetime || !isCurrent(lifetime)) return Promise.resolve(false);
     const { sessionId } = configRef.current;
-    const remaining = await countPending(sessionId).catch(() => 0);
-    if (remaining === 0) return true;
-
-    return Promise.race([
-      new Promise<boolean>((resolve) => {
-        drainWaitersRef.current.push(resolve);
-        if (flushTimerRef.current) {
-          clearTimeout(flushTimerRef.current);
-          flushTimerRef.current = null;
-        }
+    return new Promise<boolean>((resolve) => {
+      const finish = (ok: boolean) => {
+        clearTimeout(timer);
+        drainWaitersRef.current.delete(finish);
+        resolve(ok);
+      };
+      const timer = setTimeout(() => finish(false), FLUSH_TIMEOUT_MS);
+      drainWaitersRef.current.add(finish);
+      void (async () => {
+        // enqueueSave writes asynchronously: an empty IDB query alone does
+        // not prove the answer just clicked has been stored or acknowledged.
+        await Promise.allSettled([...lifetime.writes]);
+        if (!isCurrent(lifetime)) return finish(false);
+        if (lifetime.localWrites.size > 0) return finish(false);
+        const remaining = await countPending(sessionId);
+        if (!isCurrent(lifetime)) return finish(false);
+        if (remaining === 0 && lifetime.writes.size === 0 && lifetime.localWrites.size === 0) return finish(true);
+        if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
         void runFlushLoopRef.current();
-      }),
-      delay(FLUSH_TIMEOUT_MS).then(() => false),
-    ]);
-  }, []);
+      })().catch(() => {
+        if (isCurrent(lifetime)) setSaveError(true);
+        finish(false);
+      });
+    });
+  }, [isCurrent]);
 
   /** Kick the flusher manually — called from the error-banner Retry button. */
   const retryFailedSaves = useCallback(() => {
+    const lifetime = lifetimeRef.current;
+    if (!lifetime || !isCurrent(lifetime)) return;
     consecutiveFailuresRef.current = 0;
     setSaveError(false);
     if (flushTimerRef.current) {
       clearTimeout(flushTimerRef.current);
       flushTimerRef.current = null;
     }
+    for (const pending of lifetime.localWrites.values()) persistLocalWrite(lifetime, pending);
     void runFlushLoopRef.current();
-  }, []);
+  }, [isCurrent, persistLocalWrite]);
 
   // ---------------------------------------------------------------------------
   // Lifecycle — pagehide/visibilitychange fallback, online retry, BroadcastChannel.
@@ -440,17 +513,26 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
       if (event.persisted) void runFlushLoopRef.current();
     };
     const onOnline = () => void runFlushLoopRef.current();
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      // Only these accepted writes lack disk durability. A synchronous guard
+      // must warn before reload/close; asynchronous IDB reads are too late.
+      if (!lifetimeRef.current?.localWrites.size) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
 
     window.addEventListener("pagehide", onPagehide);
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("pageshow", onPageshow);
     window.addEventListener("online", onOnline);
+    window.addEventListener("beforeunload", onBeforeUnload);
 
     return () => {
       window.removeEventListener("pagehide", onPagehide);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pageshow", onPageshow);
       window.removeEventListener("online", onOnline);
+      window.removeEventListener("beforeunload", onBeforeUnload);
     };
   }, []);
 
@@ -467,6 +549,9 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
           map.forEach((v, k) => {
             obj[k] = v;
           });
+          for (const { entry } of lifetimeRef.current?.localWrites.values() ?? []) {
+            obj[entry.itemId] = { value: entry.value, data: entry.data ?? {} };
+          }
           setLocalResponses(obj);
         } catch {
           // Ignore.

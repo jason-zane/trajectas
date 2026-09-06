@@ -688,7 +688,7 @@ export function SectionWrapper({
             background: "rgba(var(--brand-error-rgb, 220, 38, 38), 0.05)",
           }}
         >
-          <span>Some responses couldn&apos;t be saved. Check your connection.</span>
+          <span>Some responses couldn&apos;t be saved. Keep this page open and retry.</span>
           <button
             onClick={retryFailedSaves}
             className="rounded-lg px-3 py-1 text-xs font-semibold border transition-colors"

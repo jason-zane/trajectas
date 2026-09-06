@@ -354,6 +354,11 @@ export async function checkRequestRateLimit(
   if (ratelimit) {
     try {
       const result = await ratelimit.limit(rule.key);
+      // The SDK resolves timeouts as success:true rather than throwing. Route
+      // them through the existing outage policy, including fail-closed rules.
+      if (result.reason === "timeout") {
+        throw new Error("Redis rate-limit check timed out");
+      }
       const retryAfterSeconds = result.success
         ? 0
         : Math.max(Math.ceil((result.reset - Date.now()) / 1_000), 1);
@@ -423,6 +428,9 @@ export async function checkKeyedRateLimit(
   if (ratelimit) {
     try {
       const result = await ratelimit.limit(key);
+      if (result.reason === "timeout") {
+        throw new Error("Redis rate-limit check timed out");
+      }
       const retryAfterSeconds = result.success
         ? 0
         : Math.max(Math.ceil((result.reset - Date.now()) / 1_000), 1);
