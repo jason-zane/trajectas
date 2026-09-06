@@ -24,4 +24,11 @@ describe('diagnostic credential redaction', () => {
     expect(JSON.stringify(sanitized)).not.toContain('secret')
     expect(context.request).toHaveProperty('access_token', 'secret')
   })
+
+  it('redacts the participant PDF rate-limit proof in URLs and structured context', () => {
+    expect(redactDiagnosticText('/api/reports/report-id/pdf?token=private-token&pdfRateLimitProof=private-proof'))
+      .toBe('/api/reports/report-id/pdf?token=[redacted]&pdfRateLimitProof=[redacted]')
+    expect(redactDiagnosticContext({ pdfRateLimitProof: 'private-proof', pdf_rate_limit_proof: 'private-proof', snapshotId: 'report-id' }))
+      .toEqual({ pdfRateLimitProof: '[redacted]', pdf_rate_limit_proof: '[redacted]', snapshotId: 'report-id' })
+  })
 })
