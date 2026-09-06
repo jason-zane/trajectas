@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { isProxy } from 'node:util/types'
+
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendOpsAlert } from './ops-alert'
 import { redactDiagnosticContext, redactDiagnosticText } from './redact'
@@ -35,6 +37,41 @@ export function makeFingerprint(source: string, message: string): string {
   return `${source}:${normalised}`
 }
 
+/** Plain SDK errors are data, not arbitrary objects to serialize or coerce. */
+function normalizeReportedError(error: unknown): {
+  message: string
+  stack: string | null
+  errorDetails?: Record<string, string>
+} {
+  // Even property descriptors on a Proxy can execute caller-controlled traps.
+  if (isProxy(error)) return { message: '[object Object]', stack: null }
+  if (error instanceof Error) {
+    return {
+      message: redactDiagnosticText(error.message),
+      stack: error.stack ? redactDiagnosticText(error.stack) : null,
+    }
+  }
+  if (error !== null && typeof error === 'object') {
+    const ownString = (key: string): string | undefined => {
+      const descriptor = Object.getOwnPropertyDescriptor(error, key)
+      return descriptor && 'value' in descriptor && typeof descriptor.value === 'string'
+        ? redactDiagnosticText(descriptor.value)
+        : undefined
+    }
+    // Database details/hints can include complete rows or credential values.
+    // Retain only recognisable SQLSTATE and PostgREST codes, never those fields.
+    const code = ownString('code')
+    const errorDetails = code && /^(?:[A-Z0-9]{5}|PGRST[0-9]{3})$/.test(code) ? { code } : undefined
+    return {
+      message: ownString('message') ?? '[object Object]',
+      stack: null,
+      ...(errorDetails ? { errorDetails } : {}),
+    }
+  }
+  // Preserve primitive error messages without invoking custom object coercion.
+  return { message: redactDiagnosticText(typeof error === 'function' ? '[function]' : String(error)), stack: null }
+}
+
 /**
  * Central server-side error sink. Always logs (so the signal survives even if
  * the DB write fails), persists to error_events for retention/aggregation, and
@@ -49,10 +86,12 @@ export async function reportError(
   opts: ReportErrorOptions,
 ): Promise<void> {
   const severity = opts.severity ?? 'error'
-  const message = redactDiagnosticText(error instanceof Error ? error.message : String(error))
-  const stack = error instanceof Error && error.stack ? redactDiagnosticText(error.stack) : null
+  const { message, stack, errorDetails } = normalizeReportedError(error)
   const fingerprint = makeFingerprint(opts.source, message)
-  const context = redactDiagnosticContext(opts.context ?? {}) as Record<string, unknown>
+  const context = redactDiagnosticContext({
+    ...opts.context,
+    ...(errorDetails ? { errorDetails } : {}),
+  }) as Record<string, unknown>
 
   // 1. Structured log — always, first, so it survives a DB/email outage.
   //    Bearer links must never enter logs, persisted events, or alert emails.
@@ -92,10 +131,10 @@ export async function reportError(
       alerted,
     })
     if (insertError) {
-      console.error('[report-error] failed to persist error_event', insertError)
+      console.error('[report-error] failed to persist error_event', normalizeReportedError(insertError))
     }
   } catch (dbErr) {
-    console.error('[report-error] failed to persist error_event', dbErr)
+    console.error('[report-error] failed to persist error_event', normalizeReportedError(dbErr))
   }
 
   // TODO(sentry): when SENTRY_DSN is set, also forward here:
