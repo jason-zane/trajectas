@@ -9,7 +9,7 @@ export default function MarketingLoading() {
         className="text-lg font-bold tracking-tight animate-shimmer"
         style={{ color: "rgba(255, 255, 255, 0.6)" }}
       >
-        <TrajectasLogo variant="horizontal" height={28} />
+        <TrajectasLogo variant="horizontal" height={28} light />
       </span>
     </div>
   );

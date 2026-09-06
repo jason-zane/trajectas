@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, cleanup } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
+import MarketingLoading from '@/app/(marketing)/loading'
 import { BrandLogo, BrandFooter } from '@/components/brand/brand-logo'
 import { CoverPageBlock } from '@/components/reports/blocks/cover-page'
 import { Wordmark, PageHeader } from '@/components/reports/custom/5brains/shared'
@@ -68,6 +69,11 @@ describe('approved platform identity across brand slots', () => {
   it('uses the matching PNG for email clients without SVG support', () => {
     const { getByRole } = render(<EmailBrandFrame brandName="Trajectas" primaryColor="#2d6a5a" textColor="#1a1a1a" footerTextColor="#737373" bodyHtml="<p>Hello</p>" />)
     expect(getByRole('img', { name: 'Trajectas' })).toHaveAttribute('src', 'https://trajectas.com/brand/span-lockup-horizontal.png')
+  })
+
+  it('uses the inverse identity on the dark marketing loading screen', () => {
+    const { container } = render(<MarketingLoading />)
+    expect(container.querySelector('svg path')).toHaveAttribute('fill', '#ffffff')
   })
 
   it('uses the same outlined wordmark in standalone PDF and social-image markup', () => {
