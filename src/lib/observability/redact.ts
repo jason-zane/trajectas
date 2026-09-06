@@ -1,11 +1,11 @@
 /** Remove bearer credentials before diagnostics leave the request boundary. */
-const SECRET_KEY = /^(?:authorization|cookie|set-cookie|password|access[_-]?token|refresh[_-]?token|report[_-]?token|pdf[_-]?token|api[_-]?key|secret|token)$/i
+const SECRET_KEY = /^(?:authorization|cookie|set-cookie|password|access[_-]?token|refresh[_-]?token|report[_-]?token|pdf[_-]?token|pdf[_-]?rate[_-]?limit[_-]?proof|api[_-]?key|secret|token)$/i
 
 export function redactDiagnosticText(value: string): string {
   return value
     .replace(/(\/assess\/join\/)[^/?#\s]+/gi, '$1[redacted]')
     .replace(/(\/assess\/)(?!join(?:\/|\b))[^/?#\s]+/gi, '$1[redacted]')
-    .replace(/([?&](?:access_?token|refresh_?token|reportToken|pdfToken|token|key|secret)=)[^&#\s]*/gi, '$1[redacted]')
+    .replace(/([?&](?:access_?token|refresh_?token|reportToken|pdfToken|pdfRateLimitProof|token|key|secret)=)[^&#\s]*/gi, '$1[redacted]')
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [redacted]')
 }
 
