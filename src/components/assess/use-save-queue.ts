@@ -14,6 +14,8 @@ type SaveStatus = "idle" | "saving" | "saved";
 
 type LocalResponses = Record<string, { value: number; data: Record<string, unknown> }>;
 
+type QueueLifetime = { active: boolean; writes: Set<Promise<void>> };
+
 /** Soft cap on entries per batched POST. The server validator caps at 50 too. */
 const BATCH_LIMIT = 25;
 /** Flush when pending count reaches this — keeps small clicks moving without
@@ -27,10 +29,6 @@ const SAVE_TIMEOUT_MS = 15_000;
 const FLUSH_TIMEOUT_MS = 45_000;
 /** Maximum consecutive flush failures before surfacing the error banner. */
 const MAX_CONSECUTIVE_FAILURES = 5;
-
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /** Exponential backoff with jitter, ceiling at 10s, integer ms. */
 function retryDelay(attempt: number) {
@@ -143,9 +141,32 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
 
   const consecutiveFailuresRef = useRef(0);
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isFlushingRef = useRef(false);
+  const isFlushingRef = useRef<QueueLifetime | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const drainWaitersRef = useRef<Array<(ok: boolean) => void>>([]);
+  const drainWaitersRef = useRef(new Set<(ok: boolean) => void>());
+  const lifetimeRef = useRef<QueueLifetime | null>(null);
+  const isCurrent = useCallback((lifetime: QueueLifetime | null) =>
+    lifetime !== null && lifetime.active && lifetimeRef.current === lifetime, []);
+
+  useEffect(() => {
+    // A new identity also covers StrictMode's cleanup/setup cycle: late work
+    // from the old effect must not become active again when the hook resumes.
+    const lifetime: QueueLifetime = { active: true, writes: new Set() };
+    const drainWaiters = drainWaitersRef.current;
+    lifetimeRef.current = lifetime;
+    consecutiveFailuresRef.current = 0;
+    return () => {
+      lifetime.active = false;
+      if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      flushTimerRef.current = null;
+      savedTimerRef.current = null;
+      for (const finish of drainWaiters) finish(false);
+      // Leave accepted IDB writes and any already-issued 15s-bounded POST
+      // to finish. ACKs still match idempotency keys, but neither continuation
+      // may start another flush or retry. Pending rows survive for remount.
+    };
+  }, [config.sessionId]);
 
   // ---------------------------------------------------------------------------
   // Hydration — read IDB once on mount, expose as localResponses for merge.
@@ -168,7 +189,7 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
         // IDB unavailable (private mode, quota, etc.) — degrade silently:
         // the queue still works in-memory via the existing per-save fetch
         // pathway, just without durability guarantees.
-        setLocalResponses({});
+        if (!cancelled) setLocalResponses({});
       }
     })();
     return () => {
@@ -183,26 +204,28 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
   const flushOnceRef = useRef<() => Promise<boolean>>(async () => true);
 
   const notifyDrainWaiters = useCallback((ok: boolean) => {
-    const waiters = drainWaitersRef.current.splice(0);
-    for (const resolve of waiters) resolve(ok);
+    for (const finish of drainWaitersRef.current) finish(ok);
   }, []);
 
   const flushOnce = useCallback(async (): Promise<boolean> => {
-    if (isFlushingRef.current) return true;
-    const { token, sessionId } = configRef.current;
-    isFlushingRef.current = true;
+    const lifetime = lifetimeRef.current;
+    if (!isCurrent(lifetime)) return false;
+    if (isFlushingRef.current === lifetime) return true;
+    const { token, sessionId, sessionProof } = configRef.current;
+    isFlushingRef.current = lifetime;
     try {
       // Loop so a single flushOnce call drains everything that's currently
       // pending — multiple batches if the queue is bigger than BATCH_LIMIT.
       for (;;) {
         const rows = await getPendingResponses(sessionId, BATCH_LIMIT);
+        if (!isCurrent(lifetime)) return false;
         if (rows.length === 0) {
           consecutiveFailuresRef.current = 0;
           setSaveError(false);
           return true;
         }
         setSaveStatus("saving");
-        const result = await postBatch(token, sessionId, rows, configRef.current.sessionProof);
+        const result = await postBatch(token, sessionId, rows, sessionProof);
         // Mark ONLY the ids the server confirmed saved — and only when the
         // IDB row is still the exact write we sent (idempotency-key match
         // inside markSynced). An answer changed while this POST was in
@@ -229,6 +252,7 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
             })),
           );
         }
+        if (!isCurrent(lifetime)) return false;
         if (terminal.length > 0) {
           setLostSaves((n) => n + terminal.length);
         }
@@ -244,34 +268,41 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
         // Loop — there may be more pending (or more arrived during the POST).
       }
     } finally {
-      isFlushingRef.current = false;
-      const remaining = await countPending(configRef.current.sessionId).catch(() => 0);
-      if (remaining === 0) {
+      if (isFlushingRef.current === lifetime) isFlushingRef.current = null;
+      const remaining = isCurrent(lifetime) ? await countPending(sessionId).catch(() => 0) : null;
+      if (isCurrent(lifetime) && remaining === 0) {
         setSaveStatus("saved");
         if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-        savedTimerRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
+        savedTimerRef.current = setTimeout(() => {
+          savedTimerRef.current = null;
+          if (isCurrent(lifetime)) setSaveStatus("idle");
+        }, 2000);
       }
     }
-  }, []);
+  }, [isCurrent]);
   useEffect(() => {
     flushOnceRef.current = flushOnce;
   }, [flushOnce]);
 
   /** Schedule a flush after FLUSH_INTERVAL_MS unless one is already pending. */
   const scheduleFlushSoon = useCallback(() => {
-    if (flushTimerRef.current) return;
+    const lifetime = lifetimeRef.current;
+    if (!isCurrent(lifetime) || flushTimerRef.current) return;
     flushTimerRef.current = setTimeout(() => {
       flushTimerRef.current = null;
       // runFlushLoop is bound via runFlushLoopRef so this useCallback doesn't
       // need to depend on it (avoids the chicken/egg cycle of the two
       // mutually-recursive callbacks).
-      void runFlushLoopRef.current();
+      if (isCurrent(lifetime)) void runFlushLoopRef.current();
     }, FLUSH_INTERVAL_MS);
-  }, []);
+  }, [isCurrent]);
 
   const runFlushLoopRef = useRef<() => Promise<void>>(async () => {});
   const runFlushLoop = useCallback(async () => {
+    const lifetime = lifetimeRef.current;
+    if (!isCurrent(lifetime)) return;
     const ok = await flushOnceRef.current();
+    if (!isCurrent(lifetime)) return;
     if (!ok) {
       // Schedule a retry with exponential backoff based on consecutive failures.
       const attempt = consecutiveFailuresRef.current;
@@ -279,15 +310,16 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
       if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
       flushTimerRef.current = setTimeout(() => {
         flushTimerRef.current = null;
-        void runFlushLoopRef.current();
+        if (isCurrent(lifetime)) void runFlushLoopRef.current();
       }, backoff);
     } else {
       // Check if more landed during the flush; schedule another sweep if so.
       const remaining = await countPending(configRef.current.sessionId).catch(() => 0);
-      if (remaining > 0) scheduleFlushSoon();
+      if (!isCurrent(lifetime)) return;
+      if (remaining > 0 || lifetime?.writes.size) scheduleFlushSoon();
       else notifyDrainWaiters(true);
     }
-  }, [notifyDrainWaiters, scheduleFlushSoon]);
+  }, [isCurrent, notifyDrainWaiters, scheduleFlushSoon]);
   useEffect(() => {
     runFlushLoopRef.current = runFlushLoop;
   }, [runFlushLoop]);
@@ -304,7 +336,9 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
       data?: Record<string, unknown>;
       responseTimeMs?: number;
     }) => {
-      const { sessionId } = configRef.current;
+      const lifetime = lifetimeRef.current;
+      if (!lifetime || !isCurrent(lifetime)) return;
+      const { token, sessionId, sessionProof, initialRevisions } = configRef.current;
       setSaveStatus("saving");
       // Optimistically update the localResponses map so resume / merge sees
       // it immediately, without waiting for the IDB write to settle.
@@ -312,7 +346,7 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
         ...(prev ?? {}),
         [entry.itemId]: { value: entry.value, data: entry.data ?? {} },
       }));
-      void (async () => {
+      const write = (async () => {
         try {
           await putResponse({
             sessionId,
@@ -321,9 +355,10 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
             value: entry.value,
             data: entry.data,
             responseTimeMs: entry.responseTimeMs,
-            serverRevision: configRef.current.initialRevisions?.[entry.itemId],
+            serverRevision: initialRevisions?.[entry.itemId],
           });
           const pending = await countPending(sessionId).catch(() => 0);
+          if (!isCurrent(lifetime)) return;
           if (pending >= FLUSH_PENDING_THRESHOLD) {
             // Fast-path: flush immediately when the queue gets long enough.
             if (flushTimerRef.current) {
@@ -337,7 +372,7 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
         } catch {
           // IDB write failed (rare — quota exhausted, etc). Try a direct
           // network flush of just this one entry as a last-ditch fallback.
-          const result = await postBatch(configRef.current.token, sessionId, [
+          const result = await postBatch(token, sessionId, [
             {
               sessionId,
               itemId: entry.itemId,
@@ -349,14 +384,16 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
               synced: 0,
               updatedAt: Date.now(),
             },
-          ], configRef.current.sessionProof);
-          if (!result.ok || !result.savedItemIds?.includes(entry.itemId)) {
+          ], sessionProof);
+          if (isCurrent(lifetime) && (!result.ok || !result.savedItemIds?.includes(entry.itemId))) {
             setSaveError(true);
           }
         }
       })();
+      lifetime.writes.add(write);
+      void write.finally(() => lifetime.writes.delete(write));
     },
-    [scheduleFlushSoon],
+    [isCurrent, scheduleFlushSoon],
   );
 
   /**
@@ -364,26 +401,36 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
    * to guarantee persistence before navigating away. Returns true if the queue
    * is empty (all synced), false if a permanent failure prevented draining.
    */
-  const flushSaves = useCallback(async (): Promise<boolean> => {
+  const flushSaves = useCallback((): Promise<boolean> => {
+    const lifetime = lifetimeRef.current;
+    if (!lifetime || !isCurrent(lifetime)) return Promise.resolve(false);
     const { sessionId } = configRef.current;
-    const remaining = await countPending(sessionId).catch(() => 0);
-    if (remaining === 0) return true;
-
-    return Promise.race([
-      new Promise<boolean>((resolve) => {
-        drainWaitersRef.current.push(resolve);
-        if (flushTimerRef.current) {
-          clearTimeout(flushTimerRef.current);
-          flushTimerRef.current = null;
-        }
+    return new Promise<boolean>((resolve) => {
+      const finish = (ok: boolean) => {
+        clearTimeout(timer);
+        drainWaitersRef.current.delete(finish);
+        resolve(ok);
+      };
+      const timer = setTimeout(() => finish(false), FLUSH_TIMEOUT_MS);
+      drainWaitersRef.current.add(finish);
+      void (async () => {
+        // enqueueSave writes asynchronously: an empty IDB query alone does
+        // not prove the answer just clicked has been stored or acknowledged.
+        await Promise.allSettled([...lifetime.writes]);
+        if (!isCurrent(lifetime)) return finish(false);
+        const remaining = await countPending(sessionId);
+        if (!isCurrent(lifetime)) return finish(false);
+        if (remaining === 0 && lifetime.writes.size === 0) return finish(true);
+        if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
         void runFlushLoopRef.current();
-      }),
-      delay(FLUSH_TIMEOUT_MS).then(() => false),
-    ]);
-  }, []);
+      })().catch(() => finish(false));
+    });
+  }, [isCurrent]);
 
   /** Kick the flusher manually — called from the error-banner Retry button. */
   const retryFailedSaves = useCallback(() => {
+    if (!isCurrent(lifetimeRef.current)) return;
     consecutiveFailuresRef.current = 0;
     setSaveError(false);
     if (flushTimerRef.current) {
@@ -391,7 +438,7 @@ export function useSaveQueue(config: { token: string; sessionId: string; session
       flushTimerRef.current = null;
     }
     void runFlushLoopRef.current();
-  }, []);
+  }, [isCurrent]);
 
   // ---------------------------------------------------------------------------
   // Lifecycle — pagehide/visibilitychange fallback, online retry, BroadcastChannel.
