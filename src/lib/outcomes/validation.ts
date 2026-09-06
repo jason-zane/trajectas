@@ -55,15 +55,25 @@ export const reportDraftSchema = z.object({
   headline: z.string().trim().min(1).max(160),
   interpretation: z.string().trim().min(1).max(2000),
   recommendation: z.string().trim().min(1).max(2000),
-  scenario: z.object({
-    enabled: z.boolean(),
-    shift: z.number().finite().min(-1000).max(1000),
-    people: z.number().int().min(1).max(1000000),
-    periods: z.number().int().min(1).max(120),
-    valuePerUnit: z.number().finite().min(0).max(1e9).nullable(),
-    cost: z.number().finite().min(0).max(1e12),
-    currency: z.string().regex(/^[A-Z]{3}$/),
-  }),
+  scenario: z
+    .object({
+      enabled: z.boolean(),
+      shift: z.number().finite().min(-1000).max(1000),
+      people: z.number().int().min(1).max(1000000),
+      periods: z.number().int().min(1).max(120),
+      valuePerUnit: z.number().finite().min(0).max(1e9).nullable(),
+      cost: z.number().finite().min(0).max(1e12),
+      currency: z.string().max(3),
+    })
+    .refine(
+      (s) =>
+        !s.enabled || s.valuePerUnit === null || /^[A-Z]{3}$/.test(s.currency),
+      {
+        message:
+          "Enter a three-letter currency code for the financial scenario.",
+        path: ["currency"],
+      },
+    ),
 });
 export function strictNumber(value: string | undefined): number | null {
   const normalized = value?.trim() ?? "";

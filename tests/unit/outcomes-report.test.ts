@@ -1,3 +1,4 @@
+import { reportDraftSchema } from "@/lib/outcomes/validation";
 import { describe, it, expect } from "vitest";
 import {
   metricValue,
@@ -223,4 +224,14 @@ it("includes the observed contrast interval as a separate appendix estimate", ()
   const html = outcomeReportHtml(report());
   expect(html).toContain("descriptive 95% Welch interval");
   expect(html).toContain("higher score group (n=");
+});
+
+it("allows a non-financial draft after clearing the optional money conversion", () => {
+  const p = report();
+  p.draft.scenario.enabled = true;
+  p.draft.scenario.currency = "AU";
+  p.draft.scenario.valuePerUnit = null;
+  expect(reportDraftSchema.safeParse(p.draft).success).toBe(true);
+  p.draft.scenario.valuePerUnit = 10;
+  expect(reportDraftSchema.safeParse(p.draft).success).toBe(false);
 });
