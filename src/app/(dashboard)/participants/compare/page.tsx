@@ -1,3 +1,4 @@
+import { renderTrajectoryPage } from '@/lib/trajectory-studio/page'
 import { ComparisonWorkspace } from '@/components/comparison/comparison-workspace'
 import {
   getComparisonMatrix,
@@ -33,6 +34,11 @@ export default async function ComparePage({
   }>
 }) {
   const sp = await searchParams
+
+  // Keep saved assessment/session configurations on the existing comparison route.
+  if (!sp.saved && !sp.entries && !sp.assessments && !sp.levels && !sp.delta) {
+    return renderTrajectoryPage(sp, 'compare', 'admin')
+  }
 
   // If `saved` is supplied, load the saved comparison and use it as the
   // primary source. URL params still take precedence so the user can

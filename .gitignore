@@ -61,3 +61,6 @@ supabase/.temp/
 
 # Generated artefacts (reproducible from a seed; see scripts/cognitive/)
 /var/
+
+# Local Trajectory studio screenshots, checks and sample exports
+/output/trajectory-studio/
