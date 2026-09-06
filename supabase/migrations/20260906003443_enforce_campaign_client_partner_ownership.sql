@@ -1,3 +1,5 @@
+BEGIN;
+
 -- The client's current partner is authoritative for client-owned campaigns.
 -- Keep standalone campaigns (client_id IS NULL) independently partner/platform
 -- owned. Strictly reject inconsistent writes: app create/update already resolve
@@ -88,3 +90,5 @@ FOR EACH ROW EXECUTE FUNCTION private.sync_client_campaign_partner();
 UPDATE public.campaigns ca SET partner_id = cl.partner_id
 FROM public.clients cl
 WHERE ca.client_id = cl.id AND ca.partner_id IS DISTINCT FROM cl.partner_id;
+
+COMMIT;
