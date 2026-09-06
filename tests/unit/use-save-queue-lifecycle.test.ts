@@ -6,19 +6,28 @@ import { useSaveQueue } from '@/components/assess/use-save-queue'
 import type { ResponseRecord } from '@/lib/assess/response-store'
 
 // Deterministic lifecycle tests; the existing suite separately exercises the real Dexie store.
-const store = vi.hoisted(() => ({ rows: new Map<string, ResponseRecord>(), serial: 0, writeGate: undefined as Promise<void> | undefined }))
+const store = vi.hoisted(() => ({ rows: new Map<string, ResponseRecord>(), serial: 0, writeError: false, readError: false, pendingReadError: false, writeGate: undefined as Promise<void> | undefined }))
 const rowKey = (sessionId: string, itemId: string) => `${sessionId}:${itemId}`
 vi.mock('@/lib/assess/response-store', () => ({
-  countPending: async (sessionId: string) => [...store.rows.values()].filter(row => row.sessionId === sessionId && !row.synced).length,
-  getPendingResponses: async (sessionId: string, limit: number) => [...store.rows.values()]
-    .filter(row => row.sessionId === sessionId && !row.synced).slice(0, limit),
-  getResponsesForSession: async (sessionId: string) => new Map([...store.rows.values()]
-    .filter(row => row.sessionId === sessionId && !row.synced).map(row => [row.itemId, { value: row.value, data: row.data }])),
-  putResponse: async (input: Omit<ResponseRecord, 'idempotencyKey' | 'synced' | 'updatedAt'>) => {
+  countPending: async (sessionId: string) => {
+    if (store.readError) throw new Error('storage unavailable')
+    return [...store.rows.values()].filter(row => row.sessionId === sessionId && !row.synced).length
+  },
+  getPendingResponses: async (sessionId: string, limit: number) => {
+    if (store.readError || store.pendingReadError) throw new Error('storage unavailable')
+    return [...store.rows.values()].filter(row => row.sessionId === sessionId && !row.synced).slice(0, limit)
+  },
+  getResponsesForSession: async (sessionId: string) => {
+    if (store.readError) throw new Error('storage unavailable')
+    return new Map([...store.rows.values()].filter(row => row.sessionId === sessionId && !row.synced)
+      .map(row => [row.itemId, { value: row.value, data: row.data }]))
+  },
+  putResponse: async (input: Omit<ResponseRecord, 'idempotencyKey' | 'synced' | 'updatedAt'> & { serverRevision?: number }) => {
     await store.writeGate
+    if (store.writeError) throw new Error('quota exceeded')
     const key = `${input.sessionId}:${input.itemId}`, previous = store.rows.get(key)
     const row = { ...input, data: input.data ?? {}, idempotencyKey: `write-${++store.serial}`,
-      revision: (previous?.revision ?? 0) + 1, synced: 0 as const, updatedAt: Date.now() }
+      revision: Math.max(previous?.revision ?? 0, input.serverRevision ?? 0) + 1, synced: 0 as const, updatedAt: Date.now() }
     store.rows.set(key, row)
     return row
   },
@@ -44,7 +53,7 @@ const advance = async (ms: number) => { await act(async () => { await vi.advance
 describe('useSaveQueue lifetime ownership', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    store.rows.clear(); store.serial = 0; store.writeGate = undefined
+    store.rows.clear(); store.serial = 0; store.writeGate = undefined; store.writeError = false; store.readError = false; store.pendingReadError = false
     fetchMock.mockReset().mockImplementation(async (_input: unknown, init: RequestInit) => {
       const body = JSON.parse(init.body as string) as { saves: { itemId: string }[] }
       return response(200, body.saves.map(row => row.itemId))
@@ -196,4 +205,139 @@ describe('useSaveQueue lifetime ownership', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(store.rows.get(rowKey(config.sessionId, entry.itemId))?.synced).toBe(1)
   })
+
+  it('fails closed on a rejected local write without sending an unversioned fallback', async () => {
+    store.writeError = true
+    fetchMock.mockImplementation(async () => response(500))
+    const mounted = renderHook(() => useSaveQueue(config))
+    await act(async () => { mounted.result.current.enqueueSave(entry) })
+    let drained!: boolean
+    await act(async () => { drained = await mounted.result.current.flushSaves() })
+    expect(drained).toBe(false)
+    expect(mounted.result.current.saveError).toBe(true)
+    expect(mounted.result.current.saveStatus).not.toBe('saved')
+    expect(mounted.result.current.localResponses?.[entry.itemId]?.value).toBe(2)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(store.rows.size).toBe(0)
+  })
+
+  it('keeps Retry available until storage recovers and saves only the latest accepted edit with a real revision', async () => {
+    store.writeError = true
+    const mounted = renderHook(() => useSaveQueue({ ...config, initialRevisions: { 'item-1': 7 } }))
+    await act(async () => { mounted.result.current.enqueueSave(entry) })
+    await act(async () => { mounted.result.current.enqueueSave({ ...entry, value: 5 }) })
+    await act(async () => { mounted.result.current.retryFailedSaves() })
+    expect(mounted.result.current.saveError).toBe(true)
+    expect(mounted.result.current.saveStatus).not.toBe('saved')
+    expect(fetchMock).not.toHaveBeenCalled()
+    store.writeError = false
+    await act(async () => { mounted.result.current.retryFailedSaves() })
+    await advance(1600)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.saves).toEqual([expect.objectContaining({ responseValue: 5, revision: 8, idempotencyKey: 'write-1' })])
+    let drained!: boolean
+    await act(async () => { drained = await mounted.result.current.flushSaves() })
+    expect(drained).toBe(true)
+    expect(mounted.result.current.saveError).toBe(false)
+    expect(mounted.result.current.saveStatus).toBe('saved')
+  })
+
+  it('warns before unload while an answer lacks disk durability and removes the warning after recovery', async () => {
+    store.writeError = true
+    const mounted = renderHook(() => useSaveQueue(config))
+    await act(async () => { mounted.result.current.enqueueSave(entry) })
+    const failed = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(failed)
+    expect(failed.defaultPrevented).toBe(true)
+    store.writeError = false
+    await act(async () => { mounted.result.current.retryFailedSaves() })
+    await advance(1600)
+    const recovered = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(recovered)
+    expect(recovered.defaultPrevented).toBe(false)
+    mounted.unmount()
+    const unmounted = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(unmounted)
+    expect(unmounted.defaultPrevented).toBe(false)
+  })
+
+  it('retains the allocated revision and idempotency key when the network fails after storage recovery', async () => {
+    store.writeError = true
+    const mounted = renderHook(() => useSaveQueue(config))
+    await act(async () => { mounted.result.current.enqueueSave(entry) })
+    fetchMock.mockImplementationOnce(async () => response(500))
+    store.writeError = false
+    await act(async () => { mounted.result.current.retryFailedSaves() })
+    await advance(1600)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const original = JSON.parse(fetchMock.mock.calls[0][1].body).saves[0]
+    expect(store.rows.get(rowKey(config.sessionId, entry.itemId))?.synced).toBe(0)
+    await act(async () => { mounted.result.current.retryFailedSaves() })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).saves[0]).toEqual(original)
+    expect(store.rows.get(rowKey(config.sessionId, entry.itemId))?.synced).toBe(1)
+  })
+
+  it('does not report Saved or drain when browser storage cannot be read', async () => {
+    const mounted = renderHook(() => useSaveQueue(config))
+    await act(async () => { mounted.result.current.enqueueSave(entry) })
+    store.readError = true
+    await advance(1600)
+    expect(mounted.result.current.saveError).toBe(true)
+    expect(mounted.result.current.saveStatus).not.toBe('saved')
+    let drained!: boolean
+    await act(async () => { drained = await mounted.result.current.flushSaves() })
+    expect(drained).toBe(false)
+    expect(fetchMock).not.toHaveBeenCalled()
+    store.readError = false
+    await act(async () => { mounted.result.current.retryFailedSaves() })
+    expect(store.rows.get(rowKey(config.sessionId, entry.itemId))?.synced).toBe(1)
+  })
+
+  it('a durable earlier ACK cannot hide a newer edit whose local write failed', async () => {
+    const held = deferred<Response>()
+    fetchMock.mockImplementationOnce(() => held.promise)
+    const mounted = renderHook(() => useSaveQueue(config))
+    await act(async () => { mounted.result.current.enqueueSave(entry) })
+    await advance(1600)
+    store.writeError = true
+    await act(async () => { mounted.result.current.enqueueSave({ ...entry, value: 5 }) })
+    await act(async () => { held.resolve(response()) })
+    expect(mounted.result.current.saveError).toBe(true)
+    expect(mounted.result.current.saveStatus).not.toBe('saved')
+    let drained!: boolean
+    await act(async () => { drained = await mounted.result.current.flushSaves() })
+    expect(drained).toBe(false)
+    expect(mounted.result.current.localResponses?.[entry.itemId]?.value).toBe(5)
+    store.writeError = false
+    await act(async () => { mounted.result.current.retryFailedSaves() })
+    await advance(1600)
+    expect(store.rows.get(rowKey(config.sessionId, entry.itemId))).toMatchObject({ value: 5, synced: 1, revision: 2 })
+  })
+
+
+  it('fails closed if the pending-row read fails even when a separate count returns zero', async () => {
+    const mounted = renderHook(() => useSaveQueue(config))
+    await act(async () => {})
+    store.pendingReadError = true
+    await act(async () => { mounted.result.current.retryFailedSaves() })
+    expect(mounted.result.current.saveError).toBe(true)
+    expect(mounted.result.current.saveStatus).not.toBe('saved')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('keeps an accepted answer visible when initial storage hydration and writes both fail', async () => {
+    store.readError = true; store.writeError = true
+    const mounted = renderHook(() => useSaveQueue(config))
+    await act(async () => { mounted.result.current.enqueueSave(entry) })
+    await act(async () => { mounted.result.current.retryFailedSaves() })
+    expect(mounted.result.current.localResponses?.[entry.itemId]?.value).toBe(2)
+    expect(mounted.result.current.saveError).toBe(true)
+    let drained!: boolean
+    await act(async () => { drained = await mounted.result.current.flushSaves() })
+    expect(drained).toBe(false)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
 })
