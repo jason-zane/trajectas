@@ -50,6 +50,14 @@ export const studyCreateSchema = z.object({
   question: z.string().trim().max(1500),
 });
 export const reportDraftSchema = z.object({
+  sections: z
+    .object({
+      comparison: z.boolean(),
+      interpretation: z.boolean(),
+      recommendation: z.boolean(),
+      technical: z.boolean(),
+    })
+    .optional(),
   metricId: z.string().min(1).max(80),
   predictorId: z.string().min(1).max(400),
   headline: z.string().trim().min(1).max(160),

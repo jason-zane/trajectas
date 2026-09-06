@@ -4,6 +4,7 @@ import { Download, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import type { OutcomeReport } from "@/lib/outcomes/types";
+import { reportSections } from "@/lib/outcomes/report";
 import { OutcomeExecutiveReport } from "./executive-report";
 export function PublishedOutcomeReport({
   report,
@@ -47,15 +48,17 @@ export function PublishedOutcomeReport({
           </a>
         </div>
       </div>
-      <label className="flex items-center gap-3 text-sm">
-        <input
-          type="checkbox"
-          className="accent-primary"
-          checked={technical}
-          onChange={(e) => setTechnical(e.target.checked)}
-        />
-        Show supporting analysis
-      </label>
+      {reportSections(report.payload.draft).technical && (
+        <label className="flex items-center gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="accent-primary"
+            checked={technical}
+            onChange={(e) => setTechnical(e.target.checked)}
+          />
+          Show supporting analysis
+        </label>
+      )}
       <OutcomeExecutiveReport payload={report.payload} technical={technical} />
     </div>
   );

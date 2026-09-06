@@ -1,0 +1,216 @@
+import type {
+  OutcomeReportPayload,
+  OutcomeRun,
+  OutcomeModelDetails,
+} from "@/lib/outcomes/types";
+import { EMPTY_OUTCOME_CONFIG } from "@/lib/outcomes/types";
+export function outcomeReportFixture(): OutcomeReportPayload {
+  const metric = {
+    id: "kpi",
+    column: "csat",
+    label: "Customer satisfaction",
+    kind: "continuous" as const,
+    unit: "points",
+    display: "number" as const,
+    direction: "higher" as const,
+    currency: "AUD",
+    minimum: 0,
+    maximum: 100,
+    exposureColumn: "",
+  };
+  return {
+    version: 1,
+    study: {
+      title: "Test study",
+      question: "What is associated with satisfaction?",
+      clientName: "Example",
+    },
+    draft: {
+      metricId: "kpi",
+      predictorId: "p",
+      headline: "A customer satisfaction relationship",
+      interpretation: "Observed association.",
+      recommendation: "Test a targeted initiative.",
+      scenario: {
+        enabled: false,
+        shift: 1,
+        people: 100,
+        periods: 1,
+        valuePerUnit: null,
+        cost: 0,
+        currency: "AUD",
+      },
+    },
+    config: { ...EMPTY_OUTCOME_CONFIG, metrics: [metric] },
+    predictors: [
+      {
+        id: "p",
+        label: "Empathy",
+        assessment: "Service",
+        assessmentId: "a",
+        factorId: "f",
+        scoreField: "scaled_score",
+        scoringMethod: "ctt",
+        metric: "overall",
+        variant: "",
+        parameterScale: "",
+        normVersion: "",
+        normGroupId: "",
+      },
+    ],
+    quality: {
+      imported: 80,
+      matched: 80,
+      eligible: 80,
+      excluded: {},
+      warnings: [],
+    },
+    source: {
+      checksum: "hash",
+      filename: "test.csv",
+      extractedAt: "2026-01-01",
+      formVersions: [],
+    },
+    runId: "run",
+    runCreatedAt: "2026-01-01",
+    result: {
+      engineVersion: "test",
+      seed: 1,
+      libraryVersions: {},
+      warnings: [],
+      results: [
+        {
+          metricId: "kpi",
+          n: 80,
+          missing: 0,
+          mean: 70,
+          sd: 10,
+          findings: [
+            {
+              predictorId: "p",
+              n: 80,
+              correlation: {
+                value: 0.5,
+                lower: 0.3,
+                upper: 0.7,
+                p: 0.01,
+                q: 0.02,
+              },
+              spearman: 0.4,
+              groups: {
+                low: 65,
+                high: 75,
+                lowN: 20,
+                highN: 20,
+                difference: 10,
+                lower: 6,
+                upper: 14,
+              },
+              adjusted: { value: 3, lower: 2, upper: 4, p: 0.01, q: 0.02 },
+              scoreMin: 1,
+              scoreMax: 5,
+              scoreMean: 3,
+              status: "supported",
+              reason: null,
+            },
+          ],
+          model: {
+            method: "Linear regression",
+            n: 80,
+            parameters: 2,
+            controls: [],
+            warnings: [],
+            unavailable: null,
+          },
+          validation: null,
+          validationReason: "Test fixture",
+        },
+      ],
+    },
+  };
+}
+export function outcomeDetailsFixture(): OutcomeModelDetails {
+  return {
+    kind: "linear",
+    terms: [
+      {
+        id: "score_0",
+        kind: "capability",
+        label: "Empathy",
+        predictorId: "p",
+        estimate: { value: 3, lower: 2, upper: 4, p: 0.01, q: 0.02 },
+        standardError: 0.5,
+        statistic: 6,
+        standardizedBeta: 0.6,
+        vif: 1.1,
+        reference: { mean: 3, minimum: 1, maximum: 5 },
+      },
+      {
+        id: "const",
+        kind: "intercept",
+        label: "Intercept",
+        predictorId: null,
+        estimate: { value: 61, lower: 57, upper: 65, p: 0.001 },
+        standardError: 2,
+        statistic: 30.5,
+        standardizedBeta: null,
+        vif: null,
+        reference: null,
+      },
+      {
+        id: "control_0_private",
+        kind: "control",
+        label: "Private context category",
+        predictorId: null,
+        estimate: { value: 1, lower: -1, upper: 3, p: 0.2 },
+        standardError: 1,
+        statistic: 1,
+        standardizedBeta: null,
+        vif: 1.1,
+        reference: null,
+      },
+    ],
+    references: [{ label: "Private context", value: "Private category" }],
+    residualDf: 77,
+    outcomeMean: 70,
+    r2: 0.4,
+    adjustedR2: 0.38,
+    contextR2: 0.1,
+    addedR2: 0.3,
+    rmse: 4,
+    maxCooksDistance: 0.07,
+    deviance: null,
+    dispersion: null,
+    jointTest: { value: 8, p: 0.001, numeratorDf: 2, denominatorDf: 77 },
+    contributions: [{ predictorId: "p", deltaR2: 0.3, partialR2: 1 / 3 }],
+    residualKind: "response",
+    residuals: [{ x: 70, y: 2 }],
+  };
+}
+export function outcomeRunFixture(): OutcomeRun {
+  const p = outcomeReportFixture();
+  p.result.results[0].model.details = outcomeDetailsFixture();
+  p.result.plots = {
+    predictorIds: ["p"],
+    metricIds: ["kpi"],
+    total: 80,
+    points: [
+      { scores: [1], outcomes: [65] },
+      { scores: [5], outcomes: [75] },
+    ],
+  };
+  return {
+    id: p.runId,
+    createdAt: p.runCreatedAt,
+    status: "completed",
+    error: null,
+    result: p.result,
+    input: {
+      version: 1,
+      config: p.config,
+      predictors: p.predictors,
+      quality: p.quality,
+      source: p.source,
+    },
+  };
+}
