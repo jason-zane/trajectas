@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   snapshot: {} as Record<string, unknown>, send: vi.fn(), sign: vi.fn(), verify: vi.fn(), pdfState: vi.fn(),
+  participantExists: true,
 }))
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({
   from: (table: string) => {
     const query = {
       select: () => query, eq: () => query, is: () => query,
       maybeSingle: async () => ({ data: table === 'campaign_participants'
-        ? { id: 'participant', campaign_id: 'campaign' } : mocks.snapshot, error: null }),
+        ? mocks.participantExists ? { id: 'participant', campaign_id: 'campaign' } : null
+        : mocks.snapshot, error: null }),
     }
     return query
   },
@@ -41,11 +43,13 @@ import { requestNewReportLink } from '@/app/actions/report-resend'
 import { GET as getPdf } from '@/app/api/reports/[snapshotId]/pdf/route'
 import { GET as getStatus } from '@/app/api/reports/[snapshotId]/status/route'
 import ReportByTokenPage from '@/app/assess/r/[snapshotId]/page'
+import { createParticipantPdfRateLimitProof } from '@/lib/reports/pdf-rate-limit-proof'
 
 const snapshotId = '11111111-1111-4111-8111-111111111111'
 const params = { params: Promise.resolve({ snapshotId }) }
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.participantExists = true
   mocks.snapshot = { id: snapshotId, status: 'released', audience_type: 'hr_manager', sent_to_participant_at: null,
     participant_sessions: { campaign_participant_id: 'participant', campaign_participants: {
       id: 'participant', email: 'person@example.invalid', first_name: 'Test',
@@ -97,5 +101,24 @@ describe('participant audience versus explicit signed report grants', () => {
     mocks.snapshot.audience_type = audience
     const pdf = await getPdf(new Request(`http://localhost/api/reports/${snapshotId}/pdf?token=participant-token`), params)
     expect(pdf.status).toBe(200)
+  })
+
+  it('does not let a rate-limit proof replace revoked-token or ownership checks', async () => {
+    vi.stubEnv('REPORT_ACCESS_TOKEN_SECRET', 'synthetic-signing-key-'.repeat(3))
+    mocks.snapshot.audience_type = 'participant'
+    const token = 'a'.repeat(64)
+    const proof = createParticipantPdfRateLimitProof(token, snapshotId)
+    const request = new Request(`http://localhost/api/reports/${snapshotId}/pdf?${new URLSearchParams({ token, pdfRateLimitProof: proof })}`)
+    expect((await getPdf(request, params)).status).toBe(200)
+
+    mocks.pdfState.mockClear()
+    mocks.participantExists = false // deleted participant or rotated access_token lookup
+    expect((await getPdf(request, params)).status).toBe(403)
+    expect(mocks.pdfState).not.toHaveBeenCalled()
+
+    mocks.participantExists = true
+    mocks.snapshot.participant_sessions = { campaign_participant_id: 'another-participant' }
+    expect((await getPdf(request, params)).status).toBe(403)
+    expect(mocks.pdfState).not.toHaveBeenCalled()
   })
 })

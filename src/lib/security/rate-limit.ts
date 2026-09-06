@@ -4,6 +4,7 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { reportError } from "@/lib/observability/report-error";
 import { getAssessSessionProof, verifyAssessSessionProof } from "@/lib/assess/session-proof";
+import { getVerifiedPdfRateLimitIdentity } from "@/lib/reports/pdf-rate-limit-proof";
 
 type SlidingWindowStore = Map<string, number[]>;
 
@@ -199,8 +200,12 @@ function resolveRule(request: NextRequest): RateLimitRule | null {
     pathname.startsWith("/api/reports/") &&
     pathname.endsWith("/pdf")
   ) {
+    // Valid participant links receive a bounded snapshot-specific allowance.
+    // Local signature verification cannot be bypassed by inventing tokens,
+    // and the route still enforces ownership/revocation before serving a PDF.
+    const identity = getVerifiedPdfRateLimitIdentity(request.nextUrl);
     return {
-      key: `pdf:${userBucket(request, ip)}`,
+      key: identity ? `pdf:verified:${hashValue(identity)}` : `pdf:${userBucket(request, ip)}`,
       limit: 20,
       windowMs: 60_000,
       failClosed: true, // PDF generation is expensive
