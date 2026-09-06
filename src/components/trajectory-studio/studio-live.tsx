@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import type { CanvasResult } from '@/lib/canvas/types'
 import type { Experience, Lens } from '@/lib/trajectory-studio/model'
 import { TrajectoryStudio } from './trajectory-studio'
+import { Button } from '@/components/ui/button'
 import styles from './studio.module.css'
 
 export function LiveTrajectoryStudio({ initial, experience, initialLens, nonce }: { initial: CanvasResult; experience: Experience; initialLens?: Lens; nonce?: string }) {
@@ -57,15 +58,15 @@ export function LiveTrajectoryStudio({ initial, experience, initialLens, nonce }
   const filtered = hits.filter((hit) => campaign === 'all' || hit.campaignId === campaign)
   return <>
     <TrajectoryStudio key={result.people.map((p) => p.personKey).join(',')} dataset={{ result, workspaceName: 'Current workspace', demo: false }} nonce={nonce} initialExperience={experience} initialLens={activeLens} onBrowse={() => { setPicked(result.people.map((p) => p.entryCpId)); setOpen(true); setCampaign('all'); setQuery(''); setError(null) }} />
-    <Dialog open={open} onOpenChange={(value) => { if (!pending) setOpen(value) }}><DialogContent className={`${styles.dialog} sm:max-w-2xl max-h-[88dvh] overflow-y-auto`}><DialogHeader><DialogTitle>Choose participants from your workspace</DialogTitle><DialogDescription>Search people and filter by campaign. Each record shows its completed assessments; linked identities are combined when loaded. {individual ? 'Choose one person to explore their history.' : 'Up to eight records per selection.'}</DialogDescription></DialogHeader>
+    <Dialog open={open} onOpenChange={(value) => { if (!pending) setOpen(value) }}><DialogContent className={`${styles.dialog} ${styles.participantDialog} sm:max-w-2xl`}><div className={styles.participantDialogHeader}><DialogHeader><DialogTitle>Choose participants from your workspace</DialogTitle><DialogDescription>Search people and filter by campaign. Each record shows its completed assessments; linked identities are combined when loaded. {individual ? 'Choose one person to explore their history.' : 'Up to eight records per selection.'}</DialogDescription></DialogHeader>
       <div className={styles.search}><Search size={16} /><input aria-label="Search workspace participants" type="search" value={query} onChange={(e) => { setQuery(e.target.value); setCampaign('all') }} placeholder="Search name or email…" /></div>
       <label className={styles.field}><span>Campaign</span><select aria-label="Filter search by campaign" value={campaign} onChange={(e) => setCampaign(e.target.value)}><option value="all">All campaigns in these search results</option>{campaigns.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
       {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-      <div aria-live="polite" className={styles.finePrint}>{searching ? 'Searching…' : `${filtered.length} records found · ${picked.length} selected`}</div>
-      <div className={styles.peopleList}>{filtered.map((hit) => <button className={`${styles.personOption} ${picked.includes(hit.id) ? styles.personSelected : ''}`} key={hit.id} aria-pressed={picked.includes(hit.id)} disabled={pending || (!individual && !picked.includes(hit.id) && picked.length >= 8) || hit.completedSessionCount === 0} onClick={() => setPicked((old) => old.includes(hit.id) ? old.filter((id) => id !== hit.id) : individual ? [hit.id] : [...old, hit.id])}><span className={styles.personText}><strong>{hit.name}</strong><span>{hit.email} · {hit.campaignTitle}</span><small>{hit.completedSessionCount} completed assessments</small></span><span className={styles.checkBox}>{picked.includes(hit.id) && <Check size={12} />}</span></button>)}</div>
-      {!searching && !filtered.length && !error && <EmptyState size="sm" title="No participants found" description="Try another name or campaign filter." />}
-      <p className={styles.finePrint}>Loading a new group starts a fresh analysis. Save your current view before changing groups if you want to return to it.</p>
-      <button className={styles.primaryButton} disabled={!picked.length || pending || searching} onClick={loadSelection}>{pending ? 'Loading results…' : `Load ${picked.length} selected records`}</button>
+      <div aria-live="polite" className={styles.finePrint}>{searching ? 'Searching…' : `${filtered.length} records found · ${picked.length} selected`}</div></div>
+      <div className={styles.participantDialogResults} role="region" aria-label="Workspace participant results" tabIndex={0}><div className={styles.peopleList}>{filtered.map((hit) => <button className={`${styles.personOption} ${picked.includes(hit.id) ? styles.personSelected : ''}`} key={hit.id} aria-pressed={picked.includes(hit.id)} disabled={pending || (!individual && !picked.includes(hit.id) && picked.length >= 8) || hit.completedSessionCount === 0} onClick={() => setPicked((old) => old.includes(hit.id) ? old.filter((id) => id !== hit.id) : individual ? [hit.id] : [...old, hit.id])}><span className={styles.personText}><strong>{hit.name}</strong><span>{hit.email} · {hit.campaignTitle}</span><small>{hit.completedSessionCount} completed assessments</small></span><span className={styles.checkBox}>{picked.includes(hit.id) && <Check size={12} />}</span></button>)}</div>
+      {!searching && !filtered.length && !error && <EmptyState size="sm" title="No participants found" description="Try another name or campaign filter." />}</div>
+      <div className={styles.participantDialogFooter}><p className={styles.finePrint}>Loading a new group starts a fresh analysis. Save your current view before changing groups if you want to return to it.</p>
+      <Button disabled={!picked.length || pending || searching} onClick={loadSelection}>{pending ? 'Loading results…' : `Load ${picked.length} selected records`}</Button></div>
     </DialogContent></Dialog>
   </>
 }

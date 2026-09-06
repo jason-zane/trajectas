@@ -10,10 +10,10 @@
   font-variant-numeric: tabular-nums;
 }
 .withRail { display: grid; grid-template-columns: 218px minmax(0, 1fr); }
-.studio button, .studio input, .studio select { font: inherit; }
-.studio button { cursor: pointer; transition: background 180ms var(--ease-spring, ease), color 180ms ease, border-color 180ms ease; }
-.studio button:disabled { cursor: not-allowed; opacity: .4; }
-.studio button:focus-visible, .studio a:focus-visible, .studio select:focus-visible, .studio input:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+.studio button:not([data-slot]), .studio input:not([data-slot]), .studio select:not([data-slot]) { font: inherit; }
+.studio button:not([data-slot]) { cursor: pointer; transition: background 180ms var(--ease-spring, ease), color 180ms ease, border-color 180ms ease; }
+.studio button:not([data-slot]):disabled { cursor: not-allowed; opacity: .4; }
+.studio button:not([data-slot]):focus-visible, .studio a:focus-visible, .studio select:focus-visible, .studio input:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
 .skipLink { position: fixed; z-index: 100; top: -60px; left: 20px; padding: 12px 18px; color: var(--primary-foreground); background: var(--primary); }
 .skipLink:focus { top: 10px; }
 .reviewRail { position: sticky; top: 0; height: 100dvh; padding: 31px 18px 20px; background: var(--emerald-dark); color: var(--sidebar-foreground); display: flex; flex-direction: column; }
@@ -49,13 +49,7 @@
 .header h1 { font-size: 35px; font-weight: 800; line-height: 1.12; letter-spacing: -.045em; }
 .header p:first-child { font: 9px var(--font-mono); letter-spacing: .09em; color: var(--muted-foreground); margin-bottom: 12px; }
 .header p:last-child { font-size: 12px; max-width: 490px; margin-top: 11px; line-height: 1.8; }
-.headerActions { display: flex; gap: 8px; flex-shrink: 0; }
-.primaryButton, .secondaryButton { display: inline-flex; gap: 8px; align-items: center; justify-content: center; padding: 10px 14px; border-radius: 6px; font-size: 11px !important; font-weight: 600 !important; min-height: 37px; white-space: nowrap; cursor: pointer; }
-.primaryButton { background: var(--primary); color: var(--primary-foreground); border: 1px solid var(--primary); }
-.primaryButton:hover { filter: brightness(.94); }
-.secondaryButton { border: 1px solid var(--border); background: var(--card); }
-.secondaryButton:hover { background: var(--accent); }
-.primaryButton:disabled, .secondaryButton:disabled { opacity: .45; cursor: not-allowed; }
+.headerActions { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
 .workspace { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 23px; align-items: start; }
 .peoplePanel { background: var(--card); border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
 .peopleHeading { display: flex; width: 100%; justify-content: space-between; align-items: center; padding: 19px 16px; border-bottom: 1px solid var(--border); }
@@ -82,11 +76,14 @@
 .personSelected .checkBox { border-color: var(--primary); background: var(--primary); color: var(--primary-foreground); }
 .radioBox { border-radius: 50%; }
 .peopleFootnote { margin: 17px -12px 0; padding: 13px 16px 15px; border-top: 1px solid var(--border); font-size: 9px; color: var(--muted-foreground); line-height: 1.8; background: color-mix(in srgb, var(--background) 60%, var(--card)); }
-.addPeople { display: flex; align-items: center; justify-content: center; width: 100%; padding: 11px 3px; gap: 7px; color: var(--primary); font-size: 10px !important; }
-.contextBar { display: flex; gap: 16px; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 17px; }
-.assessmentSelect { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1; }
+.contextBar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 17px; }
+.assessmentSelect { display: flex; flex-direction: column; gap: 5px; min-width: min(100%, 20rem); flex: 1 1 24rem; }
 .assessmentSelect > span { display: flex; gap: 6px; align-items: center; font: 8px var(--font-mono); letter-spacing: .08em; color: var(--muted-foreground); }
-.assessmentSelect select { font-size: 12px; font-weight: 650; background: transparent; min-width: 0; width: 100%; max-width: 225px; padding: 3px 15px 3px 0; }
+.assessmentControl { position: relative; display: flex; align-items: center; gap: 12px; min-width: 0; padding: 4px 0; border-radius: 4px; }
+.assessmentControl > span { min-width: 0; flex: 1; font-size: 14px; font-weight: 650; line-height: 1.5; overflow-wrap: anywhere; }
+.assessmentControl > svg { flex-shrink: 0; }
+.assessmentControl:focus-within { outline: 2px solid var(--ring); outline-offset: 4px; }
+.assessmentSelect select { position: absolute; inset: 0; width: 100%; height: 100%; min-width: 0; opacity: 0; cursor: pointer; font-size: 14px; }
 .windowCaption { display: flex; flex-direction: column; gap: 8px; border-left: 1px solid var(--border); padding-left: 20px; }
 .windowCaption > span { font: 7px var(--font-mono); letter-spacing: .07em; color: var(--muted-foreground); }
 .windowCaption strong { font-size: 10px; font-weight: 500; }
@@ -254,7 +251,7 @@
 .dialog { color: var(--foreground); background: var(--card); --popover: var(--card); --popover-foreground: var(--foreground); }
 .rotated { transform: rotate(-90deg); }
 
-:global([data-studio-theme="dark"]) .studio, :global([data-studio-theme="dark"]) .dialog { --background: #18221f; --card: #202d28; --foreground: #e9eee9; --muted-foreground: #b0bbb5; --border: #38463f; --primary: #9ec6b1; --primary-foreground: #172b22; --accent: #2d3e34; --muted: #2a3931; --info: #92b4ce; --chart-5: #d29c7d; --studio-purple: #b3a0cc; --studio-olive: #b0b986; --studio-rose: #d2a1aa; --chart-3: #c9a962; --studio-slate: #a2baca; --ring: #9ec6b1; }
+:global([data-studio-theme="dark"]) .withRail, :global([data-studio-theme="dark"]) .demoDialog { --background: #18221f; --card: #202d28; --foreground: #e9eee9; --muted-foreground: #b0bbb5; --border: #38463f; --primary: #9ec6b1; --primary-foreground: #172b22; --accent: #2d3e34; --muted: #2a3931; --info: #92b4ce; --chart-5: #d29c7d; --studio-purple: #b3a0cc; --studio-olive: #b0b986; --studio-rose: #d2a1aa; --chart-3: #c9a962; --studio-slate: #a2baca; --ring: #9ec6b1; }
 
 @media (min-width: 1650px) { .main { padding: 40px 42px; }.workspace { grid-template-columns: 274px minmax(0, 1fr); gap: 27px; }.personText strong { font-size: 11px; }.personText > span, .personText small { font-size: 9px; }.chartHeader h2 { font-size: 21px; }.chartHeader { padding: 27px; }.profileChart { padding: 20px 27px 0; }.profileRow > button { font-size: 11px; }.profileAxis, .profileRow { grid-template-columns: 153px 1fr 45px; gap: 22px; }.main { max-width: 1500px; } }
 @media (max-width: 1250px) { .withRail { grid-template-columns: 178px minmax(0,1fr); }.reviewRail { padding: 28px 12px 18px; }.brand { width: 130px; }.railNavTitle { gap: 6px; }.railNavTitle strong { font-size: 10px; }.railNavCaption { font-size: 8px; margin-left: 23px; }.railLabel { font-size: 6.5px; }.main { padding: 27px 24px; }.workspace { grid-template-columns: 224px minmax(0,1fr); gap: 18px; }.personOption { gap: 6px; padding: 11px 6px; }.avatar { width: 27px; height: 29px; font-size: 9px; }.sourceTag { display: none; }.settingsButton span { display: none; }.contextBar { gap: 10px; padding: 13px; }.profileAxis, .profileRow { grid-template-columns: 112px 1fr 34px; gap: 12px; }.profileRow > button { font-size: 9px; }.lowerGrid { gap: 14px; grid-template-columns: 1.15fr 1fr; }.contextPanel { padding: 17px; }.sectionHeading { padding: 18px 15px; }.sectionHeading > span { display: none; }.insightStrip > div { padding-left: 15px; }.lensToggle button { padding: 7px 8px; font-size: 9px !important; }.chartHeader h2 { font-size: 17px; }.headerActions { gap: 6px; }.headerActions .secondaryButton { font-size: 10px !important; padding: 9px 10px; } }
@@ -491,4 +488,48 @@ button.namedBar:hover, button.namedBar:focus-visible { background: color-mix(in 
   .timeSummary .tableScore { min-width: 42px; }
   .timeSummary .tableScore strong, .timeSummary .changeNumber { font-size: 11px; }
   .timeSummary .tableScore small { font-size: 8px; }
+}
+
+/* Keep search and the primary action visible; only participant results scroll. */
+.participantDialog { display: flex; flex-direction: column; height: min(48rem, calc(100dvh - 2rem)); max-height: calc(100dvh - 2rem); gap: 0; overflow: hidden; }
+.participantDialogHeader { flex: 0 0 auto; display: grid; gap: 12px; min-width: 0; padding: 0 0 12px; }
+.participantDialogHeader :global([data-slot="dialog-header"]) { padding-right: 24px; }
+.participantDialogHeader .search, .participantDialogHeader .field { margin: 0; }
+.participantDialogResults { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 4px 0; }
+.participantDialogResults .peopleList { max-height: none; overflow: visible; margin: 0; grid-template-columns: minmax(0, 1fr); }
+.participantDialogFooter { flex: 0 0 auto; display: grid; gap: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.participantDialogFooter p { margin: 0; }
+.participantDialogFooter :global([data-slot="button"]) { justify-content: center; width: 100%; }
+@media (max-height: 600px) {
+  .participantDialogHeader { gap: 8px; padding-bottom: 8px; }
+  .participantDialogHeader :global([data-slot="dialog-description"]), .participantDialogFooter > p { display: none; }
+  .participantDialogFooter { padding-top: 8px; }
+}
+
+/* Live pages are content inside WorkspaceShell; the shell owns theme and spacing. */
+.live { min-height: 0; background: transparent; color: inherit; font-size: inherit; container-type: inline-size; }
+.liveContent { display: grid; gap: 2rem; min-width: 0; }
+.liveHeader { flex-wrap: wrap; }
+.liveHeader > :first-child { flex: 1 1 20rem; min-width: 0; }
+.liveHeader > :last-child:not(:first-child) { max-width: 100%; flex-shrink: 1; }
+.liveHeader .headerActions { flex-direction: row; }
+.live .workspace { gap: 1.5rem; }
+.live :is(.peoplePanel, .contextBar, .analysisPanel) { border-radius: var(--radius-xl); }
+.live :is(.field > span, .assessmentSelect > span, .scopeBar > label > span, .scopeBar > div > span, .selectionCount) { font-family: inherit; font-size: .75rem; font-weight: 500; letter-spacing: normal; }
+.live :is(.field input, .field select, .search input, .scopeBar input, .scopeBar select, .analysisControls select) { font-size: .875rem; min-height: 2.25rem; }
+.live :is(.peopleHeading > span, .personText strong, .barLabel, .analysisControls > label) { font-size: .875rem; }
+.live :is(.personText > span, .personText small, .scopeBar small, .referenceContext p, .cardReferenceNote, .resultsFooter, .sourceTag, .chartLegend > span) { font-size: .75rem; line-height: 1.5; }
+.live :is(.lensToggle button, .valueToggle button, .viewToggle button) { font-size: .8125rem !important; min-height: 2.25rem; }
+.live .chartHeader h2 { font-size: 1.0625rem; line-height: 1.3; letter-spacing: -.01em; font-weight: 600; }
+.live .chartHeader .overline { font-family: inherit; font-size: .65625rem; font-weight: 600; letter-spacing: .1em; }
+.live .scopeBar { flex-wrap: wrap; }
+.live .scopeBar > div { min-width: 0; flex: 1 1 16rem; }
+.live .scopeBar :global([data-slot="button"]) { max-width: 100%; }
+.participantDialog :is(.search input, .field select) { font-size: .875rem; }
+.participantDialog .personText strong { font-size: .875rem; }
+.participantDialog :is(.personText > span, .personText small, .finePrint) { font-size: .75rem; line-height: 1.5; }
+@container (max-width: 56rem) {
+  .live .workspace { grid-template-columns: minmax(0, 1fr); }
+  .live .peopleList { max-height: 15rem; }
+  .live .comparisonCards { grid-template-columns: minmax(0, 1fr); }
 }

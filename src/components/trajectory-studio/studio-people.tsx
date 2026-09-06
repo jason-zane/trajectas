@@ -5,6 +5,7 @@ import { Check, ChevronDown, Plus, Search, Users } from 'lucide-react'
 import { EmptyState } from '@/components/empty-state'
 import { historySessions, initials, snapshotSession, type StudioDataset, type StudioSettings } from '@/lib/trajectory-studio/model'
 import { SERIES_COLORS } from './studio-chart'
+import { Button } from '@/components/ui/button'
 import styles from './studio.module.css'
 
 export function StudioPeople({ dataset, settings, single, onChange, onBrowse }: {
@@ -42,7 +43,7 @@ export function StudioPeople({ dataset, settings, single, onChange, onBrowse }: 
         })}
         {!options.length && <EmptyState size="sm" title="No people found" description="Try another name or role." />}
       </div>
-      {onBrowse && <button className={styles.addPeople} onClick={onBrowse}><Plus size={15} />Browse workspace participants</button>}
+      {onBrowse && <Button variant="ghost" className="w-full h-auto min-h-9 whitespace-normal text-left" onClick={onBrowse}><Plus size={15} />Browse workspace participants</Button>}
       <p className={styles.peopleFootnote}>Linked campaign records are grouped into one person. Selected people stay selected when you filter the list.</p>
     </div>}
   </aside>
