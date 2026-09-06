@@ -22,25 +22,27 @@ function workerUrl() {
     return `https://${process.env.VERCEL_URL}/api/outcomes-worker`;
   return "http://127.0.0.1:8874";
 }
-export async function runNextOutcomeJob(runId?: string) {
-  const db = createAdminClient(),
-    secret = process.env.CRON_SECRET;
-  if (!secret) throw new Error("Statistical worker signing is not configured.");
+interface OutcomeJob {
+  id: string;
+  input: OutcomeInput;
+  input_hash: string;
+  lease_id: string;
+  attempts: number;
+}
+type OutcomeDatabase = ReturnType<typeof createAdminClient>;
+async function claimOutcomeJob(db: OutcomeDatabase, runId?: string) {
   const claim = await db.rpc("claim_outcome_run", { p_run_id: runId ?? null });
   if (claim.error) {
     logActionError("outcomes.claim", claim.error);
     throw new Error("Unable to claim an analysis job.");
   }
-  const job = claim.data?.[0] as
-    | {
-        id: string;
-        input: OutcomeInput;
-        input_hash: string;
-        lease_id: string;
-        attempts: number;
-      }
-    | undefined;
-  if (!job) return false;
+  return claim.data?.[0] as OutcomeJob | undefined;
+}
+async function executeOutcomeJob(
+  db: OutcomeDatabase,
+  secret: string,
+  job: OutcomeJob,
+) {
   try {
     if (outcomeInputHash(job.input) !== job.input_hash)
       throw new Error("The frozen analysis input failed its integrity check.");
@@ -114,5 +116,32 @@ export async function runNextOutcomeJob(runId?: string) {
       .eq("status", "running");
     if (saved.error) logActionError("outcomes.worker_status", saved.error);
   }
-  return true;
+}
+
+async function runOutcomeJobs(limit: number, runId?: string) {
+  const db = createAdminClient(),
+    secret = process.env.CRON_SECRET;
+  if (!secret) throw new Error("Statistical worker signing is not configured.");
+  const jobs: OutcomeJob[] = [];
+  // Each RPC must release the nonblocking claim lock before the next claim.
+  // Acquire both available leases before doing the slow numerical work.
+  for (let i = 0; i < limit; i++) {
+    try {
+      const job = await claimOutcomeJob(db, runId);
+      if (!job) break;
+      jobs.push(job);
+    } catch (error) {
+      if (!jobs.length) throw error;
+      // A later claim failure must not strand an already acquired lease.
+      break;
+    }
+  }
+  await Promise.all(jobs.map((job) => executeOutcomeJob(db, secret, job)));
+  return jobs.length;
+}
+export async function runNextOutcomeJob(runId?: string) {
+  return (await runOutcomeJobs(1, runId)) > 0;
+}
+export async function runOutcomeJobBatch() {
+  return runOutcomeJobs(2);
 }

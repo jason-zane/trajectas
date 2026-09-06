@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { runNextOutcomeJob } from "@/lib/dal/outcome-jobs";
+import { runOutcomeJobBatch } from "@/lib/dal/outcome-jobs";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export async function GET(request: Request) {
@@ -14,11 +14,8 @@ export async function GET(request: Request) {
   )
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    const results = await Promise.all([
-      runNextOutcomeJob(),
-      runNextOutcomeJob(),
-    ]);
-    return Response.json({ started: results.filter(Boolean).length });
+    const started = await runOutcomeJobBatch();
+    return Response.json({ started });
   } catch {
     return Response.json(
       { error: "Unable to process the analysis queue." },

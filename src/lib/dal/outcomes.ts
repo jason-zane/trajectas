@@ -12,7 +12,7 @@ import {
   AuthorizationError,
 } from "@/lib/auth/authorization";
 import { logActionError } from "@/lib/security/action-errors";
-import { logAuditEvent } from "@/lib/auth/support-sessions";
+import { logAuditEventSafe } from "@/lib/auth/support-sessions";
 import {
   EMPTY_OUTCOME_CONFIG,
   type OutcomeReportDraft,
@@ -142,7 +142,7 @@ export async function createOutcomeStudy(input: unknown) {
     .select("id")
     .single();
   checked(error, "Unable to create study.");
-  await logAuditEvent({
+  await logAuditEventSafe({
     actorProfileId: scope.actor.id,
     eventType: "outcome_study_created",
     targetTable: "outcome_studies",
@@ -499,7 +499,7 @@ export async function importOutcomeData(
     await db.storage.from("outcome-sources").remove([path]);
     checked(error, "Unable to record import. Try again.");
   }
-  await logAuditEvent({
+  await logAuditEventSafe({
     actorProfileId: scope.actor.id,
     eventType: "outcome_data_imported",
     targetTable: "outcome_imports",
@@ -600,7 +600,7 @@ export async function queueOutcomeRun(studyId: string) {
     .select("id")
     .single();
   checked(error, "Unable to queue the analysis.");
-  await logAuditEvent({
+  await logAuditEventSafe({
     actorProfileId: scope.actor.id,
     eventType: "outcome_analysis_queued",
     targetTable: "outcome_runs",
@@ -659,7 +659,7 @@ export async function publishOutcomeReport(
     .select("id")
     .single();
   checked(published.error, "Unable to publish report.");
-  await logAuditEvent({
+  await logAuditEventSafe({
     actorProfileId: scope.actor.id,
     eventType: "outcome_report_published",
     targetTable: "outcome_reports",
@@ -704,7 +704,7 @@ export async function revokeOutcomeReport(studyId: string, reportId: string) {
     .is("revoked_at", null);
   checked(error, "Unable to revoke report.");
   if (scope.actor)
-    await logAuditEvent({
+    await logAuditEventSafe({
       actorProfileId: scope.actor.id,
       eventType: "outcome_report_revoked",
       targetTable: "outcome_reports",
