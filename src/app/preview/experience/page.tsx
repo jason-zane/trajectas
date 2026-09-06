@@ -1,5 +1,7 @@
 "use client"
 
+import { BrandLogo, BrandFooter } from "@/components/brand/brand-logo";
+
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -479,21 +481,7 @@ function RunnerPreview({
         style={{ background: "var(--brand-neutral-50, hsl(var(--background)))" }}
       >
         <div className="flex items-center gap-2.5">
-          {brandLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={brandLogoUrl}
-              alt={brandName ?? "Logo"}
-              className="h-7 w-auto object-contain"
-            />
-          ) : (
-            <span
-              className="text-sm font-semibold tracking-tight"
-              style={{ color: "var(--brand-text, hsl(var(--foreground)))" }}
-            >
-              {brandName ?? "Trajectas"}
-            </span>
-          )}
+          <BrandLogo name={brandName} logoUrl={brandLogoUrl} height={28} runner />
         </div>
         <button
           type="button"
@@ -592,7 +580,7 @@ function RunnerPreview({
             className="ml-4 text-xs"
             style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
           >
-            {content.footerText ?? "Powered by Trajectas"}
+            <BrandFooter text={content.footerText ?? "Powered by Trajectas"} runner />
           </span>
         )}
       </footer>
@@ -618,21 +606,7 @@ function ExpiredPreview({
         style={{ background: "var(--brand-neutral-50, hsl(var(--background)))" }}
       >
         <div className="flex items-center gap-2.5">
-          {brandLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={brandLogoUrl}
-              alt={brandName ?? "Logo"}
-              className="h-7 w-auto object-contain"
-            />
-          ) : (
-            <span
-              className="text-sm font-semibold tracking-tight"
-              style={{ color: "var(--brand-text, hsl(var(--foreground)))" }}
-            >
-              {brandName ?? "Trajectas"}
-            </span>
-          )}
+          <BrandLogo name={brandName} logoUrl={brandLogoUrl} height={28} runner />
         </div>
       </header>
       <main className="flex flex-1 flex-col items-center justify-center px-6">

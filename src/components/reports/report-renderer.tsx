@@ -1,5 +1,7 @@
 'use client'
 
+import { TrajectasLogo } from "@/components/brand/trajectas-logo";
+
 import { useSearchParams } from 'next/navigation'
 import { CoverPageBlock } from './blocks/cover-page'
 import { CustomTextBlock } from './blocks/custom-text'
@@ -158,9 +160,7 @@ export function ReportRenderer({ blocks, className, onBlockSelect, selectedBlock
             </span>
           </div>
           <div className="report-page-chrome hidden print:flex fixed bottom-[5mm] left-[20mm] right-[20mm] justify-center">
-            <span className="font-mono text-[9px] tracking-[0.2em]" style={{ color: 'var(--report-muted-colour)' }}>
-              TRAJECTAS
-            </span>
+            <TrajectasLogo variant="wordmark" height={14} />
           </div>
         </>
       )}

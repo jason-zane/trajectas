@@ -1,3 +1,4 @@
+import { TrajectasLogo } from "@/components/brand/trajectas-logo";
 import { monoPath } from '@/lib/canvas/chart-geometry'
 import {
   NOISE_FLOOR,
@@ -395,9 +396,7 @@ export function GrowthReportPrint({
       {/* Cover */}
       <div className="gr-page">
         <div style={{ background: EMERALD_DARK, color: '#fff', padding: '60px 56px 44px' }}>
-          <p style={{ fontWeight: 800, fontSize: 15, margin: 0 }}>
-            Trajec<span style={{ color: GOLD }}>tas</span>
-          </p>
+          <TrajectasLogo variant="horizontal" light height={28} />
           <h1 style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.03em', margin: '72px 0 0' }}>
             Growth report
           </h1>

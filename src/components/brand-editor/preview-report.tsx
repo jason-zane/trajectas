@@ -1,5 +1,7 @@
 "use client"
 
+import { TrajectasLogo } from "@/components/brand/trajectas-logo";
+
 /**
  * Report cover mockup for the brand editor preview gallery.
  * Displays a gradient header using brand colors + structured metadata.
@@ -24,19 +26,7 @@ export function PreviewReport() {
             background: `linear-gradient(135deg, var(--brand-700), var(--brand-600), var(--brand-500))`,
           }}
         >
-          {/* Logo placeholder */}
-          <div
-            className="mb-8 inline-flex items-center gap-2 rounded-md px-3 py-1.5"
-            style={{ backgroundColor: "rgba(255,255,255,0.15)" }}
-          >
-            <div className="size-5 rounded-sm" style={{ backgroundColor: "rgba(255,255,255,0.5)" }} />
-            <span
-              className="text-sm font-semibold text-white/90"
-              style={{ fontFamily: "var(--brand-font-heading)" }}
-            >
-              Trajectas
-            </span>
-          </div>
+          <TrajectasLogo variant="horizontal" light height={28} className="mb-8" />
 
           <p
             className="text-xs font-medium uppercase tracking-[0.2em] text-white/60"

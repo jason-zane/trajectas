@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandFooter } from "@/components/brand/brand-logo";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
@@ -246,8 +248,8 @@ export function DemographicsForm({
             color: "var(--runner-text-meta)",
           }}
         >
-          {content.footerText ??
-            (isCustomBrand ? "Powered by Trajectas" : "Your responses are confidential")}
+          <BrandFooter text={content.footerText ??
+            (isCustomBrand ? "Powered by Trajectas" : "Your responses are confidential")} runner />
         </span>
         {privacyUrl && (
           <a

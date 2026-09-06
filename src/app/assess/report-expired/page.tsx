@@ -1,3 +1,4 @@
+import { TrajectasLogo } from "@/components/brand/trajectas-logo";
 import { XCircle } from "lucide-react";
 import { ReportExpiredForm } from "./report-expired-form";
 
@@ -16,14 +17,7 @@ export default async function ReportExpiredPage({ searchParams }: Props) {
           background: "var(--brand-neutral-50, hsl(var(--background)))",
         }}
       >
-        <div className="flex items-center gap-2">
-          <span
-            className="text-sm font-semibold tracking-tight"
-            style={{ color: "var(--brand-text, hsl(var(--foreground)))" }}
-          >
-            Trajectas
-          </span>
-        </div>
+        <TrajectasLogo variant="horizontal" height={28} />
       </header>
 
       <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
@@ -50,7 +44,7 @@ export default async function ReportExpiredPage({ searchParams }: Props) {
       </main>
 
       <footer className="flex items-center justify-center px-4 py-4">
-        <span className="text-xs text-muted-foreground">Trajectas</span>
+        <TrajectasLogo variant="wordmark" height={16} />
       </footer>
     </div>
   );

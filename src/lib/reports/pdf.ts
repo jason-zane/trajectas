@@ -171,7 +171,10 @@ export async function queueReportPdfGeneration(snapshotId: string, options: { fo
 
 export async function generateAndStoreReportPdf(
   snapshotId: string,
-  options: { forceRefresh?: boolean } = {},
+  options: {
+    forceRefresh?: boolean
+    suppressConsultantNotification?: boolean
+  } = {},
 ) {
   const db = createAdminClient()
   const snapshot = await getSnapshotPdfState(snapshotId)
@@ -278,15 +281,17 @@ export async function generateAndStoreReportPdf(
     if (updateError) throw updateError
     if (!completedRows?.length) throw new Error('PDF claim expired before completion')
 
-    try {
-      await notifyConsultantsForSnapshot(snapshotId)
-    } catch (notifyError) {
-      await reportError(notifyError, {
-        source: 'notifications.consultant',
-        severity: 'error',
-        alert: true,
-        context: { snapshotId, phase: 'post-pdf' },
-      })
+    if (!options.suppressConsultantNotification) {
+      try {
+        await notifyConsultantsForSnapshot(snapshotId)
+      } catch (notifyError) {
+        await reportError(notifyError, {
+          source: 'notifications.consultant',
+          severity: 'error',
+          alert: true,
+          context: { snapshotId, phase: 'post-pdf' },
+        })
+      }
     }
 
     return {

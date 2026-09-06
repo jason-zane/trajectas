@@ -1,5 +1,7 @@
 'use client'
 
+import { TrajectasLogo } from "@/components/brand/trajectas-logo";
+
 // =============================================================================
 // Closing Page block — the credibility page: methodology in plain language,
 // what the score bands mean, the development-not-selection confidentiality
@@ -91,20 +93,7 @@ export function ClosingPageBlock({ data }: { data: Record<string, unknown>; mode
         className="mt-8 flex items-center justify-between border-t pt-4"
         style={{ borderColor: 'var(--report-divider)' }}
       >
-        <span className="flex items-center gap-2">
-          <svg viewBox="0 0 64 64" width="14" height="14" role="img" aria-label="Trajectas">
-            <rect x="9" y="46" width="7" height="10" rx="3.5" fill="var(--report-cover-accent)" />
-            <rect x="22" y="36" width="7" height="20" rx="3.5" fill="var(--report-cover-accent)" />
-            <rect x="35" y="24" width="7" height="32" rx="3.5" fill="var(--report-cover-accent)" />
-            <rect x="48" y="10" width="7" height="46" rx="3.5" fill="var(--report-featured-accent)" />
-          </svg>
-          <span
-            className="font-mono text-[10px] font-medium tracking-[0.2em]"
-            style={{ color: 'var(--report-cover-accent)' }}
-          >
-            TRAJECTAS
-          </span>
-        </span>
+        <TrajectasLogo variant="horizontal" height={24} />
         {d.clientName && (
           <span
             className="font-mono text-[10px] tracking-[0.18em] uppercase"

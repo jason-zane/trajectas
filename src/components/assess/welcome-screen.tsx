@@ -1,7 +1,8 @@
 "use client";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
+
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import type { WelcomeContent } from "@/lib/experience/types";
@@ -74,31 +75,7 @@ export function WelcomeScreen({
         }}
       >
         <div className="flex items-center">
-          {brandLogoUrl ? (
-            <Image
-              src={brandLogoUrl}
-              alt={brandName ?? "Logo"}
-              width={140}
-              height={28}
-              className="h-7 w-auto object-contain"
-              style={{ color: "var(--runner-text)" }}
-              unoptimized
-            />
-          ) : (
-            <svg
-              className="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ color: "var(--runner-accent)" }}
-            >
-              <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-          )}
+          <BrandLogo name={brandName} logoUrl={brandLogoUrl} height={28} runner />
         </div>
       </header>
 

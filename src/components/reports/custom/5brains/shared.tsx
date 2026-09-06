@@ -1,3 +1,4 @@
+import { BrandLogo } from "@/components/brand/brand-logo";
 // Shared page chrome and brand atoms for the 5Brains custom report.
 
 import type { CSSProperties, ReactNode } from 'react'
@@ -6,8 +7,6 @@ import type { CSSProperties, ReactNode } from 'react'
 export const PAGE_W = 794
 export const PAGE_H = 1123
 
-const TRAJECTAS_LOCKUP = '/reports/5brains/assets/trajectas-lockup.svg'
-const TRAJECTAS_LOCKUP_LIGHT = '/reports/5brains/assets/trajectas-lockup-light.svg'
 
 export function A4Page({
   children,
@@ -42,17 +41,14 @@ export function Wordmark({
   dark = false,
   size = 14,
   src,
+  variant = 'horizontal',
 }: {
   dark?: boolean
   size?: number
   src?: string
+  variant?: 'horizontal' | 'wordmark'
 }) {
-  const h = size * 1.7
-  const resolved = src ?? (dark ? TRAJECTAS_LOCKUP_LIGHT : TRAJECTAS_LOCKUP)
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={resolved} alt="Trajectas" style={{ height: h, width: 'auto', display: 'block' }} />
-  )
+  return <BrandLogo name="Trajectas" logoUrl={src} light={dark} variant={variant} height={size * 1.7} />
 }
 
 export function ClientLogoSlot({
@@ -148,7 +144,7 @@ export function PageHeader({
         borderBottom: '1px solid rgba(20,15,10,0.08)',
       }}
     >
-      <Wordmark size={13} src={primaryLogoUrl} />
+      <Wordmark size={13} src={primaryLogoUrl} variant="wordmark" />
       <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
         <Eyebrow color="var(--mk-primary)" size={9}>
           {sectionLabel}

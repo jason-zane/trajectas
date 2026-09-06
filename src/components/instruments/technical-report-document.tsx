@@ -1,3 +1,4 @@
+import { TrajectasLogo } from "@/components/brand/trajectas-logo";
 import type { TechnicalReport } from '@/lib/instrument/technical-report'
 
 /**
@@ -111,6 +112,7 @@ export function TechnicalReportDocument({
 
   return (
     <article className="space-y-8">
+      <TrajectasLogo variant="wordmark" height={22} />
       {/* Standing comes FIRST. A reader must know what class of evidence this
           document contains before they read a single number from it. */}
       <div className={`border-l-4 ${status.tone} bg-muted/40 p-4`}>

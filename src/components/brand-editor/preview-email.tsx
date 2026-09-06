@@ -1,5 +1,7 @@
 "use client"
 
+import { TrajectasLogo } from "@/components/brand/trajectas-logo";
+
 /**
  * Email invitation mockup for the brand editor preview gallery.
  * Renders a branded email template layout using CSS variables.
@@ -24,18 +26,7 @@ export function PreviewEmail() {
             backgroundColor: "var(--brand-primary)",
           }}
         >
-          <div className="flex items-center gap-2">
-            <div
-              className="size-6 rounded-md"
-              style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
-            />
-            <span
-              className="text-sm font-semibold text-white"
-              style={{ fontFamily: "var(--brand-font-heading)" }}
-            >
-              Trajectas
-            </span>
-          </div>
+          <TrajectasLogo variant="horizontal" light height={28} />
         </div>
 
         {/* Body */}

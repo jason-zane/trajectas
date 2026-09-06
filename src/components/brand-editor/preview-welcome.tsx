@@ -1,5 +1,7 @@
 "use client"
 
+import { BrandFooter } from "@/components/brand/brand-logo";
+
 import type { PreviewCardProps } from "./preview-questions"
 
 /**
@@ -136,7 +138,7 @@ export function PreviewWelcome({ brandName, logoUrl }: PreviewCardProps) {
             fontSize: "0.6875rem",
           }}
         >
-          <span>Powered by Trajectas</span>
+          <BrandFooter text="Powered by Trajectas" runner />
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { TrajectasLogo } from "@/components/brand/trajectas-logo";
 import Link from "next/link";
 import { CalendarClock, Link2 } from "lucide-react";
 import { AcceptInviteForm } from "@/app/auth/accept/accept-invite-form";
@@ -31,7 +32,7 @@ export default async function AcceptInvitePage({
           href={requireAppUrl("public")}
           className="text-lg font-bold tracking-tight text-[var(--mk-primary-dark)]"
         >
-          Trajectas
+          <TrajectasLogo variant="horizontal" height={28} />
         </Link>
       </header>
       <main className="mx-auto flex w-full max-w-lg items-center px-6 py-10">

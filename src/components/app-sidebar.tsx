@@ -1,5 +1,7 @@
 "use client";
 
+import { isTrajectasName } from "@/lib/brand/identity";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -311,13 +313,13 @@ export function AppSidebar({ identity }: AppSidebarProps = {}) {
               />
             </div>
           ) : (
-            <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/10 shadow-sm">
-              <TrajectasLogo variant="mark" light height={20} />
+            <div className="flex size-9 shrink-0 items-center justify-center">
+              <TrajectasLogo variant="mark" light height={28} title="" />
             </div>
           )}
           <div className="flex flex-col">
             <span className="text-sm font-semibold leading-tight tracking-tight text-sidebar-accent-foreground">
-              {identity?.platformName ?? "Trajectas"}
+              {isTrajectasName(identity?.platformName) ? <TrajectasLogo variant="wordmark" light height={25} /> : identity?.platformName}
             </span>
             <span className="text-[11px] text-sidebar-foreground leading-tight">
               Assessment Platform

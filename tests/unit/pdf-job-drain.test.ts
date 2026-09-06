@@ -32,4 +32,16 @@ describe('durable PDF worker', () => {
     expect(await drainReportPdfJobs({ client: db as never, generate, timeBudgetMs: 0 })).toEqual({ processed: 0, failed: 0 })
     expect(generate).not.toHaveBeenCalled()
   })
+  it('suppresses consultant notification for a controlled PDF refresh target', async () => {
+    const db = fixture([[{ id: 'refresh-target' }], []])
+    const generate = vi.fn(async () => null)
+    await drainReportPdfJobs({
+      client: db as never,
+      generate,
+      suppressConsultantNotificationFor: (snapshotId) => snapshotId === 'refresh-target',
+    })
+    expect(generate).toHaveBeenCalledWith('refresh-target', {
+      suppressConsultantNotification: true,
+    })
+  })
 })
