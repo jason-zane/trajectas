@@ -191,6 +191,25 @@ describe('selected section opening and page timing reuse', () => {
     expect(mocks.rpc).toHaveBeenCalledTimes(1)
   })
 
+  it('opens the rendered section when an earlier frozen form has no resolving join rows', async () => {
+    mocks.forms.mockResolvedValue(new Map(mocks.ids.sections.map((id, index) => [id,
+      { entries: [{ itemId: mocks.ids.items[index] }] }])))
+    mocks.state.sections[0].assessment_section_items = []
+    const section = runnerSection(await page(0))
+    expect(section.id).toBe(mocks.ids.sections[1])
+    expect([...mocks.state.opened]).toEqual([section.id])
+    expect(mocks.rpc).toHaveBeenCalledTimes(1)
+  })
+
+  it('starts no clock when all frozen entries have lost their join rows', async () => {
+    mocks.forms.mockResolvedValue(new Map(mocks.ids.sections.map((id, index) => [id,
+      { entries: [{ itemId: mocks.ids.items[index] }] }])))
+    for (const section of mocks.state.sections) section.assessment_section_items = []
+    await expect(page(0)).rejects.toThrow(`REDIRECT:/assess/${mocks.ids.token}/complete`)
+    expect(mocks.rpc).not.toHaveBeenCalled()
+    expect(mocks.state.opened.size).toBe(0)
+  })
+
   it('does not query or open a session when participant authorization rejects it', async () => {
     mocks.authorize.mockRejectedValueOnce(new Error('denied'))
     await expect(getSessionState(mocks.ids.token, mocks.ids.session, 0)).rejects.toThrow('denied')
