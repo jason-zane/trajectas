@@ -873,6 +873,7 @@ export async function assignClientToPartner(clientId: string, partnerId: string)
   }
 
   revalidateDirectoryPaths()
+  revalidatePath('/', 'layout')
   return { success: true as const }
 }
 
@@ -894,6 +895,7 @@ export async function unassignClientFromPartner(clientId: string) {
   }
 
   revalidateDirectoryPaths()
+  revalidatePath('/', 'layout')
   return { success: true as const }
 }
 

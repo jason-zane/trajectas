@@ -395,7 +395,7 @@ async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
   } else if (activeContext?.tenantType === "partner" && activeContext.tenantId) {
     if (isPlatformAdmin || actorPartnerIds.includes(activeContext.tenantId)) {
       partnerIds = [activeContext.tenantId];
-      partnerAdminIds = actorPartnerAdminIds.includes(activeContext.tenantId)
+      partnerAdminIds = isPlatformAdmin || actorPartnerAdminIds.includes(activeContext.tenantId)
         ? [activeContext.tenantId]
         : [];
       clientIds = actorPartnerIds.includes(activeContext.tenantId)
@@ -433,6 +433,8 @@ async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
             (await loadClientPartnerMap([supportSession.targetTenantId])).keys()
           )
         : [supportSession.targetTenantId];
+  } else if (isPlatformAdmin && activeContext?.tenantId) {
+    managedClientIds = [...clientIds];
   } else {
     managedClientIds = managedClientIds.filter((clientId) =>
       clientIds.includes(clientId)
@@ -458,8 +460,12 @@ async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
 
 export const resolveAuthorizedScope = cache(resolveAuthorizedScopeImpl);
 
+export function isUnconfinedPlatformAdmin(scope: AuthorizedScope) {
+  return resolveTenantClientFilter(scope) === null;
+}
+
 export function canAccessClient(scope: AuthorizedScope, clientId: string) {
-  return scope.isPlatformAdmin || scope.clientIds.includes(clientId);
+  return isUnconfinedPlatformAdmin(scope) || scope.clientIds.includes(clientId);
 }
 
 /**
@@ -470,7 +476,7 @@ export function canAccessClient(scope: AuthorizedScope, clientId: string) {
  * `resolveAuthorizedScope`, so callers never need to know the client's partner.
  */
 export function canManageClient(scope: AuthorizedScope, clientId: string) {
-  return scope.isPlatformAdmin || scope.managedClientIds.includes(clientId);
+  return isUnconfinedPlatformAdmin(scope) || scope.managedClientIds.includes(clientId);
 }
 
 /**
@@ -522,16 +528,62 @@ export function canManageAssessment(
   );
 }
 
+function standaloneCampaignPartnerIds(scope: AuthorizedScope): string[] {
+  if (
+    scope.supportSession?.targetSurface === "client" ||
+    scope.activeContext?.tenantType === "client" ||
+    scope.previewContext?.tenantType === "client"
+  ) {
+    return [];
+  }
+  return scope.partnerIds;
+}
+
+export function canAccessCampaign(
+  scope: AuthorizedScope,
+  campaignPartnerId?: string | null,
+  campaignClientId?: string | null
+) {
+  if (isUnconfinedPlatformAdmin(scope)) return true;
+  // The resolved client set follows current ownership and explicit memberships.
+  // A copied campaign.partner_id must never preserve the previous owner's grant.
+  if (campaignClientId != null) return canAccessClient(scope, campaignClientId);
+  return campaignPartnerId != null &&
+    standaloneCampaignPartnerIds(scope).includes(campaignPartnerId);
+}
+
 export function canManageCampaign(
   scope: AuthorizedScope,
   campaignPartnerId?: string | null,
   campaignClientId?: string | null
 ) {
-  return (
-    scope.isPlatformAdmin ||
-    (campaignPartnerId != null && scope.partnerAdminIds.includes(campaignPartnerId)) ||
-    (campaignClientId != null && scope.clientAdminIds.includes(campaignClientId))
-  );
+  if (isUnconfinedPlatformAdmin(scope)) return true;
+  if (campaignClientId != null) {
+    return canManageClient(scope, campaignClientId);
+  }
+  return campaignPartnerId != null &&
+    standaloneCampaignPartnerIds(scope).includes(campaignPartnerId) &&
+    scope.partnerAdminIds.includes(campaignPartnerId);
+}
+
+function campaignOwnership(row: {
+  client_id?: unknown;
+  partner_id?: unknown;
+  clients?: unknown;
+}) {
+  const clientId = row.client_id ? String(row.client_id) : null;
+  if (!clientId) {
+    return { clientId, partnerId: row.partner_id ? String(row.partner_id) : null };
+  }
+  const client = Array.isArray(row.clients) ? row.clients[0] : row.clients;
+  const clientRow = client as { deleted_at?: unknown; partner_id?: unknown } | null;
+  if (!clientRow || typeof clientRow !== "object" || clientRow.deleted_at) {
+    throw new AuthorizationError("Campaign client not found or inaccessible.");
+  }
+  return {
+    clientId,
+    partnerId: clientRow.partner_id ? String(clientRow.partner_id) : null,
+  };
 }
 
 export function canManageReportTemplate(
@@ -615,10 +667,7 @@ export async function requireClientAccess(
   }
 
   const partnerId = data.partner_id ? String(data.partner_id) : null;
-  const hasAccess =
-    scope.isPlatformAdmin ||
-    scope.clientIds.includes(String(data.id)) ||
-    (partnerId ? scope.partnerIds.includes(partnerId) : false);
+  const hasAccess = canAccessClient(scope, String(data.id));
 
   if (!hasAccess) {
     throw new AuthorizationError("You do not have access to this client.");
@@ -636,7 +685,7 @@ export async function requireCampaignAccess(campaignId: string) {
   const db = createAdminClient();
   const { data, error } = await db
     .from("campaigns")
-    .select("id, client_id, partner_id, confidentiality_mode, deleted_at")
+    .select("id, client_id, partner_id, confidentiality_mode, deleted_at, clients(partner_id, deleted_at)")
     .eq("id", campaignId)
     .single();
 
@@ -644,12 +693,8 @@ export async function requireCampaignAccess(campaignId: string) {
     throw new AuthorizationError("Campaign not found or inaccessible.");
   }
 
-  const clientId = data.client_id ? String(data.client_id) : null;
-  const partnerId = data.partner_id ? String(data.partner_id) : null;
-  const hasAccess =
-    scope.isPlatformAdmin ||
-    (clientId ? scope.clientIds.includes(clientId) : false) ||
-    (partnerId ? scope.partnerIds.includes(partnerId) : false);
+  const { clientId, partnerId } = campaignOwnership(data);
+  const hasAccess = canAccessCampaign(scope, partnerId, clientId);
 
   if (!hasAccess) {
     throw new AuthorizationError("You do not have access to this campaign.");
@@ -747,7 +792,7 @@ export async function requireReportSnapshotAccess(snapshotId: string) {
   const { data, error } = await db
     .from("report_snapshots")
     .select(
-      "id, campaign_id, participant_session_id, campaigns(client_id, partner_id, confidentiality_mode), participant_sessions(campaign_participant_id)"
+      "id, campaign_id, participant_session_id, campaigns(client_id, partner_id, confidentiality_mode, clients(partner_id, deleted_at)), participant_sessions(campaign_participant_id)"
     )
     .eq("id", snapshotId)
     .maybeSingle();
@@ -760,16 +805,14 @@ export async function requireReportSnapshotAccess(snapshotId: string) {
   const session = Array.isArray(data.participant_sessions)
     ? data.participant_sessions[0]
     : data.participant_sessions;
-  const clientId = campaign?.client_id ? String(campaign.client_id) : null;
-  const partnerId = campaign?.partner_id ? String(campaign.partner_id) : null;
+  if (!campaign) {
+    throw new AuthorizationError("Report campaign not found or inaccessible.");
+  }
+  const { clientId, partnerId } = campaignOwnership(campaign);
   const participantId = session?.campaign_participant_id
     ? String(session.campaign_participant_id)
     : null;
-  const hasAccess =
-    scope.isPlatformAdmin ||
-    scope.isLocalDevelopmentBypass ||
-    (clientId ? canAccessClient(scope, clientId) : false) ||
-    (partnerId ? canAccessPartner(scope, partnerId) : false);
+  const hasAccess = canAccessCampaign(scope, partnerId, clientId);
 
   if (!hasAccess) {
     throw new AuthorizationError("You do not have access to this report.");
@@ -795,7 +838,7 @@ export async function getAccessibleCampaignIds(scope: AuthorizedScope) {
   // tenant workspace is. Gating on `isPlatformAdmin` alone returned `null` to an
   // admin inside a client's workspace too, which is how the workspace boundary
   // leaked through every caller that trusts this list.
-  if (resolveTenantClientFilter(scope) === null) {
+  if (isUnconfinedPlatformAdmin(scope)) {
     return null;
   }
 
@@ -805,14 +848,15 @@ export async function getAccessibleCampaignIds(scope: AuthorizedScope) {
     .select("id")
     .is("deleted_at", null);
 
-  if (scope.clientIds.length > 0 && scope.partnerIds.length > 0) {
+  const standalonePartnerIds = standaloneCampaignPartnerIds(scope);
+  if (scope.clientIds.length > 0 && standalonePartnerIds.length > 0) {
     query = query.or(
-      `client_id.in.(${scope.clientIds.join(",")}),partner_id.in.(${scope.partnerIds.join(",")})`
+      `client_id.in.(${scope.clientIds.join(",")}),and(client_id.is.null,partner_id.in.(${standalonePartnerIds.join(",")}))`
     );
   } else if (scope.clientIds.length > 0) {
     query = query.in("client_id", scope.clientIds);
-  } else if (scope.partnerIds.length > 0) {
-    query = query.in("partner_id", scope.partnerIds);
+  } else if (standalonePartnerIds.length > 0) {
+    query = query.is("client_id", null).in("partner_id", standalonePartnerIds);
   } else {
     return [];
   }

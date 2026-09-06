@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import {
   applyTenantClientFilter,
+  canManageClient,
   requireAdminScope,
   requireClientAccess,
   resolveAuthorizedScope,
@@ -459,6 +460,9 @@ export async function createDiagnosticSession(formData: FormData) {
   }
 
   const { scope, clientId } = await requireClientAccess(parsed.data.clientId)
+  if (!canManageClient(scope, clientId)) {
+    return { error: { _form: ['You do not have permission to manage diagnostics for this client.'] } }
+  }
   const db = createAdminClient()
   const { data, error } = await db
     .from('diagnostic_sessions')
@@ -503,7 +507,10 @@ export async function deleteDiagnosticSession(id: string) {
   if (fetchError || !session) return { error: fetchError?.message ?? 'Diagnostic session not found' }
 
   const { scope, clientId } = await requireClientAccess(session.client_id)
-  const { error } = await db.from('diagnostic_sessions').delete().eq('id', id)
+  if (!canManageClient(scope, clientId)) {
+    return { error: 'You do not have permission to manage diagnostics for this client.' }
+  }
+  const { error } = await db.from('diagnostic_sessions').delete().eq('id', id).eq('client_id', clientId)
   if (error) return { error: error.message }
 
   revalidatePath('/diagnostics')
