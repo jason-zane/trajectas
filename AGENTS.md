@@ -155,6 +155,19 @@ model.
    `requireCampaignManage`, which layers `canManageCampaign` onto the same
    lookup. Pinned by `tests/architecture/campaign-write-manage-gate.test.ts`.
 
+5. **A client owns its campaigns; its current partner determines partner access.**
+   For campaigns with a `client_id`, never use the copied `campaigns.partner_id`
+   as an independent authorization grant. The database synchronizes it when a
+   client moves or is unassigned, and rejects conflicting campaign ownership
+   writes. Creation and reassignment require `canManageClient` for the destination
+   client. Clientless partner campaigns retain their independent partner owner.
+   Pinned by `tests/integration/campaign-client-ownership.test.ts`.
+
+6. **Platform authority still respects the selected workspace.**
+   Use `isUnconfinedPlatformAdmin` for a global bypass, and the resolved client
+   or managed-client sets otherwise. `isPlatformAdmin` alone does not authorize
+   a different client while a workspace or support session is selected.
+
 Brand writes carry one extra gate: `assertCanEditClientBrand`, at every write
 site, not only on the flag toggle — and that includes the campaign brand layer,
 which is what a participant actually sees.

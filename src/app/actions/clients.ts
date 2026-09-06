@@ -304,6 +304,9 @@ export async function updateClient(id: string, formData: FormData) {
   })
 
   revalidateDirectoryPaths()
+  if (nextPartnerId !== access.partnerId) {
+    revalidatePath('/', 'layout')
+  }
   return { success: true as const, id, slug: parsed.data.slug }
 }
 

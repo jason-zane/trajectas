@@ -36,8 +36,8 @@ async function canWriteAssessment(assessmentId: string): Promise<boolean> {
 }
 import {
   AuthorizationError,
-  canAccessClient,
   canManageCampaign,
+  canManageClient,
   getAccessibleCampaignIds,
   getAccessiblePartnerIds,
   requireAssessmentAccess,
@@ -228,20 +228,21 @@ export async function createCampaign(payload: Record<string, unknown>) {
     return { error: { kind: ['360 campaigns are not available for your account'] } }
   }
 
-  if (!scope.isPlatformAdmin) {
-    if (!clientId) {
-      return { error: { clientId: ['Campaigns must belong to a client context'] } }
-    }
-
-    if (!canAccessClient(scope, clientId)) {
-      return { error: { clientId: ['You do not have access to this client'] } }
-    }
+  if (!scope.isPlatformAdmin && !clientId) {
+    return { error: { clientId: ['Campaigns must belong to a client context'] } }
+  }
+  if (clientId && !canManageClient(scope, clientId)) {
+    return { error: { clientId: ['You do not have permission to manage this client'] } }
   }
 
   const partnerId =
     clientId
       ? await getClientPartnerId(clientId)
       : (parsed.data.partnerId || null)
+
+  if (!clientId && !canManageCampaign(scope, partnerId, null)) {
+    return { error: { clientId: ['Campaigns must belong to the active workspace'] } }
+  }
 
   const db = createAdminClient()
   const { data: campaign, error } = await db
@@ -374,7 +375,7 @@ export async function duplicateCampaignForReuse(sourceCampaignId: string) {
       description: sourceCampaign.description ?? null,
       status: 'draft',
       client_id: sourceCampaign.client_id ?? null,
-      partner_id: sourceCampaign.partner_id ?? null,
+      partner_id: access.partnerId,
       opens_at: sourceCampaign.opens_at ?? null,
       closes_at: sourceCampaign.closes_at ?? null,
       branding: sourceCampaign.branding ?? {},
@@ -536,16 +537,21 @@ export async function updateCampaign(id: string, payload: Record<string, unknown
 
   const clientId = parsed.data.clientId || access.clientId || null
 
-  if (!access.scope.isPlatformAdmin) {
-    if (!clientId || !canAccessClient(access.scope, clientId)) {
-      return { error: { clientId: ['You do not have access to this client'] } }
-    }
+  if (
+    (!clientId && !access.scope.isPlatformAdmin) ||
+    (clientId && !canManageClient(access.scope, clientId))
+  ) {
+    return { error: { clientId: ['You do not have permission to manage this client'] } }
   }
 
   const partnerId =
     clientId
       ? await getClientPartnerId(clientId)
       : (parsed.data.partnerId || access.partnerId || null)
+
+  if (!clientId && !canManageCampaign(access.scope, partnerId, null)) {
+    return { error: { clientId: ['Campaigns must belong to the active workspace'] } }
+  }
 
   const db = createAdminClient()
   const { error } = await db
