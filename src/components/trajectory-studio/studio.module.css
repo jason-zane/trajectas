@@ -251,7 +251,7 @@
 .exportActions { display: flex; gap: 10px; }
 .exportActions button { flex: 1; }
 .printReport { display: none; }
-.dialog { color: var(--foreground); }
+.dialog { color: var(--foreground); background: var(--card); --popover: var(--card); --popover-foreground: var(--foreground); }
 .rotated { transform: rotate(-90deg); }
 
 :global([data-studio-theme="dark"]) .studio, :global([data-studio-theme="dark"]) .dialog { --background: #18221f; --card: #202d28; --foreground: #e9eee9; --muted-foreground: #b0bbb5; --border: #38463f; --primary: #9ec6b1; --primary-foreground: #172b22; --accent: #2d3e34; --muted: #2a3931; --info: #92b4ce; --chart-5: #d29c7d; --studio-purple: #b3a0cc; --studio-olive: #b0b986; --studio-rose: #d2a1aa; --chart-3: #c9a962; --studio-slate: #a2baca; --ring: #9ec6b1; }
@@ -344,4 +344,151 @@
   .printReport thead { display: table-header-group; }
   .printReport footer { border-top: 1px solid #d8ded9; margin-top: 20px; padding-top: 10px; font-size: 8pt; }
   :global(body):has(.printReport) :global([data-slot="sidebar"]), :global(body):has(.printReport) :global([data-sonner-toaster]), :global(body):has(.printReport) :global(nextjs-portal) { display: none !important; }
+}
+
+/* Analysis controls describe the decision they change. */
+.contextLens { display: flex; align-items: center; gap: 8px; color: var(--primary); font-size: 12px; }
+.scopeBar { padding: 17px 2px 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.scopeBar > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.scopeBar > div > span { font: 8px var(--font-mono); color: var(--muted-foreground); letter-spacing: .08em; }
+.scopeBar strong { font-size: 13px; font-weight: 600; }
+.scopeBar small { font-size: 10px; color: var(--muted-foreground); line-height: 1.5; }
+.scopeBar > label { display: flex; flex-direction: column; gap: 6px; font-size: 10px; color: var(--muted-foreground); min-width: 0; }
+.scopeBar input, .scopeBar select { background: var(--card); color: var(--foreground); border: 1px solid var(--border); border-radius: 5px; padding: 8px; width: 100%; min-width: 0; font-size: 11px; min-height: 36px; }
+.historyCampaign { flex: 1; }
+.analysisControls { margin: 0 23px; display: flex; align-items: end; gap: 18px; flex-wrap: wrap; }
+.analysisControls > label { display: flex; flex-direction: column; gap: 6px; font-size: 10px; color: var(--muted-foreground); min-width: 0; flex: 1; }
+.analysisControls select { padding: 9px; border: 1px solid var(--border); background: var(--card); color: var(--foreground); border-radius: 5px; font-size: 11px; max-width: 100%; min-width: 0; }
+.valueToggle { display: flex; flex-shrink: 0; border: 1px solid var(--border); border-radius: 5px; padding: 3px; }
+.valueToggle button { padding: 7px 9px; border-radius: 3px; font-size: 11px; color: var(--muted-foreground); }
+.valueToggle button[aria-pressed=true] { background: var(--accent); color: var(--primary); font-weight: 600; }
+.referenceContext { margin: 14px 23px 0; padding: 0 0 15px; border-bottom: 1px solid var(--border); }
+.referenceContext p { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; color: var(--muted-foreground); font-size: 10px; line-height: 1.65; }
+.referenceContext button { display: inline-flex; align-items: center; gap: 5px; color: var(--primary); text-decoration: underline; text-underline-offset: 3px; margin-left: auto; }
+.referenceMark { width: 16px; height: 2px; display: inline-block; background: var(--gold); margin-right: 2px; }
+.comparisonCards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0 23px 10px; column-gap: 30px; }
+.comparisonCard { padding: 23px 0 15px; border-bottom: 1px solid var(--border); min-width: 0; break-inside: avoid; }
+.comparisonCard:nth-last-child(-n+2) { border-bottom: 0; }
+.measureCardHeading { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 13px; }
+.measureCardHeading h3 { font-size: 14px; font-weight: 650; letter-spacing: -.02em; }
+.measureCardHeading > span { font-size: 9px; color: var(--muted-foreground); white-space: nowrap; }
+.measureCardHeading strong { color: var(--foreground); font: 12px var(--font-mono); margin-left: 4px; }
+.measureCardHeading small { margin-left: 6px; font-size: 8px; }
+.barAxis { display: flex; justify-content: space-between; font: 8px var(--font-mono); color: var(--muted-foreground); margin-bottom: 6px; }
+.namedBar { display: block; width: 100%; text-align: left; border-radius: 4px; padding: 9px 0; }
+button.namedBar:hover, button.namedBar:focus-visible { background: color-mix(in srgb, var(--person-color) 5%, var(--card)); }
+.barLabel { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; margin-bottom: 8px; font-size: 11px; }
+.barLabel > span { display: flex; align-items: center; gap: 7px; }
+.barLabel i { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.barLabel strong { font: 12px var(--font-mono); }
+.barLabel small { font: 10px var(--font-mono); color: var(--muted-foreground); min-width: 34px; text-align: right; }
+.barTrack { display: block; position: relative; height: 6px; border-radius: 1px; background: var(--muted); }
+.barFill { position: absolute; top: 0; bottom: 0; border-radius: 1px; }
+.barReference, .barZero { position: absolute; height: 12px; width: 2px; background: var(--gold); top: -3px; transform: translateX(-50%); }
+.barZero { left: 50%; background: var(--muted-foreground); opacity: .55; }
+.barTrack em { position: absolute; top: -2px; font-size: 8px; font-style: normal; color: var(--muted-foreground); background: var(--card); padding-right: 6px; }
+.cardReferenceNote { font-size: 9px; line-height: 1.5; color: var(--muted-foreground); padding-top: 9px; }
+.sourceRows { display: grid; gap: 14px; }
+.sourceRow { padding-top: 14px; border-top: 1px solid var(--border); }
+.sourceRow > strong { display: block; font-size: 13px; margin-bottom: 9px; }
+.sourceRow > div { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sourceRow .field { margin-bottom: 0; }
+.tableMeasure { color: var(--foreground); font-size: 12px; display: block; font-weight: 600; }
+.tableFactor { font-weight: 400; padding-left: 14px; font-size: 11px; }
+.tableReference { display: flex; flex-direction: column; gap: 3px; color: var(--muted-foreground); }
+.tableReference strong { font: 12px var(--font-mono); color: var(--foreground); }
+.tableReference small { font-size: 9px; }
+.tableScore strong { font-size: 13px; }
+.tableScore span, .tableScore small { font-size: 10px; }
+.scoreTable { padding: 18px 23px; }
+.measurePicker { margin: 0 23px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.measurePicker summary { cursor: pointer; font-size: 12px; font-weight: 600; }
+.measurePicker summary > strong { font-size: 10px; color: var(--muted-foreground); font-weight: 400; margin-left: 10px; }
+.measurePickerBody { padding-top: 16px; }
+.measurePresets { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 10px; margin-bottom: 15px; }
+.measurePresets span { color: var(--muted-foreground); flex: 1; }
+.measurePresets button { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+.measureChoices { columns: 3; column-gap: 20px; }
+.measureChoices label { display: flex; gap: 8px; padding: 7px 0; font-size: 11px; font-weight: 600; break-inside: avoid; align-items: center; }
+.measureChoices input, .intervalToggle input { accent-color: var(--primary); }
+.measureChoices .factorChoice { padding-left: 15px; font-weight: 400; font-size: 10px; color: var(--muted-foreground); }
+.timelineLegend { display: flex; flex-wrap: wrap; gap: 10px 19px; margin: 20px 23px 10px; }
+.timelineLegend > span { display: flex; align-items: center; gap: 7px; font-size: 11px; }
+.timelineLegend i, .seriesName i { display: inline-block; width: 15px; height: 3px; flex-shrink: 0; border-radius: 1px; }
+.timelineLegend small { color: var(--muted-foreground); font-size: 9px; }
+.timeSummary { padding: 8px 23px 21px; overflow-x: auto; }
+.timeSummary table { font-size: 11px; }
+.timeSummary > p { color: var(--muted-foreground); font-size: 10px; line-height: 1.65; margin-top: 13px; }
+.seriesName { display: flex; gap: 8px; align-items: center; min-width: 100px; font-size: 11px; font-weight: 500; }
+.changeNumber { font: 13px var(--font-mono); }
+.changeNumber small { color: var(--muted-foreground); font-size: 9px; }
+.intervalToggle { display: flex; gap: 8px; align-items: center; margin: 6px 23px 12px; font-size: 11px; }
+.historyDisclosure { border-bottom: 1px solid var(--border); padding: 20px 0; }
+.historyDisclosure summary { font-size: 12px; font-weight: 600; cursor: pointer; }
+.historyDisclosure summary > span { color: var(--muted-foreground); font-size: 10px; margin-left: 8px; font-weight: 400; }
+.historyDisclosure > div { margin-top: 16px; }
+.historyDisclosure h3 { font-size: 12px; font-weight: 600; margin: 16px 0 10px; }
+.historyDisclosure p { display: flex; flex-wrap: wrap; gap: 10px; font-size: 10px; color: var(--muted-foreground); padding: 9px 0; border-top: 1px solid var(--border); }
+.historyDisclosure p strong { color: var(--foreground); min-width: 90px; font-weight: 500; }
+.historyDisclosure p small { margin-left: auto; font-size: 9px; }
+@media (max-width: 1200px) {
+  .comparisonCards { column-gap: 22px; padding: 0 18px 10px; }
+  .measureCardHeading { flex-wrap: wrap; gap: 5px; }
+  .analysisControls { gap: 12px; margin: 0 18px; }
+  .barLabel { font-size: 10px; }
+  .valueToggle { margin-left: auto; }
+}
+@media (max-width: 1050px) {
+  .comparisonCards { grid-template-columns: 1fr; }
+  .comparisonCard:nth-last-child(2) { border-bottom: 1px solid var(--border); }
+  .barLabel { font-size: 12px; }
+  .scopeBar { flex-wrap: wrap; gap: 10px; }
+  .scopeBar strong { font-size: 12px; }
+  .scopeBar small { font-size: 9px; }
+  .historyCampaign { flex-basis: 100%; }
+  .analysisControls > label { flex-basis: calc(50% - 12px); }
+  .measureChoices { columns: 2; }
+  .chartReadout { flex-direction: column; align-items: flex-start; gap: 5px; }
+}
+@media (max-width: 650px) {
+  .scopeBar > label { flex: 1; }
+  .scopeBar .historyCampaign { flex-basis: 100%; }
+  .scopeBar input { width: 100%; }
+  .scopeBar > div { width: 100%; }
+  .analysisControls { margin: 0 16px; gap: 10px; }
+  .analysisControls select { font-size: 10px; width: 100%; }
+  .referenceContext { margin-left: 16px; margin-right: 16px; }
+  .referenceContext button { margin-left: 0; }
+  .comparisonCards { padding: 0 16px 10px; }
+  .measureCardHeading h3 { font-size: 15px; }
+  .measureCardHeading > span { font-size: 10px; }
+  .barLabel { font-size: 12px; }
+  .namedBar { padding: 10px 0; }
+  .cardReferenceNote { font-size: 10px; }
+  .sourceRow > div { grid-template-columns: 1fr; }
+  .timeSummary { padding: 8px 16px 18px; }
+  .timelineLegend { margin: 18px 16px 10px; gap: 9px 15px; }
+  .timelineLegend > span { font-size: 10px; }
+  .measurePicker { margin: 0 16px; }
+  .measureChoices { columns: 1; max-height: 350px; overflow-y: auto; }
+  .seriesName { min-width: 95px; }
+}
+@media print {
+  .printReport .reportOverview { break-inside: auto; }
+  .printReport .comparisonCards { grid-template-columns: 1fr 1fr; padding: 0; gap: 0 24px; }
+  .printReport .comparisonCard { padding: 16px 0; }
+  .printReport .measureCardHeading h3 { font-size: 11pt; }
+  .printReport .namedBar { padding: 6px 0; }
+  .printReport .barLabel { font-size: 8pt; }
+  .printReport .cardReferenceNote { font-size: 7pt; }
+  .printReport .reportSources { font-size: 8pt; }
+  .printReport .reportSources p { margin-bottom: 3px; }
+}
+
+@media (max-width: 650px) {
+  .timeSummary th, .timeSummary td { padding: 11px 7px; }
+  .timeSummary .seriesName { min-width: 75px; max-width: 85px; white-space: normal; font-size: 10px; }
+  .timeSummary .tableScore { min-width: 42px; }
+  .timeSummary .tableScore strong, .timeSummary .changeNumber { font-size: 11px; }
+  .timeSummary .tableScore small { font-size: 8px; }
 }

@@ -2,7 +2,7 @@ import { OVERALL_ID, type CanvasEntity, type CanvasPoint, type CanvasSeries } fr
 import type { PersonContext, StudioDataset } from './model'
 
 // Fictional review data. Never imported by the authenticated studio route.
-const roster: Array<[string, string, PersonContext['population'], number[]]> = [
+const roster: Array<[string, string, 'Employee' | 'Candidate', number[]]> = [
   ['Priya Sharma', 'Senior product manager', 'Employee', [57, 64, 62, 77]],
   ['Amara Okafor', 'Head of operations', 'Employee', [73, 75, 79, 82]],
   ['James Mitchell', 'Engineering lead', 'Employee', [63, 71, 68, 74]],
@@ -34,7 +34,7 @@ export function createStudioDemo(): StudioDataset {
   const dates = ['2025-09-17', '2025-12-04', '2026-03-19', '2026-08-20']
   const people = roster.map(([displayName, role, population, values], index) => {
     const personKey = `demo-person-${index + 1}`
-    context[personKey] = { role, population }
+    context[personKey] = { role }
     const employee = population === 'Employee'
     const sessions: CanvasPoint[] = values.map((value, attempt) => ({
       sessionId: `${personKey}-leadership-${attempt}`,
@@ -70,5 +70,21 @@ export function createStudioDemo(): StudioDataset {
     }
     return { personKey, entryCpId: personKey, displayName, email: `${displayName.toLowerCase().split(' ')[0]}@example.test`, completedSessionCount: sessions.length, firstCompletedAt: sessions[0].completedAt, lastCompletedAt: sessions.at(-1)!.completedAt }
   })
-  return { result: { people, entities, series, clientId: 'demo-client' }, context, workspaceName: 'Northstar Group', demo: true }
+  return {
+    result: { people, entities, series, clientId: 'demo-client' }, context, workspaceName: 'Northstar Group', demo: true,
+    references: [
+      {
+        id: 'example-leaders', assessmentId: 'leadership-index', name: 'People leaders · example norm', kind: 'norm',
+        scale: 'scaled-0-100', version: 'Illustrative 2026.1', illustrative: true,
+        description: 'Fictional reference sample of 240 people leaders, used only to demonstrate this interaction. Fixed to one reference version across the full history. No population claim is made.',
+        values: Object.fromEntries([[OVERALL_ID, { value: 65, n: 240 }], ...dimensions.map((_, i) => [`dimension-${i}`, { value: [67, 64, 66, 63, 65][i], n: 240 }]), ...factors.flatMap((names, i) => names.map((_, j) => [`factor-${i}-${j}`, { value: [67, 64, 66, 63, 65][i] + (j - 1) * 3, n: 240 }]))]),
+      },
+      {
+        id: 'example-target', assessmentId: 'leadership-index', name: 'Programme target · example', kind: 'target',
+        scale: 'scaled-0-100', version: 'Illustrative programme 2026', illustrative: true,
+        description: 'An example programme target of 75 for the overall score and each dimension. A target is a chosen goal, not an expected population score. No factor targets have been supplied.',
+        values: Object.fromEntries([OVERALL_ID, ...dimensions.map((_, i) => `dimension-${i}`)].map((id) => [id, { value: 75 }])),
+      },
+    ],
+  }
 }
