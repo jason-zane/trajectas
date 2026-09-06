@@ -1,6 +1,6 @@
 import 'server-only'
 import { headers } from 'next/headers'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { getComparisonCanvas } from '@/app/actions/canvas'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { resolvePartnerOrg } from '@/lib/auth/resolve-partner-org'
@@ -23,6 +23,12 @@ export async function renderTrajectoryPage(params: TrajectoryPageParams, experie
   const ids = [...new Set((params.ids ?? params.id ?? '').split(',').filter(Boolean))]
   if (ids.length > CANVAS_MAX_PEOPLE) throw new Error(`Choose up to ${CANVAS_MAX_PEOPLE} participants.`)
   const initial: CanvasResult = ids.length ? await getComparisonCanvas(ids) : { people: [], series: [], entities: [], clientId: null }
+  // Existing admin links can carry several distinct people. Keep that history
+  // comparison intact while the standalone Trajectory stays individual.
+  if (experience === 'individual' && portal !== 'client' && initial.people.length > 1) {
+    const query = new URLSearchParams({ ids: ids.join(','), lens: 'time' })
+    redirect(`${portal === 'partner' ? '/partner' : ''}/participants/unified?${query}`)
+  }
   const nonce = (await headers()).get('x-nonce') ?? undefined
   const initialLens = experience === 'individual' || (experience === 'unified' && (params.lens === 'time' || (!params.lens && params.id))) ? 'time' : 'snapshot'
   return <LiveTrajectoryStudio initial={initial} nonce={nonce} experience={experience} initialLens={initialLens} />

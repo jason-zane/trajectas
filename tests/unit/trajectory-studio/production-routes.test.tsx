@@ -62,6 +62,12 @@ describe('Production Trajectory entry points', () => {
     expect(calls.canvas).toHaveBeenCalledWith(['participant-one'])
     expect(page.props).toMatchObject({ experience: 'individual', initialLens: 'time' })
   })
+  it('preserves existing multi-person history links in the authorized unified route', async () => {
+    calls.canvas.mockResolvedValueOnce(createStudioDemo().result)
+    await expect(TrajectoryPage({ searchParams: Promise.resolve({ ids: 'one,two' }) })).rejects.toThrow('redirect:/participants/unified?ids=one%2Ctwo&lens=time')
+    calls.canvas.mockResolvedValueOnce(createStudioDemo().result)
+    await expect(PartnerTrajectory({ searchParams: Promise.resolve({ ids: 'one,two' }) })).rejects.toThrow('redirect:/partner/participants/unified?ids=one%2Ctwo&lens=time')
+  })
   it('deduplicates IDs and honors unified history links', async () => {
     calls.canvas.mockResolvedValueOnce(createStudioDemo().result)
     const page = await UnifiedPage({ searchParams: Promise.resolve({ ids: 'one,one,two', lens: 'time' }) })
