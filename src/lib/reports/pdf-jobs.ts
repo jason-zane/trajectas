@@ -6,6 +6,7 @@ export async function drainReportPdfJobs(options: {
   client?: ReturnType<typeof createAdminClient>
   timeBudgetMs?: number
   generate?: typeof generateAndStoreReportPdf
+  suppressConsultantNotificationFor?: (snapshotId: string) => boolean
 } = {}) {
   const db = options.client ?? createAdminClient()
   const generate = options.generate ?? generateAndStoreReportPdf
@@ -23,7 +24,10 @@ export async function drainReportPdfJobs(options: {
     if (error) throw error
     if (!data?.length) break
     try {
-      const result = await generate(data[0].id)
+      const suppressConsultantNotification = options.suppressConsultantNotificationFor?.(data[0].id)
+      const result = suppressConsultantNotification
+        ? await generate(data[0].id, { suppressConsultantNotification: true })
+        : await generate(data[0].id)
       if (result && 'queued' in result) break // capacity occupied; no busy loop
       processed++
     } catch {
