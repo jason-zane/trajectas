@@ -15,6 +15,8 @@ interface ConsentScreenProps {
   content: ConsentContent;
   /** URL to navigate after consent. Determined server-side from flow config. */
   nextUrl: string;
+  /** Design preview only: never writes consent or navigates. */
+  isPreview?: boolean;
   // Unused in dark-editorial design, but kept in interface for consistency with page API
   brandLogoUrl?: string;
   brandName?: string;
@@ -31,6 +33,7 @@ export function ConsentScreen({
   participantId,
   content,
   nextUrl,
+  isPreview = false,
 }: ConsentScreenProps) {
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -38,7 +41,7 @@ export function ConsentScreen({
   const saving = useRef(false);
 
   async function handleContinue() {
-    if (!agreed || saving.current) return;
+    if (isPreview || !agreed || saving.current) return;
     saving.current = true;
     setSubmitting(true);
     setSaveError(null);

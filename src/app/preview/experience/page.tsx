@@ -228,6 +228,7 @@ export default function PreviewExperiencePage() {
       case "consent":
         return (
           <ConsentScreen
+            isPreview
             token="preview"
             participantId="preview"
             brandLogoUrl={brandLogoUrl}

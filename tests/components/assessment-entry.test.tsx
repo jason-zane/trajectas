@@ -43,6 +43,11 @@ describe('consent save acknowledgement',()=>{
     fireEvent.click(screen.getByRole('button',{name:'Continue'}));await waitFor(()=>expect(saveConsent).toHaveBeenCalledTimes(2))
     expect(saveConsent).toHaveBeenCalledWith(token,'participant')
   })
+  it('keeps experience preview interactive without attempting persistence',async()=>{
+    render(<ConsentScreen token="preview" participantId="preview" isPreview content={DEFAULT_PAGE_CONTENT.consent} nextUrl="#"/>);
+    agree();fireEvent.click(screen.getByRole('button',{name:'Continue'}));
+    expect(saveConsent).not.toHaveBeenCalled();expect(screen.queryByRole('alert')).toBeNull()
+  })
   it('admits only one pending consent save',async()=>{
     let resolve!:(r:{error?:string})=>void;saveConsent.mockImplementation(()=>new Promise(r=>{resolve=r}))
     show();agree();const button=screen.getByRole('button',{name:'Continue'});fireEvent.click(button);fireEvent.click(button)
