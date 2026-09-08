@@ -11,8 +11,8 @@ import { READING_GRADE_CEILING_BY_AUDIENCE, fleschKincaidGrade } from '../fairne
 import { normaliseStem } from '../item-generation'
 import { LIKERT_VERSION, LIKERT_STAGE, LIKERT_STEP, BATCH_SIZE, MAX_ROUNDS, MAX_FORM_REPAIRS, MAX_CALLS, assertLikertScopeBudget, STEP_DEADLINE_MS, likertOptionsSchema, assertLikertMeasure, type LikertState, type LikertSpec, type LikertStatus, type LikertCandidate, type ItemQuality, type ReviewerResult } from './contracts'
 import { fingerprint, currentQuality, itemFingerprint, passingScores } from './identity'
-import { formPairs, pairReviewPrompt, parsePairReview } from './form-review'
-import { assessItem, parseReview, reviewPrompt, selectItems } from './review'
+import { formPairs, pairReviewPrompt, parseFormPairBatch } from './form-review'
+import { assessItem, parseReview, reviewPrompt, selectItems, selectWithOverlapHints } from './review'
 
 const asRecord = (value: object): Record<string, unknown> => ({ ...value })
 const stateOf = (job: InstrumentStageRunDto): LikertState => job.outputSnapshot as unknown as LikertState
@@ -68,7 +68,7 @@ export function statusFor(job: InstrumentStageRunDto, spec: LikertSpec, items: L
     const review = state.diversity?.[construct.id]
     return review?.models?.length === 2 && review.models.every(model => model.split('/')[0] !== state.models.writer.split('/')[0]) && review.contentHash === fingerprint(pool.map(item => ({ id: item.id, hash: itemFingerprint(item) })))
   })
-  const constraints = selected.length === target ? selectItems(spec, selected, passed, Object.values(state.diversity ?? {}).flatMap(result => result.pairs)) : null
+  const constraints = selected.length === target ? selectItems(spec, selected, passed, confirmedPairs(state, items)) : null
   const plannedPairs = formPairs(spec, items.filter(item => state.selectedIds.includes(item.id)))
   const pairChecksCurrent = formPairs(spec, selected).every(pair => pairIsCurrent(pair, state, items) && !state.pairChecks?.[pair.id]?.redundant)
   const ready = pairChecksCurrent && state.phase === 'complete' && current && diversityCurrent && selected.length === target && state.selectedIds.length === target && constraints?.blockers.length === 0
@@ -138,9 +138,13 @@ function pairIsCurrent(pair: { id: string; a: string; b: string }, state: Likert
   return !!check && !!a && !!b && check.models.length === 2 && new Set(check.models.map(model => model.split('/')[0])).size === 2 && check.models.every(model => model.split('/')[0] !== state.models.writer.split('/')[0]) && check.aHash === itemFingerprint(a) && check.bHash === itemFingerprint(b)
 }
 
+function confirmedPairs(state: LikertState, items: LikertCandidate[]) {
+  return Object.values(state.pairChecks ?? {}).filter(pair => pair.redundant && pairIsCurrent(pair, state, items))
+}
+
 function failingCells(spec: LikertSpec, items: LikertCandidate[], state: LikertState): string[] {
   const scores = passingScores(items, spec)
-  const pairs = Object.values(state.diversity ?? {}).flatMap(review => review.pairs)
+  const pairs = confirmedPairs(state, items)
   return spec.constructs.flatMap(construct => {
     const result = selectItems({ ...spec, constructs: [construct] }, items, scores, pairs)
     if (!result.blockers.length) return []
@@ -198,7 +202,10 @@ export async function advanceLikert(db: SupabaseClient, buildId: string, resume 
       if (!resume) { await updateStageRun(db, lease.id, { status: 'success', completedAt: new Date().toISOString(), detail: state.detail }); return statusFor(job, spec, items) }
       // Resume provider failures at their actual phase. Older stopped builds can use a newly available blueprint repair.
       const hasFormRepair = Object.keys(state.pairChecks ?? {}).length > 0 && (state.formRepairRounds ?? 0) < MAX_FORM_REPAIRS
-      if (!state.resumePhase && !hasFormRepair) {
+      const canAssemble = !selectWithOverlapHints(spec, items, passingScores(items, spec), Object.values(state.diversity ?? {}).flatMap(result => result.pairs), confirmedPairs(state, items)).blockers.length
+      if (!state.resumePhase && canAssemble && state.calls < MAX_CALLS) {
+        state.phase = 'select'
+      } else if (!state.resumePhase && !hasFormRepair) {
         if (!repairBlueprint(state, spec, items)) throw new Error('Automatic quality budget reached. Review the recorded blockers and refine the construct model before restarting.')
       } else {
         if (state.calls >= MAX_CALLS) throw new Error('Automatic model-call budget reached.')
@@ -211,7 +218,8 @@ export async function advanceLikert(db: SupabaseClient, buildId: string, resume 
     const output: Record<string, unknown> = { version: LIKERT_VERSION, fromPhase: previous.phase, round: state.round, spec, specHash, calls: [] }
     attemptOutput = output
     const calls = output.calls as Record<string, unknown>[]
-    const provider = new OpenRouterProvider({ deadlineAt: Date.now() + STEP_DEADLINE_MS, timeoutMs: 50_000, maxAttempts: 1 })
+    const deadlineAt = Date.now() + STEP_DEADLINE_MS
+    const provider = new OpenRouterProvider({ deadlineAt, timeoutMs: 50_000, maxAttempts: 1 })
     async function jsonCall<T>(model: string, prompt: string, parse: (raw: string) => T, tokens = 6000): Promise<T> {
       let problem = ''
       let tokenLimit = tokens
@@ -234,7 +242,7 @@ export async function advanceLikert(db: SupabaseClient, buildId: string, resume 
     let candidates: Record<string, unknown>[] = []
     let cells: Record<string, unknown> | undefined
     let buildStatus = 'generating'
-    if (state.calls >= MAX_CALLS) { state.phase = 'incomplete'; state.blockers = ['Automatic model-call budget reached.']; state.detail = state.blockers[0] }
+    if (state.calls >= MAX_CALLS) { buildStatus = 'failed'; state.phase = 'incomplete'; state.blockers = ['Automatic model-call budget reached.']; state.detail = state.blockers[0] }
     if (state.phase === 'blueprint') {
       const inputHash = blueprintInputHash(spec)
       const construct = spec.constructs.find(c => state.blueprintHashes?.[c.id] !== inputHash || !c.cells.length || c.cells.some(cell => !cell.facetDefinition?.trim()) || c.cells.reduce((sum, cell) => sum + cell.targetItemCount, 0) !== spec.itemsPerConstruct)
@@ -311,7 +319,21 @@ Repair feedback: ${JSON.stringify(feedback)}. Rewrite weak ideas or replace them
       if (!pending.length) { state.phase = 'diversity'; state.detail = 'Independent item reviews complete. Checking wording overlap.' }
       else {
         // No shared message history and no other reviewer's outputs in any request.
-        const results = await Promise.allSettled(state.models.reviewers.map(async (model, index): Promise<ReviewerResult> => ({ model, items: await jsonCall(model, reviewPrompt(spec, pending, index), raw => parseReview(raw, pending.map(item => item.id), spec)) })))
+        const results = await Promise.allSettled(state.models.reviewers.map(async (model, index): Promise<ReviewerResult> => {
+          let reviewed = await jsonCall(model, reviewPrompt(spec, pending, index), raw => parseReview(raw, pending.map(item => item.id), spec))
+          const inconsistent = reviewed.filter(review => {
+            const [low, typical, high] = review.lowTypicalHigh.map(value => review.reverseScored ? spec.format.points + 1 - value : value)
+            return !(low <= typical && typical <= high) && review.issues.every(issue => issue.severity === 'minor') && review.relevance >= 3 && review.clarity >= 3
+          })
+          if (inconsistent.length && Date.now() < deadlineAt - 12_000) {
+            const retryItems = pending.filter(item => inconsistent.some(review => review.id === item.id))
+            try {
+              const corrected = await jsonCall(model, reviewPrompt(spec, retryItems, index) + '\nYour earlier review had a scoring key and raw response profile that contradicted each other. Re-read these items and the actual numbered anchors. Correct your own judgment; if the item is ambiguous, record that as an issue rather than forcing agreement.', raw => parseReview(raw, retryItems.map(item => item.id), spec))
+              reviewed = reviewed.map(review => corrected.find(item => item.id === review.id) ?? review)
+            } catch { /* Keep the original review: assessItem rejects its contradiction without discarding other items in the batch. */ }
+          }
+          return { model, items: reviewed }
+        }))
         const failed = results.filter(result => result.status === 'rejected')
         if (failed.length) throw new Error(`Independent panel incomplete (${failed.length}/3 reviewers failed). ${failed.map(result => result.status === 'rejected' ? String(result.reason) : '').join('; ')}`)
         const panels = results.flatMap(result => result.status === 'fulfilled' ? [result.value] : [])
@@ -347,11 +369,11 @@ Repair feedback: ${JSON.stringify(feedback)}. Rewrite weak ideas or replace them
         if (failed?.status === 'rejected') throw failed.reason
         const pairs = [...diversityCalls.flatMap(result => result.status === 'fulfilled' ? result.value.pairs : []), ...Object.values(state.pairChecks ?? {}).filter(pair => pair.redundant && pairIsCurrent(pair, state, items)).map(pair => ({ a: pair.a, b: pair.b, reason: pair.reason }))]
         state.diversity[construct.id] = { contentHash: fingerprint(pool.map(item => ({ id: item.id, hash: itemFingerprint(item) }))), model: diversityModels.join(', '), models: diversityModels, pairs }
-        state.detail = `${construct.name}: two independent wording reviews found ${pairs.length} overlapping pairs to separate in selection.`
+        state.detail = `${construct.name}: two independent wording reviews found ${pairs.length} potential overlaps to examine during explicit pair checks.`
       }
       buildStatus = 'reviewing'
     } else if (state.phase === 'select') {
-      const selection = selectItems(spec, items, passingScores(items, spec), Object.values(state.diversity ?? {}).flatMap(result => result.pairs))
+      const selection = selectWithOverlapHints(spec, items, passingScores(items, spec), Object.values(state.diversity ?? {}).flatMap(result => result.pairs), confirmedPairs(state, items))
       state.blockers = selection.blockers
       state.selectedIds = selection.blockers.length ? [] : selection.selectedIds
       if (!selection.blockers.length) {
@@ -377,7 +399,7 @@ Repair feedback: ${JSON.stringify(feedback)}. Rewrite weak ideas or replace them
         candidates = items.filter(item => spec.constructs.some(c => c.cells.some(cell => cell.id === item.blueprintCellId))).map(item => ({ ...item, status: state.selectedIds.includes(item.id) ? 'accepted' : item.status === 'rejected' ? 'rejected' : 'candidate' }))
       } else {
         const models = state.models.reviewers.filter(model => model.split('/')[0] !== state.models.writer.split('/')[0]).slice(0, 2)
-        const results = await Promise.allSettled(models.map(async model => ({ model, pairs: await jsonCall(model, pairReviewPrompt(spec, pending, items), raw => parsePairReview(raw, pending.map(pair => pair.id)), 5000) })))
+        const results = await Promise.allSettled(models.map(async model => ({ model, pairs: await jsonCall(model, pairReviewPrompt(spec, pending, items), raw => parseFormPairBatch(raw, pending), 5000) })))
         const failure = results.find(result => result.status === 'rejected')
         if (failure?.status === 'rejected') throw failure.reason
         const reviews = results.flatMap(result => result.status === 'fulfilled' ? [result.value] : [])

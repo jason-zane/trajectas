@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { LIKERT_VERSION, parseLikertFormat, assertLikertMeasure, assertLikertScopeBudget, type LikertCandidate, type LikertSpec, type ItemReview, type ReviewerResult, type ItemQuality } from '@/lib/instrument/likert/contracts'
-import { assessItem, parseReview, reviewPrompt, selectItems } from '@/lib/instrument/likert/review'
+import { assessItem, parseReview, reviewPrompt, selectItems, selectWithOverlapHints } from '@/lib/instrument/likert/review'
 import { fingerprint, itemFingerprint, currentQuality, passingScores } from '@/lib/instrument/likert/identity'
 import { auditCoverage } from '@/lib/instrument/blueprint'
 import { parseGeneratedItems } from '@/lib/instrument/item-generation'
@@ -37,7 +37,7 @@ describe('Likert review gates', () => {
   })
   it.each([{ items: [] }, { items: [review(), review()] }, { items: [review({ id: 'alien' })] }])('rejects missing, duplicate and unknown response IDs: %j', ({ items }) => expect(() => parseReview(JSON.stringify({ items }), ['item-1'], spec)).toThrow())
   it('rejects invalid response categories, unknown facets and string keys', () => {
-    for (const change of [{ lowTypicalHigh: [0, 3, 5] }, { lowTypicalHigh: [5, 3, 1] }, { facetLabel: 'alien' }, { reverseScored: 'false' }]) expect(() => parseReview(JSON.stringify({ items: [{ ...review(), ...change }] }), ['item-1'], spec)).toThrow()
+    for (const change of [{ lowTypicalHigh: [0, 3, 5] }, { facetLabel: 'alien' }, { reverseScored: 'false' }]) expect(() => parseReview(JSON.stringify({ items: [{ ...review(), ...change }] }), ['item-1'], spec)).toThrow()
   })
   it('requires all response categories and an explicit anchor family', () => {
     expect(() => parseLikertFormat({ id: 'x', name: 'Partial', type: 'likert', is_active: true, config: { points: 5, anchors: { 1: 'Low', 5: 'High' } } })).toThrow()
@@ -90,7 +90,7 @@ it('uses the same 1–5 reverse key in calibration matrices and CTT totals', () 
   expect(calculateRawScore(responses).rawScore).toBe(5)
 })
 
-import { formPairs, parsePairReview } from '@/lib/instrument/likert/form-review'
+import { formPairs, parsePairReview, parseFormPairBatch, pairReviewPrompt } from '@/lib/instrument/likert/form-review'
 it('enumerates every within-construct pair and rejects a claimed scan without individual results', () => {
   const pool = [candidate('a'), candidate('b'), candidate('c', 'cell-1'), candidate('d', 'cell-1')]
   const pairs = formPairs(spec, pool)
@@ -120,4 +120,25 @@ it('rejects a form whose exhaustive pair checks cannot fit the model budget befo
   expect(() => assertLikertScopeBudget(2, 10)).not.toThrow()
   expect(() => assertLikertScopeBudget(1, 30)).not.toThrow()
   expect(() => assertLikertScopeBudget(20, 30)).toThrow(/too large/)
+})
+
+
+it('uses broad overlap scans as hints, while confirmed pair defects remain hard exclusions', () => {
+  const pool = [candidate('a', 'cell-0', true), candidate('b'), candidate('c', 'cell-1'), candidate('d', 'cell-1')]
+  const scores = new Map(pool.map(item => [item.id, 4]))
+  const pair = { a: 'a', b: 'c' }
+  expect(selectWithOverlapHints(spec, pool, scores, [pair], []).selectedIds).toHaveLength(4)
+  expect(selectWithOverlapHints(spec, pool, scores, [], [pair]).blockers.length).toBeGreaterThan(0)
+})
+
+
+it('maps reordered short pair judgments back to the correct item pair and rejects missing aliases', () => {
+  const pool = [candidate('a'), candidate('b'), candidate('c', 'cell-1')]
+  const pairs = formPairs(spec, pool)
+  const prompt = pairReviewPrompt(spec, pairs, pool)
+  expect(prompt).toContain('pair-1')
+  const judgments = [...pairs].reverse().map((pair, index) => ({ id: `pair-${pairs.length - index}`, redundant: pair.id === 'a:b', reason: 'Specific common content or a meaningful difference.' }))
+  const parsed = parseFormPairBatch(JSON.stringify({ pairs: judgments }), pairs)
+  expect(parsed.find(result => result.redundant)?.id).toBe('a:b')
+  expect(() => parseFormPairBatch(JSON.stringify({ pairs: judgments.slice(1) }), pairs)).toThrow()
 })

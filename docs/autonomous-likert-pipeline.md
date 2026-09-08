@@ -21,8 +21,8 @@ Supported measure types: traits, behavioural competencies, self-rated capability
 | Content | At least two reviewers identify the intended construct and facet; all rate relevance and clarity at least 3/4; no unresolved major/critical issue |
 | Scoring | All three infer the same polarity; raw hypothetical low/typical/high patterns must be coherent and, after keying, ordered with a span of at least two categories |
 | Readability | At most 30 words and the selected Flesch–Kincaid ceiling; this is a screening heuristic, not observed comprehension |
-| Selection | Exact facet-cell and construct counts, rounded reverse quota per construct, no known redundant pairs |
-| Form review | Every within-construct pair gets explicit judgments from two provider families different from the writer; either reviewer can flag redundancy and force reassembly |
+| Selection | Exact facet-cell and construct counts, rounded reverse quota per construct, no confirmed redundant pairs |
+| Form review | Pool-wide overlap scans are provisional hints. Every within-construct pair gets explicit judgments from two provider families different from the writer; either reviewer can flag redundancy and force reassembly |
 | Publication | Current specification/item fingerprints, complete current item reviews, current pool and final-pair evidence, exact accepted set and the reviewed response format |
 
 These numerical thresholds are engineering policies, not externally established validity cutoffs. Separate model providers and blind requests reduce shared-context bias; they do not establish statistical independence or replace observed response processes. The reliability table gives algebraic scenarios per construct, with no simulated confidence interval or pooled multi-construct alpha.
@@ -41,7 +41,7 @@ The worker currently runs from the open build page, not a background queue. A cl
 
 The specification and candidate identity (ID, text, cell and key) have canonical SHA-256 fingerprints. A changed definition, facet, audience, recall period, anchor or item invalidates its derived evidence. Facets are redrafted when their specification changes. Stored pass flags are insufficient: publication recomputes acceptance from the actual three reviews and verifies the persisted key.
 
-Stage evidence records the models, specification, outputs, token usage, retries and, for new calls, exact prompts. Requested and returned provider families must match. Truncated/empty responses cannot be treated as valid JSON; retries receive a larger completion allowance when truncation consumed the original limit. OpenRouter counts reasoning within the completion budget ([provider documentation](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens)). No reasoning trace is collected.
+Stage evidence records the models, specification, outputs, token usage, retries and, for new calls, exact prompts. Final pair requests use short batch-local IDs that are strictly mapped back to immutable item-pair IDs, preventing model copy errors from corrupting the audit. Requested and returned provider families must match. Truncated/empty responses cannot be treated as valid JSON; retries receive a larger completion allowance when truncation consumed the original limit. OpenRouter counts reasoning within the completion budget ([provider documentation](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens)). No reasoning trace is collected.
 
 AI decisions are stored in candidate payloads and instrument stage runs. They are never inserted into the append-only human `item_reviews` table. Cognitive-bank review gates remain in force. Future acceptance-policy or prompt changes must bump `LIKERT_VERSION` and define how existing builds are re-reviewed; do not silently reuse evidence under a changed policy.
 

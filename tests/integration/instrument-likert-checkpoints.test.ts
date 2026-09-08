@@ -141,6 +141,37 @@ describe.skipIf(!canRun)('transactional Likert checkpoints (local database)', ()
       expect(provider).not.toHaveBeenCalled()
     } finally { provider.mockRestore() }
   })
+  it('records a failed build without issuing model calls when the call budget is exhausted', async () => {
+    const formats = await listLikertFormats(db)
+    const options = likertOptionsSchema.parse({ itemsPerConstruct: 4, responseFormatId: formats[0].id })
+    await updateBuild(db, buildId, { config: { likert: options } })
+    await db.from('instrument_stage_runs').update({ output_snapshot: { ...state, options, phase: 'generate', calls: 600 } }).eq('id', jobId)
+    const provider = vi.spyOn(OpenRouterProvider.prototype, 'complete').mockRejectedValue(new Error('Budget must stop this call'))
+    try {
+      expect((await advanceLikert(db, buildId)).phase).toBe('incomplete')
+      expect((await getBuild(db, buildId))?.status).toBe('failed')
+      expect(provider).not.toHaveBeenCalled()
+    } finally { provider.mockRestore() }
+  })
+  it.each([true, false])('handles a reviewer contradiction per item, including when self-correction succeeds=%s', async fixesIt => {
+    const formats = await listLikertFormats(db)
+    const options = likertOptionsSchema.parse({ itemsPerConstruct: 4, responseFormatId: formats[0].id })
+    await updateBuild(db, buildId, { config: { likert: options } })
+    await db.from('instrument_stage_runs').update({ output_snapshot: { ...state, options, phase: 'review' } }).eq('id', jobId)
+    const { data: bp } = await db.from('instrument_blueprints').select('id').eq('build_id', buildId).single()
+    let thirdReviewerCalls = 0
+    const provider = vi.spyOn(OpenRouterProvider.prototype, 'complete').mockImplementation(async request => {
+      const inconsistent = request.model === 'c/c' && (++thirdReviewerCalls === 1 || !fixesIt)
+      return { model: request.model!, provider: 'custom', usage: { inputTokens: 10, outputTokens: 10 }, content: JSON.stringify({ items: [{ id: itemId, constructId: bp!.id, facetLabel: 'Follow-through', relevance: 4, clarity: 4, reverseScored: false, lowTypicalHigh: inconsistent ? [5, 3, 1] : [1, 3, 5], paraphrase: 'Recall completion of agreed work.', issues: [], rationale: 'Completing agreed work reflects follow-through.' }] }) }
+    })
+    try {
+      const status = await advanceLikert(db, buildId)
+      expect(status.phase).toBe('review')
+      expect(status.passed).toBe(fixesIt ? 1 : 0)
+      expect(thirdReviewerCalls).toBe(2)
+      expect((await getCandidateItem(db, itemId))?.payload?.likertQuality).toMatchObject({ pass: fixesIt })
+    } finally { provider.mockRestore() }
+  })
   it('does not expose service-only checkpoint RPCs to anonymous callers', async () => {
     const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } })
     const { error } = await anon.rpc('instrument_likert_spec_snapshot', { p_build_id: buildId })

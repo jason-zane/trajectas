@@ -25,7 +25,7 @@ export type LikertOptions = z.infer<typeof likertOptionsSchema>
 
 /** Budget preflight includes the quadratic final pair review, before any model usage. */
 export function assertLikertScopeBudget(constructCount: number, itemsPerConstruct: number): void {
-  const facets = Math.min(4, Math.max(2, Math.floor(itemsPerConstruct / 3)))
+  const facets = Math.min(4, Math.floor(itemsPerConstruct / 2))
   const cells = Math.min(itemsPerConstruct, facets * 3)
   const initialDrafts = itemsPerConstruct + cells
   const minimumCalls = constructCount * (2 + cells * Math.ceil((Math.ceil(itemsPerConstruct / cells) + 1) / BATCH_SIZE)
@@ -89,8 +89,8 @@ export function assertLikertMeasure(measureType: string): void {
 const issueSchema = z.object({
   code: z.enum(['double_barrel', 'ambiguity', 'construct_contamination', 'social_desirability', 'opportunity', 'culture', 'accessibility', 'anchor_mismatch', 'timeframe', 'negation', 'idiom', 'jargon', 'protected_class', 'metaphor', 'sensory_assumption', 'reading_level', 'response_bias', 'other']),
   severity: z.enum(['minor', 'major', 'critical']),
-  evidence: z.string().trim().min(1).max(300),
-  fix: z.string().trim().min(1).max(400),
+  evidence: z.string().trim().min(1).max(1200),
+  fix: z.string().trim().min(1).max(1200),
 })
 export const reviewItemSchema = z.object({
   id: z.string().min(1),
@@ -100,9 +100,9 @@ export const reviewItemSchema = z.object({
   clarity: z.number().int().min(1).max(4),
   reverseScored: z.boolean(),
   lowTypicalHigh: z.tuple([z.number().int(), z.number().int(), z.number().int()]),
-  paraphrase: z.string().trim().min(5).max(500),
+  paraphrase: z.string().trim().min(5).max(1200),
   issues: z.array(issueSchema).max(8),
-  rationale: z.string().trim().min(5).max(600),
+  rationale: z.string().trim().min(5).max(1200),
 })
 export type ItemReview = z.infer<typeof reviewItemSchema>
 export interface ReviewerResult {

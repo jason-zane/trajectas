@@ -12,8 +12,7 @@ export function parseReview(raw: string, ids: string[], spec: LikertSpec): ItemR
     if (item.constructId !== 'none' && !construct) throw new Error('Review assigned an unknown construct.')
     if (construct && !construct.cells.some(cell => cell.facetLabel === item.facetLabel)) throw new Error('Review assigned an unknown facet.')
     if (item.lowTypicalHigh.some(value => value < 1 || value > spec.format.points)) throw new Error('Hypothetical response is outside the response scale.')
-    const [low, typical, high] = item.lowTypicalHigh.map(value => item.reverseScored ? spec.format.points + 1 - value : value)
-    if (!(low <= typical && typical <= high) && item.issues.every(issue => issue.severity === 'minor') && item.relevance >= 3 && item.clarity >= 3) throw new Error(`Review ${item.id} contradicts itself: inferred reverseScored=${item.reverseScored}, but raw low/typical/high=${item.lowTypicalHigh.join('/')}. Re-read the item and make your own key and profile coherent. If the wording is ambiguous, record that as a major issue; do not hide it by changing ratings.`)
+
   }
   return parsed.items
 }
@@ -28,7 +27,7 @@ SPECIFICATION: ${JSON.stringify({ ...spec, constructs })}
 ITEMS: ${JSON.stringify(items.map(item => ({ id: item.id, stem: item.stem })))}
 For each item, infer the BEST fitting construct and facet from their operational definitions, or constructId="none", facetLabel="none" if none fits. Relevance and clarity: 1=unusable, 2=substantial revision, 3=acceptable, 4=excellent. Infer reverseScored relative to HIGHER TOTAL = MORE of the defined construct, not social approval. Paraphrase what a respondent is asked to recall or judge. Predict three raw category numbers for otherwise comparable people LOW, TYPICAL, HIGH in that construct; these are hypothetical stress probes, not respondent data. Assess double-barrels, ambiguity, construct contamination, performative virtue, opportunity/access differences, cultural assumptions, jargon, response anchors, timeframe, and negation. Cite the problematic wording and propose a concrete fix. Minor means optional polish; major means the item cannot be retained as written. A serious response-process defect is critical. A double-barrel asks respondents to endorse two distinct behaviours or judgments; one behaviour under a stated condition is not automatically a double-barrel. Check whether the condition is relevant and broadly accessible, and whether it changes the meaning or introduces another construct. Do not mechanically demand removing every conditional clause. Before returning, check that your own raw low/typical/high profile agrees with your own inferred key; a forward-scored item cannot have descending raw endorsement as the defined construct rises.
 Return ONLY {"items":[{"id":"...","constructId":"...","facetLabel":"...","relevance":4,"clarity":4,"reverseScored":false,"lowTypicalHigh":[1,3,5],"paraphrase":"...","issues":[{"code":"ambiguity","severity":"major","evidence":"quoted phrase","fix":"concrete correction"}],"rationale":"why it measures the chosen construct"}]}.
-Use exactly one entry for EVERY supplied ID, no others. Allowed issue codes: double_barrel, ambiguity, construct_contamination, social_desirability, opportunity, culture, accessibility, anchor_mismatch, timeframe, negation, idiom, jargon, protected_class, metaphor, sensory_assumption, reading_level, response_bias, other. Empty issues means no observable problem. Return complete JSON; keep explanations concise.`
+Use exactly one entry for EVERY supplied ID, no others. Allowed issue codes: double_barrel, ambiguity, construct_contamination, social_desirability, opportunity, culture, accessibility, anchor_mismatch, timeframe, negation, idiom, jargon, protected_class, metaphor, sensory_assumption, reading_level, response_bias, other. Empty issues means no observable problem. Return complete JSON. Aim for evidence under 120 characters, each fix under 160, and each rationale/paraphrase under 200. Keep explanations specific and concise.`
 }
 
 export function assessItem(item: LikertCandidate, spec: LikertSpec, panels: ReviewerResult[]): { pass: boolean; reasons: string[]; score: number; key: boolean; correctedKey: boolean; readingGrade: number } {
@@ -97,4 +96,11 @@ export function selectItems(spec: LikertSpec, items: LikertCandidate[], passed: 
     else blockers.push(`${construct.name}: bounded selection found no complete form meeting facet coverage, wording diversity and ${reverseTarget}/${spec.itemsPerConstruct} reverse-keyed items.`)
   }
   return { selectedIds, blockers }
+}
+
+
+/** Pool scans prioritize alternatives; only explicit pair judgments can exclude a form. */
+export function selectWithOverlapHints(spec: LikertSpec, items: LikertCandidate[], passed: Map<string, number>, hints: Array<{ a: string; b: string }>, confirmed: Array<{ a: string; b: string }>) {
+  const preferred = selectItems(spec, items, passed, [...hints, ...confirmed])
+  return preferred.blockers.length ? selectItems(spec, items, passed, confirmed) : preferred
 }
