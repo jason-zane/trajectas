@@ -148,6 +148,7 @@ export interface LikertState {
   resumePhase?: Exclude<LikertState['phase'], 'complete' | 'incomplete'>
   blueprintHashes?: Record<string, string>
   blueprintRepairs?: number
+  blueprintRepairIds?: string[]
   blueprintFeedback?: Record<string, unknown>
   formReviewStarted?: boolean
   formRepairRounds?: number

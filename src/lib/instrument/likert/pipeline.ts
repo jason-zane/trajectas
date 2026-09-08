@@ -154,18 +154,20 @@ function failingCells(spec: LikertSpec, items: LikertCandidate[], state: LikertS
 }
 
 function repairBlueprint(state: LikertState, spec: LikertSpec, items: LikertCandidate[]): boolean {
-  if ((state.blueprintRepairs ?? 0) >= 1 || state.calls >= MAX_CALLS) return false
+  if (state.calls >= MAX_CALLS) return false
+  const repaired = new Set(state.blueprintRepairIds ?? Object.keys(state.blueprintFeedback ?? {}))
   const failing = new Set(failingCells(spec, items, state))
-  const constructs = spec.constructs.filter(construct => construct.cells.some(cell => failing.has(cell.id)))
+  const constructs = spec.constructs.filter(construct => !repaired.has(construct.id) && construct.cells.some(cell => failing.has(cell.id)))
   if (!constructs.length) return false
   state.blueprintRepairs = (state.blueprintRepairs ?? 0) + 1
+  state.blueprintRepairIds = [...repaired, ...constructs.map(construct => construct.id)]
   state.blueprintFeedback = Object.fromEntries(constructs.map(construct => [construct.id, {
     previousFacets: construct.cells, blockers: state.blockers,
     overlaps: (state.diversity?.[construct.id]?.pairs ?? []).slice(-16).map(pair => ({ a: items.find(item => item.id === pair.a)?.stem, b: items.find(item => item.id === pair.b)?.stem, reason: pair.reason })),
   }]))
   for (const construct of constructs) delete state.blueprintHashes?.[construct.id]
   state.phase = 'blueprint'; state.round = 0; state.generationCounts = {}; state.refillCellIds = undefined; state.formReviewStarted = false; state.formRepairRounds = 0; state.specHash = undefined; state.selectedIds = []; state.diversity = {}; state.pairChecks = {}; state.blockers = []
-  state.detail = 'Item repairs could not resolve the constraints. Automatically redesigning the failing facets once, while preserving the construct definitions.'
+  state.detail = 'Item repairs could not resolve the constraints. Automatically redesigning these failing facets once per construct, while preserving the construct definitions.'
   return true
 }
 
@@ -193,7 +195,7 @@ export async function advanceLikert(db: SupabaseClient, buildId: string, resume 
     attemptState = state
     const specHash = fingerprint(spec)
     if (state.specHash && state.specHash !== specHash) {
-      state.phase = 'blueprint'; state.round = 0; state.generationCounts = {}; state.refillCellIds = undefined; state.blueprintHashes = {}; state.blueprintRepairs = 0; state.blueprintFeedback = {}; state.formReviewStarted = false; state.formRepairRounds = 0; state.resumePhase = undefined; state.diversity = {}; state.pairChecks = {}; state.selectedIds = []; state.blockers = []
+      state.phase = 'blueprint'; state.round = 0; state.generationCounts = {}; state.refillCellIds = undefined; state.blueprintHashes = {}; state.blueprintRepairs = 0; state.blueprintRepairIds = []; state.blueprintFeedback = {}; state.formReviewStarted = false; state.formRepairRounds = 0; state.resumePhase = undefined; state.diversity = {}; state.pairChecks = {}; state.selectedIds = []; state.blockers = []
     } else if (state.phase === 'complete') {
       const status = statusFor(job, spec, items)
       if (status.ready) { await updateStageRun(db, lease.id, { status: 'success', completedAt: new Date().toISOString(), detail: 'Current form already passed.' }); return status }

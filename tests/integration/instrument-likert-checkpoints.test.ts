@@ -157,6 +157,26 @@ describe.skipIf(!canRun)('transactional Likert checkpoints (local database)', ()
       expect(provider).not.toHaveBeenCalled()
     } finally { provider.mockRestore() }
   })
+  it('allows a later failing construct its own single redesign without reopening an earlier repair budget', async () => {
+    const formats = await listLikertFormats(db)
+    const options = likertOptionsSchema.parse({ itemsPerConstruct: 4, responseFormatId: formats[0].id })
+    await updateBuild(db, buildId, { config: { likert: options } })
+    const { data: first } = await db.from('instrument_blueprints').select('id').eq('build_id', buildId).single()
+    const second = await createBlueprint(db, { buildId, measureType: 'trait', draftConstructName: 'Sociability', draftConstructDefinition: 'Seeking and enjoying informal social interaction.' })
+    await replaceBlueprintCells(db, second.id, [{ facetLabel: 'Social contact', facetDefinition: 'Initiating informal contact with other people.', intensity: 'mid', targetItemCount: 4, displayOrder: 0 }])
+    // The saved feedback also identifies previously repaired constructs in older checkpoints.
+    await db.from('instrument_stage_runs').update({ output_snapshot: { ...state, options, phase: 'select', round: 5, blueprintRepairs: 1, blueprintFeedback: { [first!.id]: {} } } }).eq('id', jobId)
+    const provider = vi.spyOn(OpenRouterProvider.prototype, 'complete').mockRejectedValue(new Error('No model call is needed for this transition'))
+    try {
+      expect((await advanceLikert(db, buildId)).phase).toBe('blueprint')
+      const checkpoint = (await listStageRuns(db, buildId)).find(run => run.id === jobId)?.outputSnapshot
+      expect(checkpoint?.blueprintRepairIds).toEqual([first!.id, second.id])
+      expect(Object.keys(checkpoint?.blueprintFeedback as object)).toEqual([second.id])
+      await db.from('instrument_stage_runs').update({ output_snapshot: { ...checkpoint, phase: 'select', round: 5 } }).eq('id', jobId)
+      expect((await advanceLikert(db, buildId)).phase).toBe('incomplete')
+      expect(provider).not.toHaveBeenCalled()
+    } finally { provider.mockRestore() }
+  })
   it.each([true, false])('handles a reviewer contradiction per item, including when self-correction succeeds=%s', async fixesIt => {
     const formats = await listLikertFormats(db)
     const options = likertOptionsSchema.parse({ itemsPerConstruct: 4, responseFormatId: formats[0].id })
