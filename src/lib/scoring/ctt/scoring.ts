@@ -30,6 +30,8 @@ export interface CTTResponseItem {
   value: number
   /** Maximum possible value for this item. */
   maxValue: number
+  /** Lower bound; zero for legacy inputs, one for standard Likert. */
+  minValue?: number
   /** If true, the item is reverse-scored: effective = maxValue - value. */
   reverseScored?: boolean
 }
@@ -56,7 +58,7 @@ export interface CTTWeightedResponseItem extends CTTResponseItem {
  * @returns The raw score, max possible, and percentage.
  */
 export function calculateRawScore(
-  responses: { value: number; maxValue: number; reverseScored?: boolean }[],
+  responses: { value: number; maxValue: number; minValue?: number; reverseScored?: boolean }[],
 ): CTTScoreResult {
   if (responses.length === 0) {
     return { rawScore: 0, maxPossible: 0, percentage: 0 }
@@ -67,7 +69,7 @@ export function calculateRawScore(
 
   for (const item of responses) {
     const effectiveValue = item.reverseScored
-      ? item.maxValue - item.value
+      ? item.maxValue + (item.minValue ?? 0) - item.value
       : item.value
 
     rawScore += effectiveValue
@@ -99,7 +101,7 @@ export function calculateRawScore(
  * @returns The weighted score, max possible, and percentage.
  */
 export function calculateWeightedScore(
-  responses: { value: number; maxValue: number; weight: number; reverseScored?: boolean }[],
+  responses: { value: number; maxValue: number; minValue?: number; weight: number; reverseScored?: boolean }[],
 ): CTTScoreResult {
   if (responses.length === 0) {
     return { rawScore: 0, maxPossible: 0, percentage: 0 }
@@ -110,7 +112,7 @@ export function calculateWeightedScore(
 
   for (const item of responses) {
     const effectiveValue = item.reverseScored
-      ? item.maxValue - item.value
+      ? item.maxValue + (item.minValue ?? 0) - item.value
       : item.value
 
     rawScore += item.weight * effectiveValue

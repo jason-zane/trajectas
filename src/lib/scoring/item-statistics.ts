@@ -29,6 +29,8 @@ export interface ItemResponse {
   value: number
   /** Maximum possible value for this item. */
   maxValue: number
+  /** Lower bound; zero for legacy inputs, one for standard Likert. */
+  minValue?: number
   /** Whether the item is reverse-scored. */
   reverseScored?: boolean
 }
@@ -60,10 +62,10 @@ export interface ResponseMatrix {
  * @returns Structured response matrix.
  */
 export function buildResponseMatrix(
-  responses: { participantId: string; itemId: string; value: number; maxValue: number; reverseScored?: boolean }[],
+  responses: { participantId: string; itemId: string; value: number; maxValue: number; minValue?: number; reverseScored?: boolean }[],
 ): ResponseMatrix {
   // Group by participant
-  const byParticipantItem = new Map<string, Map<string, { value: number; maxValue: number; reverseScored?: boolean }>>()
+  const byParticipantItem = new Map<string, Map<string, { value: number; maxValue: number; minValue?: number; reverseScored?: boolean }>>()
   const allItemIds = new Set<string>()
   const itemMaxValues = new Map<string, number>()
 
@@ -76,7 +78,7 @@ export function buildResponseMatrix(
       participantMap = new Map()
       byParticipantItem.set(r.participantId, participantMap)
     }
-    participantMap.set(r.itemId, { value: r.value, maxValue: r.maxValue, reverseScored: r.reverseScored })
+    participantMap.set(r.itemId, { value: r.value, maxValue: r.maxValue, minValue: r.minValue, reverseScored: r.reverseScored })
   }
 
   const participantIds = [...byParticipantItem.keys()]
@@ -98,7 +100,7 @@ export function buildResponseMatrix(
     for (const itemId of itemIds) {
       const resp = participantMap.get(itemId)
       if (resp) {
-        const effective = resp.reverseScored ? resp.maxValue - resp.value : resp.value
+        const effective = resp.reverseScored ? resp.maxValue + (resp.minValue ?? 0) - resp.value : resp.value
         itemResponses.get(itemId)!.push(effective)
         total += effective
       } else {

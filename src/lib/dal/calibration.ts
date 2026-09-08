@@ -337,6 +337,7 @@ export async function fetchCalibrationResponses(
       constructId,
       value: responseValue,
       maxValue: bounds.maxValue,
+      minValue: bounds.minValue,
       reverseScored,
     });
   }

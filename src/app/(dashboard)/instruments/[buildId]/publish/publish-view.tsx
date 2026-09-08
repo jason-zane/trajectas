@@ -55,7 +55,7 @@ export function PublishView({
   const router = useRouter()
   const [preview, setPreview] = useState<PreviewData | null>(null)
   const [result, setResult] = useState<PublishResult | null>(null)
-  const [selectedFormat, setSelectedFormat] = useState<string>('')
+  const [selectedFormat, setSelectedFormat] = useState<string>(responseFormats.length === 1 ? responseFormats[0].id : '')
   const [selectedDimension, setSelectedDimension] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
   const [isPending, startTransition] = useTransition()

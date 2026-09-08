@@ -1,4 +1,5 @@
 import { TrajectasLogo } from "@/components/brand/trajectas-logo";
+import { LikertQualitySummary } from '@/components/instruments/likert-quality-summary'
 import type { TechnicalReport } from '@/lib/instrument/technical-report'
 
 /**
@@ -18,9 +19,9 @@ const STATUS_COPY: Record<
   { title: string; body: string; tone: string }
 > = {
   designed_to_standard: {
-    title: 'Designed to standard — not yet empirically validated',
+    title: 'Design evidence — respondent properties not established',
     body:
-      'Every figure in this report is design-time evidence: it describes how the instrument was constructed and reviewed, not how it has behaved with respondents. No response data has been collected, so no reliability or item statistic here is an observation.',
+      'Every figure in this report is design-time evidence: it describes how the instrument was constructed and reviewed, not how it has behaved with respondents. This report contains no current respondent evidence establishing reliability or validity for this form.',
     tone: 'border-l-[color:var(--warning,#b45309)]'
   },
   piloting: {
@@ -119,6 +120,8 @@ export function TechnicalReportDocument({
         <p className="text-sm font-semibold">{status.title}</p>
         <p className="mt-1 text-sm text-muted-foreground">{status.body}</p>
       </div>
+
+      {report.likert && <LikertQualitySummary report={report.likert} />}
 
       <Section n={1} title="Instrument">
         <Row label="Name" value={report.identity.instrumentName} />
@@ -230,7 +233,7 @@ export function TechnicalReportDocument({
         </p>
         {!isNum(report.reliability.alpha.value.point) ? (
           <p className="text-sm text-muted-foreground">
-            No α forecast: this instrument has too few items for the
+            No α estimate is available for the current form. A pooled estimate across distinct constructs is not a meaningful measure of each scale. The
             Spearman–Brown projection to mean anything yet.
           </p>
         ) : (

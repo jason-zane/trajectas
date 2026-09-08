@@ -58,7 +58,8 @@ export default async function PublishPage({ params }: PublishPageProps) {
   }
 
   const db = createAdminClient()
-  const responseFormats = await getResponseFormats(db)
+  const likertOptions = build.config?.likert as { responseFormatId?: string } | undefined
+  const responseFormats = (await getResponseFormats(db)).filter(format => !likertOptions || format.id === likertOptions.responseFormatId)
   const dimensions = await getDimensions(db)
 
   return (

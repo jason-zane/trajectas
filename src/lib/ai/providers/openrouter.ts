@@ -91,11 +91,13 @@ export class OpenRouterProvider implements AIProvider {
 
       return {
         content: choice.message.content ?? '',
+        finishReason: choice.finish_reason,
         model: response.model,
         provider: 'custom',
         usage: {
           inputTokens: response.usage?.prompt_tokens ?? 0,
           outputTokens: response.usage?.completion_tokens ?? 0,
+          reasoningTokens: response.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
         },
       }
     } catch (error) {

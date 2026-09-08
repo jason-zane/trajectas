@@ -429,18 +429,18 @@ describe('buildTechnicalReport', () => {
   });
 
   describe('RELIABILITY section', () => {
-    it('should include alpha forecast with interval and shrinkage note', () => {
+    it('does not present an assumption range as a reliability confidence interval', () => {
       const forecast = createMockAlphaForecast();
       const input = createMockInput();
       const report = buildTechnicalReport(input, forecast);
 
       expect(report.reliability.alpha.value.point).toBe(0.82);
-      expect(report.reliability.alpha.value.interval).toEqual([0.75, 0.88]);
+      expect(report.reliability.alpha.value.interval).toBeUndefined();
       expect(report.reliability.alpha.evidenceClass).toBe('a_priori');
       expect(report.reliability.alpha.confidence).toBe('none'); // a_priori = no confidence (forecast only)
 
       expect(report.reliability.meanInterItemR.value.point).toBe(0.35);
-      expect(report.reliability.meanInterItemR.value.interval).toEqual([0.28, 0.42]);
+      expect(report.reliability.meanInterItemR.value.interval).toBeUndefined();
 
       expect(report.reliability.coherence).toBe('optimal');
       expect(report.reliability.shrinkageNote).toContain('Shrinkage factors');
@@ -468,7 +468,7 @@ describe('buildTechnicalReport', () => {
       expect(Number.isNaN(report.reliability.alpha.value.point)).toBe(true);
       expect(report.reliability.shrinkageNote).toContain('facet-count prior');
       // Should have added a caution warning
-      expect(report.reliability.warnings.some((w) => w.level === 'caution' && w.message.includes('facet-count prior'))).toBe(true);
+      expect(report.reliability.warnings.some((w) => w.level === 'caution' && w.message.includes('No reliability estimate'))).toBe(true);
     });
   });
 
@@ -528,7 +528,7 @@ describe('buildTechnicalReport', () => {
       expect(reliabilityClaim?.sampleSizeNeeded).toBe(50);
     });
 
-    it('should report calibrated status when n >= 200 and empirical alpha present', () => {
+    it('does not declare calibration from sample size alone', () => {
       const input = createMockInput({
         evidenceRecords: [
           {
@@ -550,7 +550,7 @@ describe('buildTechnicalReport', () => {
       });
       const report = buildTechnicalReport(input);
 
-      expect(report.limitations.validationStatus).toBe('calibrated');
+      expect(report.limitations.validationStatus).toBe('piloting');
     });
 
     it('should report piloting status when empirical but n < 200', () => {

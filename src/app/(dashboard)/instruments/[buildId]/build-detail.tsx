@@ -16,6 +16,8 @@ import type {
 import type { BlueprintCell } from '@/lib/instrument/types'
 import type { PanelResult } from '@/lib/instrument/congruence'
 import { computeBuildProgress } from '@/lib/instrument/progress'
+import { LikertPipelineCard } from '@/components/instruments/likert-pipeline-card'
+import type { LikertStatus } from '@/lib/instrument/likert/contracts'
 import { ProgressRail } from './progress-rail'
 import { deleteBlueprintAction, restoreBlueprintAction } from '@/app/actions/instrument'
 
@@ -25,6 +27,7 @@ interface BuildDetailProps {
   cellsByBlueprintId: Record<string, BlueprintCell[]>
   itemsByBlueprintId: Record<string, InstrumentCandidateItemDto[]>
   panelResult: PanelResult | null
+  likertStatus?: LikertStatus | null
 }
 
 const MEASURE_TYPE_LABELS: Record<string, string> = {
@@ -56,6 +59,7 @@ export function BuildDetail({
   cellsByBlueprintId,
   itemsByBlueprintId,
   panelResult,
+  likertStatus,
 }: BuildDetailProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -68,6 +72,11 @@ export function BuildDetail({
     itemsByBlueprintId,
     panelResult,
   )
+
+  if (likertStatus) {
+    const evidence = progress.steps.find(step => step.key === 'evidence')
+    if (evidence) { evidence.state = likertStatus.ready ? 'complete' : 'in_progress'; evidence.description = 'Automatic AI checks for the current form' }
+  }
 
   const handleDeleteBlueprint = (blueprintId: string, label: string) => {
     // Deletion is a soft delete, so the house pattern applies: act immediately
@@ -136,6 +145,8 @@ export function BuildDetail({
           Publish
         </Button>
       </PageHeader>
+
+      {likertStatus && <LikertPipelineCard buildId={build.id} initial={likertStatus} />}
 
       {/* Progress rail */}
       <ProgressRail

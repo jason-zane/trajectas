@@ -129,7 +129,7 @@ export function computeItemsState(
     const items = itemsByBlueprintId[blueprint.id] ?? []
 
     for (const cell of cells) {
-      const cellItems = items.filter((i) => i.blueprintCellId === cell.id)
+      const cellItems = items.filter((i) => i.blueprintCellId === cell.id && i.status !== 'rejected')
       const targetCount = cell.targetItemCount ?? 2
       if (cellItems.length < targetCount) {
         underTargetCount++

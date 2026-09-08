@@ -38,14 +38,16 @@ export function intensitySpread(cells: BlueprintCell[]): Record<Intensity, numbe
 
 export function auditCoverage(
   cells: BlueprintCell[],
-  items: Array<{ id: string; blueprintCellId?: string | null }>
+  items: Array<{ id: string; blueprintCellId?: string | null; status?: string }>
 ): CoverageReport {
   // Count actual items per cell
   const cellCounts: Record<string, number> = {}
   let unassignedItemCount = 0
 
-  for (const item of items) {
-    if (item.blueprintCellId) {
+  const activeCellIds = new Set(cells.map(cell => cell.id))
+  const retained = items.filter(item => item.status !== 'rejected')
+  for (const item of retained) {
+    if (item.blueprintCellId && activeCellIds.has(item.blueprintCellId)) {
       cellCounts[item.blueprintCellId] = (cellCounts[item.blueprintCellId] || 0) + 1
     } else {
       unassignedItemCount++
@@ -83,10 +85,10 @@ export function auditCoverage(
   })
 
   const totalTarget = totalTargetItems(cells)
-  const totalActual = items.length - unassignedItemCount
+  const totalActual = retained.length - unassignedItemCount
   const emptyCells = cellReports.filter(r => r.status === 'empty').length
   const underfilledCells = cellReports.filter(r => r.status === 'under').length
-  const isComplete = emptyCells === 0 && underfilledCells === 0
+  const isComplete = cells.length > 0 && emptyCells === 0 && underfilledCells === 0
 
   return {
     cells: cellReports,

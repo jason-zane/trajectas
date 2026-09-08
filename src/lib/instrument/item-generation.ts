@@ -280,21 +280,6 @@ function extractJson(raw: string): unknown {
 }
 
 /**
- * Coerce reverseScored from various input formats.
- * Accepts: boolean, string "true"/"false" (case-insensitive), null/undefined.
- * Returns boolean or undefined on unknown input.
- */
-function coerceReverseScored(value: unknown): boolean | undefined {
-  if (typeof value === 'boolean') return value
-  if (typeof value === 'string') {
-    const lower = value.toLowerCase().trim()
-    if (lower === 'true') return true
-    if (lower === 'false') return false
-  }
-  return undefined
-}
-
-/**
  * Parse an AI response string into a structured list of generated item drafts.
  *
  * Handles multiple input formats:
@@ -302,8 +287,7 @@ function coerceReverseScored(value: unknown): boolean | undefined {
  * - Wrapped object ({ items: [...], ... })
  * - Bare array ([{...}, ...])
  *
- * Forgiving parsing: malformed items are skipped with a warning. Reverse-scored is
- * coerced from boolean or string. Unknown sdRisk values are dropped with a warning.
+ * Malformed items are skipped with a warning. The scoring key must be boolean. Unknown sdRisk values are dropped with a warning.
  * Empty/whitespace stems are dropped with a warning. Facet field is optional.
  *
  * Never throws on invalid input; always returns a result with warnings populated.
@@ -360,23 +344,18 @@ export function parseGeneratedItems(raw: string): ItemGenerationResult {
     const i = itemData as Record<string, unknown>
 
     // Extract and validate stem
-    const rawStem = String(i.stem ?? '').trim()
+    const rawStem = typeof i.stem === 'string' ? i.stem.trim() : ''
     if (!rawStem) {
       warnings.push(`Item ${idx}: skipped item with empty stem.`)
       continue
     }
 
-    // Extract reverseScored
-    let reverseScored = false
-    const rawReverse = i.reverseScored
-    const coercedReverse = coerceReverseScored(rawReverse)
-    if (coercedReverse !== undefined) {
-      reverseScored = coercedReverse
-    } else if (rawReverse !== null && rawReverse !== undefined) {
-      warnings.push(
-        `Item ${idx}: reverseScored value ${JSON.stringify(rawReverse)} is not a boolean or "true"/"false"; defaulting to false.`,
-      )
+    // Scoring keys are mandatory data, never a best-effort coercion.
+    if (typeof i.reverseScored !== 'boolean') {
+      warnings.push(`Item ${idx}: reverseScored must be an explicit boolean; skipping item.`)
+      continue
     }
+    const reverseScored = i.reverseScored
 
     // Extract sdRisk (optional, with validation)
     let sdRisk: 'low' | 'moderate' | 'high' | undefined
@@ -423,7 +402,8 @@ export function parseGeneratedItems(raw: string): ItemGenerationResult {
 export function normaliseStem(stem: string): string {
   return stem
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
+    .normalize('NFKC')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 }

@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getTechnicalReportData } from "@/lib/dal/instrument";
 import { listCongruenceRatingsForBuild } from "@/lib/dal/instrument";
 import { runCongruencePanel } from "@/lib/instrument/congruence";
+import { getLikertAuditReport } from "@/lib/instrument/likert/pipeline";
 import { forecastAlpha } from "@/lib/instrument/reliability";
 import {
   buildTechnicalReport,
@@ -33,11 +34,12 @@ export async function assembleTechnicalReport(
   if (!data) return null;
 
   const { build, blueprints, cellsByBlueprintId, itemsByBlueprintId } = data;
+  const likert = build.config?.likert ? await getLikertAuditReport(db, buildId) : undefined;
 
   const blueprintCells = blueprints.flatMap(
     (bp) => cellsByBlueprintId[bp.id] ?? [],
   );
-  const allItems = blueprints.flatMap((bp) => itemsByBlueprintId[bp.id] ?? []);
+  const allItems = blueprints.flatMap((bp) => itemsByBlueprintId[bp.id] ?? []).filter(item => build.config?.likert ? item.status === "accepted" : item.status !== "rejected");
 
   const candidateItems = allItems.map((item) => ({
     id: item.id,
@@ -52,6 +54,12 @@ export async function assembleTechnicalReport(
   // items. An empty fairness section reads as "we checked and it is clean",
   // which is a false statement when nothing was read at all.
   const fairnessResults = allItems.flatMap((item) => {
+    if (likert) {
+      const quality = likert.items.find(candidate => candidate.id === item.id)?.quality
+      if (!quality || quality.reviews.length !== 3) return []
+      const issues = quality.reviews.flatMap(review => review.issues).filter(issue => ['culture', 'accessibility', 'opportunity', 'anchor_mismatch'].includes(issue.code))
+      return [{ id: item.id, flags: [...new Set(issues.map(issue => issue.code))], note: issues.map(issue => issue.evidence).join('; ') }]
+    }
     const fairness = (item.payload as { fairness?: unknown } | null | undefined)
       ?.fairness as
       | { flags?: unknown; note?: unknown }
@@ -73,7 +81,7 @@ export async function assembleTechnicalReport(
   // undefined, NOT an empty panel: an empty panel would report 0% assignment
   // accuracy, which reads as a catastrophic result rather than as "not run".
   const ratings = await listCongruenceRatingsForBuild(db, buildId);
-  const congruenceResult =
+  let congruenceResult =
     ratings.length > 0
       ? runCongruencePanel(
           ratings.map((r) => ({
@@ -88,13 +96,21 @@ export async function assembleTechnicalReport(
         )
       : undefined;
 
+  if (likert) {
+    const currentRatings = likert.items.filter(item => item.selected && item.quality).flatMap(item => {
+      const intended = likert.spec.constructs.find(construct => construct.name === item.construct)
+      return item.quality!.reviews.map((review, index) => ({ itemId: item.id, raterIndex: index, raterModel: review.model, assignedConstructId: review.constructId, intendedConstructId: intended?.id ?? 'unknown', relevance: review.relevance as 1 | 2 | 3 | 4, namedFacet: review.facetLabel }))
+    })
+    congruenceResult = currentRatings.length ? runCongruencePanel(currentRatings) : undefined
+  }
+
   // Alpha forecast is per-instrument here, driven by the realised item count.
   // It is a FORECAST and the model tags it a_priori; the renderer must never
   // present it as an observation.
   const itemCount = candidateItems.length;
   const facetCount = new Set(blueprintCells.map((c) => c.facetLabel)).size;
   const alphaForecast =
-    itemCount > 1
+    itemCount > 1 && blueprints.length === 1 && !build.config?.likert
       ? forecastAlpha({ itemCount, facetCount: facetCount || 1 })
       : undefined;
 
@@ -156,5 +172,6 @@ export async function assembleTechnicalReport(
     alphaForecast,
   );
 
+  if (likert) report.likert = likert;
   return { report, instrumentName: build.name };
 }

@@ -203,11 +203,11 @@ export function buildFairnessPrompt(
   lines.push('- "flags": array of fairness concerns (idiom, metaphor, sensory_assumption, protected_class, jargon)')
   lines.push('- "note": one-sentence explanation of the flagged concern(s) — only if flags is non-empty')
   lines.push('')
-  lines.push('Return ONLY a JSON array. Example:')
-  lines.push('[')
+  lines.push('Return ONLY a JSON object with an items array, with exactly one result per requested ID. This output contract supersedes any earlier array example:')
+  lines.push('{"items": [')
   lines.push('  { "id": "item-1", "flags": [] },')
   lines.push('  { "id": "item-2", "flags": ["idiom"], "note": "Uses colloquial expression." }')
-  lines.push(']')
+  lines.push(']}')
 
   return lines.join('\n')
 }
@@ -266,6 +266,10 @@ export function parseFairnessResponse(
     }
   }
 
+  if (data && typeof data === 'object' && !Array.isArray(data) && 'items' in data) {
+    data = (data as { items: unknown }).items
+  }
+
   // Ensure we have an array
   if (!Array.isArray(data)) {
     warnings.push('Response root is not an array.')
@@ -297,17 +301,20 @@ export function parseFairnessResponse(
     }
 
     if (seenIds.has(id)) {
-      warnings.push(`Item ${i}: duplicate id "${id}"; dropping.`)
+      warnings.push(`Item ${i}: duplicate id "${id}"; invalidating that review.`)
+      const previous = results.findIndex(result => result.id === id)
+      if (previous >= 0) results.splice(previous, 1)
       continue
     }
 
     seenIds.add(id)
 
-    // Parse flags array
-    let flagsArray: unknown[] = []
-    if (Array.isArray(obj.flags)) {
-      flagsArray = obj.flags
+    // A missing flags field is an incomplete review, not a clean verdict.
+    if (!Array.isArray(obj.flags)) {
+      warnings.push(`Item ${id}: flags must be an explicit array.`)
+      continue
     }
+    const flagsArray: unknown[] = obj.flags
 
     const flags: FairnessFlag[] = []
     const validFlagValues: Set<FairnessFlag> = new Set([
@@ -318,14 +325,18 @@ export function parseFairnessResponse(
       'jargon',
     ])
 
+    let invalidFlag = false
     for (const flag of flagsArray) {
       const flagStr = String(flag).trim().toLowerCase()
       if (validFlagValues.has(flagStr as FairnessFlag)) {
         flags.push(flagStr as FairnessFlag)
       } else {
+        invalidFlag = true
         warnings.push(`Item ${id}: unknown flag "${flagStr}"; dropping.`)
       }
     }
+
+    if (invalidFlag) continue
 
     // Parse note (optional)
     const note = obj.note ? String(obj.note).trim() : undefined
@@ -337,5 +348,9 @@ export function parseFairnessResponse(
     })
   }
 
+  const completed = new Set(results.map(result => result.id))
+  for (const id of validIds) {
+    if (!completed.has(id)) warnings.push(`Missing valid review for item ${id}.`)
+  }
   return { results, warnings }
 }

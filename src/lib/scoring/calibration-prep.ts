@@ -41,6 +41,8 @@ export interface CalibrationResponseRow {
   value: number
   /** Maximum possible value for this item. */
   maxValue: number
+  /** Lower bound; zero for legacy inputs, one for standard Likert. */
+  minValue?: number
   /** Whether the item is reverse-scored. */
   reverseScored: boolean
 }
@@ -65,6 +67,8 @@ export interface ConstructCalibrationSet {
     itemId: string
     value: number
     maxValue: number
+  /** Lower bound; zero for legacy inputs, one for standard Likert. */
+  minValue?: number
     reverseScored: boolean
   }>
   /**
@@ -252,7 +256,7 @@ function prepareOneConstruct(
       const resp = responseIndex.get(`${sessionId}|${itemId}`)!
 
       // Apply reverse scoring: matches buildResponseMatrix line 101
-      const effective = resp.reverseScored ? resp.maxValue - resp.value : resp.value
+      const effective = resp.reverseScored ? resp.maxValue + (resp.minValue ?? 0) - resp.value : resp.value
       row.push(effective)
 
       // Collect response for buildResponseMatrix consumption
@@ -261,6 +265,7 @@ function prepareOneConstruct(
         itemId,
         value: resp.value,
         maxValue: resp.maxValue,
+        minValue: resp.minValue,
         reverseScored: resp.reverseScored,
       })
     }
