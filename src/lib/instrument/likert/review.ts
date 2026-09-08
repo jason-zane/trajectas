@@ -104,3 +104,18 @@ export function selectWithOverlapHints(spec: LikertSpec, items: LikertCandidate[
   const preferred = selectItems(spec, items, passed, [...hints, ...confirmed])
   return preferred.blockers.length ? selectItems(spec, items, passed, confirmed) : preferred
 }
+
+
+/** Models receive short opaque references, never database UUIDs to reproduce. */
+export function blindReviewBatch(spec: LikertSpec, items: Pick<LikertCandidate, 'id' | 'stem'>[]) {
+  const itemIds = Object.fromEntries(items.map((item, index) => [`item-${index + 1}`, item.id]))
+  const constructIds = Object.fromEntries(spec.constructs.map((construct, index) => [`construct-${index + 1}`, construct.id]))
+  return {
+    itemIds, constructIds,
+    spec: { ...spec, constructs: spec.constructs.map((construct, index) => ({ ...construct, id: `construct-${index + 1}` })) },
+    items: items.map((item, index) => ({ id: `item-${index + 1}`, stem: item.stem })),
+  }
+}
+export function parseBlindReview(raw: string, batch: ReturnType<typeof blindReviewBatch>): ItemReview[] {
+  return parseReview(raw, Object.keys(batch.itemIds), batch.spec).map(review => ({ ...review, id: batch.itemIds[review.id], constructId: review.constructId === 'none' ? 'none' : batch.constructIds[review.constructId] }))
+}

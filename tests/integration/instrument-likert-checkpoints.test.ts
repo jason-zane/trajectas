@@ -94,6 +94,10 @@ describe.skipIf(!canRun)('transactional Likert checkpoints (local database)', ()
       expect((await advanceLikert(db, buildId, true)).detail).toContain('Operational blueprint created')
       expect((await advanceLikert(db, buildId)).phase).toBe('generate')
       const { data } = await db.from('instrument_blueprints').select('id').eq('build_id', buildId).single()
+      const { data: currentCells } = await db.from('instrument_blueprint_cells').select('intensity,target_item_count').eq('blueprint_id', data!.id).is('retired_at', null)
+      expect(currentCells).toHaveLength(2)
+      expect(currentCells?.every(cell => cell.intensity === 'mid')).toBe(true)
+      expect(currentCells?.reduce((sum, cell) => sum + cell.target_item_count, 0)).toBe(4)
       await updateBlueprint(db, data!.id, { draftConstructDefinition: 'Adapting work methods when requirements change.' })
       expect((await advanceLikert(db, buildId)).detail).toContain('Operational blueprint created')
       expect(provider).toHaveBeenCalledTimes(7)
@@ -158,11 +162,10 @@ describe.skipIf(!canRun)('transactional Likert checkpoints (local database)', ()
     const options = likertOptionsSchema.parse({ itemsPerConstruct: 4, responseFormatId: formats[0].id })
     await updateBuild(db, buildId, { config: { likert: options } })
     await db.from('instrument_stage_runs').update({ output_snapshot: { ...state, options, phase: 'review' } }).eq('id', jobId)
-    const { data: bp } = await db.from('instrument_blueprints').select('id').eq('build_id', buildId).single()
     let thirdReviewerCalls = 0
     const provider = vi.spyOn(OpenRouterProvider.prototype, 'complete').mockImplementation(async request => {
       const inconsistent = request.model === 'c/c' && (++thirdReviewerCalls === 1 || !fixesIt)
-      return { model: request.model!, provider: 'custom', usage: { inputTokens: 10, outputTokens: 10 }, content: JSON.stringify({ items: [{ id: itemId, constructId: bp!.id, facetLabel: 'Follow-through', relevance: 4, clarity: 4, reverseScored: false, lowTypicalHigh: inconsistent ? [5, 3, 1] : [1, 3, 5], paraphrase: 'Recall completion of agreed work.', issues: [], rationale: 'Completing agreed work reflects follow-through.' }] }) }
+      return { model: request.model!, provider: 'custom', usage: { inputTokens: 10, outputTokens: 10 }, content: JSON.stringify({ items: [{ id: 'item-1', constructId: 'construct-1', facetLabel: 'Follow-through', relevance: 4, clarity: 4, reverseScored: false, lowTypicalHigh: inconsistent ? [5, 3, 1] : [1, 3, 5], paraphrase: 'Recall completion of agreed work.', issues: [], rationale: 'Completing agreed work reflects follow-through.' }] }) }
     })
     try {
       const status = await advanceLikert(db, buildId)

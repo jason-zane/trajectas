@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { LIKERT_VERSION, parseLikertFormat, assertLikertMeasure, assertLikertScopeBudget, type LikertCandidate, type LikertSpec, type ItemReview, type ReviewerResult, type ItemQuality } from '@/lib/instrument/likert/contracts'
-import { assessItem, parseReview, reviewPrompt, selectItems, selectWithOverlapHints } from '@/lib/instrument/likert/review'
+import { assessItem, blindReviewBatch, parseBlindReview, parseReview, reviewPrompt, selectItems, selectWithOverlapHints } from '@/lib/instrument/likert/review'
 import { fingerprint, itemFingerprint, currentQuality, passingScores } from '@/lib/instrument/likert/identity'
 import { auditCoverage } from '@/lib/instrument/blueprint'
 import { parseGeneratedItems } from '@/lib/instrument/item-generation'
@@ -141,4 +141,14 @@ it('maps reordered short pair judgments back to the correct item pair and reject
   const parsed = parseFormPairBatch(JSON.stringify({ pairs: judgments }), pairs)
   expect(parsed.find(result => result.redundant)?.id).toBe('a:b')
   expect(() => parseFormPairBatch(JSON.stringify({ pairs: judgments.slice(1) }), pairs)).toThrow()
+})
+
+
+it('restores short blind-review references exactly even when the response is reordered', () => {
+  const batch = blindReviewBatch({ ...spec, constructs: spec.constructs.map(construct => ({ ...construct, id: 'database-blueprint-id' })) }, [candidate('real-a'), candidate('real-b')])
+  expect(batch.items).toEqual([{ id: 'item-1', stem: candidate().stem }, { id: 'item-2', stem: candidate().stem }])
+  const restored = parseBlindReview(JSON.stringify({ items: [review({ id: 'item-2' }), review({ id: 'item-1' })] }), batch)
+  expect(restored.map(item => item.id)).toEqual(['real-b', 'real-a'])
+  expect(restored.every(item => item.constructId === 'database-blueprint-id')).toBe(true)
+  expect(() => parseBlindReview(JSON.stringify({ items: [review({ id: 'real-a' }), review({ id: 'item-1' })] }), batch)).toThrow()
 })
