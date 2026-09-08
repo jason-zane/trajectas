@@ -466,7 +466,7 @@ export async function getLikertAuditReport(db: SupabaseClient, buildId: string) 
     status: statusFor(context.job, context.spec, context.items), spec: context.spec, specHash: fingerprint(context.spec), models: state.models, calls: state.calls,
     items: context.items.map(item => {
       const construct = context.spec.constructs.find(c => c.cells.some(cell => cell.id === item.blueprintCellId))
-      return { id: item.id, stem: item.stem, reverseScored: item.reverseScored ?? false, construct: construct?.name ?? 'Unassigned', facet: construct?.cells.find(c => c.id === item.blueprintCellId)?.facetLabel ?? 'Unassigned', selected: state.selectedIds.includes(item.id) && item.status === 'accepted' && passed.has(item.id), quality: currentQuality(item, context.spec) }
+      return { id: item.id, stem: item.stem, reverseScored: item.reverseScored ?? false, constructId: construct?.id ?? null, construct: construct?.name ?? 'Unassigned', facet: construct?.cells.find(c => c.id === item.blueprintCellId)?.facetLabel ?? 'Unassigned', selected: state.selectedIds.includes(item.id) && item.status === 'accepted' && passed.has(item.id), quality: currentQuality(item, context.spec) }
     }),
   }
 }

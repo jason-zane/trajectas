@@ -187,5 +187,5 @@ export interface LikertAuditReport {
   models: LikertState['models']
   calls: number
   targetAlphaGoal?: number
-  items: Array<{ id: string; stem: string; reverseScored: boolean; construct: string; facet: string; selected: boolean; quality: ItemQuality | null }>
+  items: Array<{ id: string; stem: string; reverseScored: boolean; constructId: string | null; construct: string; facet: string; selected: boolean; quality: ItemQuality | null }>
 }

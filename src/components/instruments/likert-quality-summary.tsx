@@ -21,7 +21,7 @@ export function LikertQualitySummary({ report }: { report: LikertAuditReport }) 
     {report.targetAlphaGoal !== undefined && <p className="text-sm">Design goal: α = {report.targetAlphaGoal.toFixed(2)}. This goal is recorded for planning; it is not a measured result or a requirement that AI can verify without responses.</p>}
     <p className="text-sm text-muted-foreground">Values below are algebraic scenarios using α = k r / (1 + (k − 1) r). Each column assumes a mean inter-item correlation; none is an estimate, confidence interval or acceptance score.</p>
     <Table><TableHeader><TableRow><TableHead>Construct</TableHead><TableHead>Items (k)</TableHead><TableHead>Assume r = .10</TableHead><TableHead>Assume r = .20</TableHead><TableHead>Assume r = .30</TableHead></TableRow></TableHeader><TableBody>{spec.constructs.map(construct => {
-      const k = report.items.filter(item => item.construct === construct.name && item.selected).length
+      const k = report.items.filter(item => item.constructId === construct.id && item.selected).length
       return <TableRow key={construct.id}><TableCell>{construct.name}</TableCell><TableCell>{k}</TableCell>{[0.1, 0.2, 0.3].map(r => <TableCell key={r}>{k > 1 ? (k * r / (1 + (k - 1) * r)).toFixed(2) : '—'}</TableCell>)}</TableRow>
     })}</TableBody></Table>
     <p className="text-xs text-muted-foreground">Specification fingerprint: {report.specHash}</p>

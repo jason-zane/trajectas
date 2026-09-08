@@ -98,8 +98,7 @@ export async function assembleTechnicalReport(
 
   if (likert) {
     const currentRatings = likert.items.filter(item => item.selected && item.quality).flatMap(item => {
-      const intended = likert.spec.constructs.find(construct => construct.name === item.construct)
-      return item.quality!.reviews.map((review, index) => ({ itemId: item.id, raterIndex: index, raterModel: review.model, assignedConstructId: review.constructId, intendedConstructId: intended?.id ?? 'unknown', relevance: review.relevance as 1 | 2 | 3 | 4, namedFacet: review.facetLabel }))
+      return item.quality!.reviews.map((review, index) => ({ itemId: item.id, raterIndex: index, raterModel: review.model, assignedConstructId: review.constructId, intendedConstructId: item.constructId ?? 'unknown', relevance: review.relevance as 1 | 2 | 3 | 4, namedFacet: review.facetLabel }))
     })
     congruenceResult = currentRatings.length ? runCongruencePanel(currentRatings) : undefined
   }
