@@ -47,3 +47,16 @@ export async function latestLikertJob(db: SupabaseClient, buildId: string) {
   if (error) throw error
   return data ? mapInstrumentStageRunRow(data) : null
 }
+
+/** All library items activate together, only if the checked form still matches. */
+export async function activatePublishedLikertItems(db: SupabaseClient, input: {
+  buildId: string; publishStepId: string; jobId: string; revision: number;
+  snapshot: Record<string, unknown>; items: Array<{ id: string; updatedAt: string; publishedItemId?: string | null }>
+}): Promise<number> {
+  const { data, error } = await db.rpc('activate_autonomous_likert_items', {
+    p_build_id: input.buildId, p_publish_step_id: input.publishStepId, p_job_id: input.jobId, p_revision: input.revision,
+    p_expected_spec: input.snapshot, p_expected_items: input.items.map(item => ({ id: item.id, updatedAt: item.updatedAt, publishedItemId: item.publishedItemId })),
+  })
+  if (error) throw new Error(error.message)
+  return data
+}

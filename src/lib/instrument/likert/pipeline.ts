@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getBuild, listBlueprints, getBlueprintWithCells, listCandidateItems, recordStageRun, claimStageRun, updateStageRun, updateBuild, StageRunInFlightError } from '@/lib/dal/instrument'
-import { listLikertFormats, latestLikertJob, loadLikertBoundaryDefinitions, likertSpecSnapshot, commitLikertStep, expireLikertStep } from '@/lib/dal/instrument-likert'
+import { listLikertFormats, latestLikertJob, loadLikertBoundaryDefinitions, likertSpecSnapshot, commitLikertStep, expireLikertStep, activatePublishedLikertItems } from '@/lib/dal/instrument-likert'
 import type { InstrumentStageRunDto } from '@/lib/dal/instrument-mappers'
 import { getModelForTask } from '@/lib/ai/model-config'
 import { OpenRouterProvider } from '@/lib/ai/providers/openrouter'
@@ -493,6 +493,12 @@ export async function assertLikertPublishable(db: SupabaseClient, buildId: strin
   const selected = stateOf(context.job).selectedIds
   const accepted = context.items.filter(item => item.status === 'accepted').map(item => item.id)
   if (accepted.length !== selected.length || accepted.some(id => !selected.includes(id))) throw new Error('Accepted items differ from the reviewed final form. Resume to assemble a current form.')
+}
+
+export async function activateLikertPublication(db: SupabaseClient, buildId: string, publishStepId: string): Promise<number> {
+  const context = await loadLikertContext(db, buildId)
+  if (!context.job || !statusFor(context.job, context.spec, context.items).ready) throw new Error('The current form must pass every Likert check before library activation.')
+  return activatePublishedLikertItems(db, { buildId, publishStepId, jobId: context.job.id, revision: stateOf(context.job).revision, snapshot: context.snapshot, items: context.items.filter(item => item.status === 'accepted') })
 }
 
 export async function getLikertAuditReport(db: SupabaseClient, buildId: string) {

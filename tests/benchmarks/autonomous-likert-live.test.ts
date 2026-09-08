@@ -10,7 +10,7 @@ vi.mock('@/lib/ai/model-config', () => ({ getModelForTask: async (purpose: strin
   if (!row) throw new Error(`Missing model configuration ${purpose}`)
   return { purpose, modelId: row.model_id, config: row.config }
 } }))
-vi.mock('@/lib/auth/authorization', () => ({ requireAdminScope: async () => ({ actor: null }) }))
+vi.mock('@/lib/auth/authorization', () => ({ requireAdminScope: async () => ({ actor: null }), resolveAuthorizedScope: async () => ({ actor: null }), canManageAssessmentLibrary: () => true }))
 vi.mock('@/lib/auth/support-sessions', () => ({ logAuditEvent: async () => {} }))
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => runtime.db }))
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
@@ -18,6 +18,7 @@ vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
 import { createBuild, createBlueprint, listCandidateItems, listStageRuns } from '@/lib/dal/instrument'
 import { startLikert, advanceLikert, loadLikertContext, assertLikertPublishable } from '@/lib/instrument/likert/pipeline'
 import { publishBuild } from '@/app/actions/instrument'
+import { getConstructsForBuilder, getFormatBreakdown } from '@/app/actions/assessments'
 
 const enabled = process.env.LIKERT_LIVE === '1'
 const itemCount = Number(process.env.LIKERT_ITEMS_PER_CONSTRUCT ?? 6)
@@ -81,8 +82,15 @@ it.runIf(enabled)('creates and reviews a complete two-construct Likert form, and
   const publishedContext = await loadLikertContext(runtime.db, buildId!)
   expect(publishedContext.build.status).toBe('published')
   const finalCandidates = publishedContext.items.filter(item => item.status === 'accepted')
-  const { data: libraryItems, error } = await runtime.db.from('items').select('id,stem,reverse_scored,response_format_id').in('id', finalCandidates.map(item => item.publishedItemId!))
+  const { data: libraryItems, error } = await runtime.db.from('items').select('id,construct_id,stem,reverse_scored,response_format_id,status').in('id', finalCandidates.map(item => item.publishedItemId!))
   expect(error).toBeNull()
   expect(libraryItems).toHaveLength(itemCount * 2)
-  for (const candidate of finalCandidates) expect(libraryItems!.find(item => item.id === candidate.publishedItemId)).toMatchObject({ stem: candidate.stem, reverse_scored: candidate.reverseScored, response_format_id: spec.format.id })
+  for (const candidate of finalCandidates) expect(libraryItems!.find(item => item.id === candidate.publishedItemId)).toMatchObject({ stem: candidate.stem, reverse_scored: candidate.reverseScored, response_format_id: spec.format.id, status: 'active' })
+  const constructIds = [...new Set(libraryItems!.map(item => item.construct_id))]
+  const builder = (await getConstructsForBuilder()).filter(construct => constructIds.includes(construct.id))
+  expect(builder).toHaveLength(2)
+  expect(builder.every(construct => construct.itemCount === itemCount)).toBe(true)
+  const formats = await getFormatBreakdown({ constructIds })
+  expect(formats).toEqual([expect.objectContaining({ responseFormatId: spec.format.id, formatType: 'likert', itemCount: itemCount * 2 })])
+  progress.push({ builder, formats })
 }, 2_400_000)

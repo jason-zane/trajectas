@@ -1,6 +1,6 @@
 'use server'
 
-import { assertLikertPublishable, getLikertStatus, startLikert } from '@/lib/instrument/likert/pipeline'
+import { assertLikertPublishable, getLikertStatus, startLikert, activateLikertPublication } from '@/lib/instrument/likert/pipeline'
 import { randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -26,7 +26,6 @@ import {
   recordStageRun,
   claimStageRun,
   updateStageRun,
-  updateBuild,
   updateCandidateItem,
   insertCongruenceRatings,
   deleteCongruenceRatingsForItems,
@@ -1974,7 +1973,7 @@ export async function publishBuild(
     ])
 
     if (build.config?.likert && publishWarnings.length === 0) {
-      await updateBuild(db, buildId, { status: 'published' })
+      await activateLikertPublication(db, buildId, stageRun.id)
     }
 
     // Close stage run
