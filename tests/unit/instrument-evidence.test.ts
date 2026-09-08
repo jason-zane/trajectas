@@ -572,7 +572,7 @@ describe("evidence module", () => {
       expect(describeConfidence(record)).toBe("moderate");
     });
 
-    it("returns 'high' for empirical with n >= 150", () => {
+    it("does not infer high confidence from a large sample alone", () => {
       const record: EvidenceRecord = {
         id: "1",
         targetType: "item",
@@ -584,10 +584,10 @@ describe("evidence module", () => {
         detail: { n: 200 },
         producedAt: new Date(),
       };
-      expect(describeConfidence(record)).toBe("high");
+      expect(describeConfidence(record)).toBe("moderate");
     });
 
-    it("returns 'high' for empirical with n = 150", () => {
+    it("does not treat n = 150 as an automatic quality threshold", () => {
       const record: EvidenceRecord = {
         id: "1",
         targetType: "item",
@@ -599,7 +599,7 @@ describe("evidence module", () => {
         detail: { n: 150 },
         producedAt: new Date(),
       };
-      expect(describeConfidence(record)).toBe("high");
+      expect(describeConfidence(record)).toBe("moderate");
     });
 
     it("treats missing n as 0 (low confidence)", () => {

@@ -54,6 +54,9 @@ export interface AIModelRequest {
  * A normalised response returned from any AI provider through the abstraction layer.
  */
 export interface AIModelResponse {
+  /** Provider completion state, including token-budget truncation. */
+  finishReason?: string
+
   /** The generated text content. */
   content: string
   /** Token usage statistics for billing and monitoring. */
@@ -62,6 +65,8 @@ export interface AIModelResponse {
     inputTokens: number
     /** Number of tokens generated in the output. */
     outputTokens: number
+    /** Output tokens spent in model reasoning; included in outputTokens. */
+    reasoningTokens?: number
   }
   /** The specific model identifier that produced this response (e.g. "claude-opus-4-20250514"). */
   model: string

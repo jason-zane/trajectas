@@ -359,7 +359,7 @@ describe("parseGeneratedItems", () => {
     })
   })
 
-  describe("reverseScored coercion", () => {
+  describe("strict reverseScored contract", () => {
     it("accepts boolean true", () => {
       const json = JSON.stringify([
         { stem: "Item", reverseScored: true },
@@ -376,34 +376,32 @@ describe("parseGeneratedItems", () => {
       expect(result.items[0]!.reverseScored).toBe(false)
     })
 
-    it('accepts string "true" (case-insensitive)', () => {
+    it('rejects string "true" keys', () => {
       const json = JSON.stringify([
         { stem: "Item 1", reverseScored: "true" },
         { stem: "Item 2", reverseScored: "TRUE" },
       ])
       const result = parseGeneratedItems(json)
-      expect(result.items[0]!.reverseScored).toBe(true)
-      expect(result.items[1]!.reverseScored).toBe(true)
-      expect(result.warnings).toHaveLength(0)
+      expect(result.items).toHaveLength(0)
+      expect(result.warnings.some(w => w.includes('explicit boolean'))).toBe(true)
     })
 
-    it('accepts string "false" (case-insensitive)', () => {
+    it('rejects string "false" keys', () => {
       const json = JSON.stringify([
         { stem: "Item 1", reverseScored: "false" },
         { stem: "Item 2", reverseScored: "FALSE" },
       ])
       const result = parseGeneratedItems(json)
-      expect(result.items[0]!.reverseScored).toBe(false)
-      expect(result.items[1]!.reverseScored).toBe(false)
-      expect(result.warnings).toHaveLength(0)
+      expect(result.items).toHaveLength(0)
+      expect(result.warnings.some(w => w.includes('explicit boolean'))).toBe(true)
     })
 
-    it("defaults to false on unknown reverseScored type and warns", () => {
+    it("rejects unknown reverseScored values with a warning", () => {
       const json = JSON.stringify([
         { stem: "Item", reverseScored: "maybe" },
       ])
       const result = parseGeneratedItems(json)
-      expect(result.items[0]!.reverseScored).toBe(false)
+      expect(result.items).toHaveLength(0)
       expect(result.warnings.some(w => w.includes("reverseScored"))).toBe(true)
     })
   })
@@ -828,12 +826,11 @@ describe("Integration: prompt → parse → dedupe flow", () => {
     `
 
     const result = parseGeneratedItems(messyResponse)
-    expect(result.items).toHaveLength(3)
+    expect(result.items).toHaveLength(2)
     expect(result.items[0]!.stem).toBe("I ask thoughtful questions.")
     expect(result.items[0]!.sdRisk).toBe("low")
     expect(result.items[1]!.reverseScored).toBe(true)
     expect(result.items[1]!.sdRisk).toBe("moderate")
-    expect(result.items[2]!.reverseScored).toBe(false)
     expect(result.warnings.some(w => w.includes("empty stem"))).toBe(true)
     expect(result.warnings.some(w => w.includes("reverseScored"))).toBe(true)
   })

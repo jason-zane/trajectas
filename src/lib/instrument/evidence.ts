@@ -56,6 +56,7 @@ export function resolveCurrentEvidence(records: EvidenceRecord[]): EvidenceRecor
   const grouped: Record<string, EvidenceRecord[]> = {}
 
   for (const record of records) {
+    if (record.supersededAt) continue
     const key = `${record.targetType}|${record.targetId}|${record.claim}`
     if (!grouped[key]) {
       grouped[key] = []
@@ -125,5 +126,6 @@ export function describeConfidence(
   if (n < 150) {
     return 'moderate'
   }
-  return 'high'
+  // Sample size alone cannot establish study quality or transportability.
+  return 'moderate'
 }

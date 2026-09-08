@@ -161,6 +161,7 @@ export function mapInstrumentBlueprintCellRow(row: DbRow): BlueprintCell {
   return {
     id: str(row.id),
     facetLabel: str(row.facet_label),
+    facetDefinition: strOpt(row.facet_definition),
     intensity: intensityOf(row.intensity),
     targetItemCount: numericToNumber(row.target_item_count) ?? 2,
     displayOrder: numericToNumber(row.display_order) ?? 0,

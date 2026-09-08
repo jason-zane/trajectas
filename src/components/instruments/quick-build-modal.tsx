@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Sparkles, Wand2, AlertTriangle, ArrowRight } from 'lucide-react'
@@ -34,8 +34,9 @@ import {
   confirmStructureAction,
   matchModelAgainstLibraryAction,
   assessBuildSoundnessAction,
-  quickBuildInstrumentAction,
 } from '@/app/actions/instrument'
+import { getLikertResponseFormats, startLikertBuildAction } from '@/app/actions/instrument-likert'
+import type { LikertFormat } from '@/lib/instrument/likert/contracts'
 import { ModelInput } from '@/components/instruments/model-input'
 import { SoundnessPanel } from '@/components/instruments/soundness-panel'
 import type { SoundnessReport } from '@/lib/instrument/soundness'
@@ -59,18 +60,8 @@ const MEASURE_TYPE_OPTIONS: Array<{ value: MeasureType; label: string; descripti
   },
   {
     value: 'capability',
-    label: 'Capability',
-    description: 'Integrated combinations of skills, knowledge, and attributes',
-  },
-  {
-    value: 'sjt',
-    label: 'Situational Judgment Test',
-    description: 'Judgment and decision-making in workplace scenarios',
-  },
-  {
-    value: 'forced_choice',
-    label: 'Forced Choice',
-    description: 'Paired comparison items for preference and motivation assessment',
+    label: 'Self-rated capability',
+    description: 'Perceived capability, measured through Likert self-report',
   },
   {
     value: 'preference',
@@ -172,6 +163,20 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
   const [itemsPerConstruct, setItemsPerConstruct] = useState(10)
   const [targetAlpha, setTargetAlpha] = useState(0.8)
   const [readingLevel, setReadingLevel] = useState('mixed')
+  const [formats, setFormats] = useState<LikertFormat[]>([])
+  const [responseFormatId, setResponseFormatId] = useState('')
+  const [timeframe, setTimeframe] = useState('Over the past three months')
+  const [reverseProportion, setReverseProportion] = useState(0.25)
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    getLikertResponseFormats().then(available => {
+      if (cancelled) return
+      setFormats(available)
+      setResponseFormatId((available.find(format => format.anchorType === 'agreement') ?? available[0])?.id ?? '')
+    }).catch(error => toast.error(error instanceof Error ? error.message : 'Unable to load Likert response formats'))
+    return () => { cancelled = true }
+  }, [open])
 
   // Step 4: Generate
   const [generationProgress, setGenerationProgress] = useState<{
@@ -200,6 +205,8 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
     setItemsPerConstruct(10)
     setTargetAlpha(0.8)
     setReadingLevel('mixed')
+    setTimeframe('Over the past three months')
+    setReverseProportion(0.25)
     setGenerationProgress(null)
     setGenerationErrors([])
     // Without these, reopening the wizard silently reuses the previous model:
@@ -438,25 +445,11 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
     setGenerationErrors([])
 
     try {
-      const result = await quickBuildInstrumentAction(buildId, {
-        constructs: includedConstructs.filter((c) => c.included),
-        itemsPerConstruct,
-        targetAlpha,
-        readingLevel,
+      await startLikertBuildAction(buildId, {
+        itemsPerConstruct, targetAlpha, readingLevel, responseFormatId, timeframe, reverseProportion,
       })
-
-      if (result.error) {
-        toast.error('Generation incomplete', {
-          description: result.error,
-        })
-      } else {
-        toast.success('Instrument ready', {
-          description: `${includedConstructs.length} constructs with ${result.totalItems} items`,
-        })
-      }
-
       handleOpenChange(false)
-      router.push(`/instruments/${buildId}/report`)
+      router.push(`/instruments/${buildId}`)
     } catch (err) {
       toast.error('Generation failed', {
         description: err instanceof Error ? err.message : 'Please try again.',
@@ -759,14 +752,14 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
               </div>
               <Slider
                 value={[itemsPerConstruct]}
-                min={3}
-                max={50}
+                min={4}
+                max={30}
                 step={1}
                 onValueChange={(v) => setItemsPerConstruct(Array.isArray(v) ? (v[0] ?? 10) : v)}
                 disabled={busy}
               />
               <p className='text-xs text-muted-foreground'>
-                Average items per construct across facets and intensities. Starts with a balanced grid based on your choices.
+                Exact final form length. Additional candidates are generated and reviewed to find a complete set that meets the quality checks.
               </p>
             </div>
 
@@ -784,7 +777,7 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
                 disabled={busy}
               />
               <p className='text-xs text-muted-foreground'>
-                Reliability estimate used to size items and compute the blueprint. Higher values increase homogeneity.
+                A design objective for later respondent analysis. AI review cannot establish observed internal consistency.
               </p>
             </div>
 
@@ -808,6 +801,26 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
               <p className='text-xs text-muted-foreground'>
                 Used by fairness screen to flag overly complex items.
               </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="qb-response-format">Response anchors</Label>
+              <Select value={responseFormatId} onValueChange={value => setResponseFormatId(value ?? '')} disabled={busy}>
+                <SelectTrigger id="qb-response-format"><SelectValue placeholder="Select a complete Likert format" /></SelectTrigger>
+                <SelectContent>{formats.map(format => <SelectItem key={format.id} value={format.id}>{format.name}</SelectItem>)}</SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">{Object.values(formats.find(format => format.id === responseFormatId)?.anchors ?? {}).join(' · ')}</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="qb-timeframe">Shared recall period</Label>
+              <Input id="qb-timeframe" value={timeframe} onChange={event => setTimeframe(event.target.value)} maxLength={160} disabled={busy} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="qb-reverse">Reverse-keyed items</Label>
+              <Select value={String(reverseProportion)} onValueChange={value => setReverseProportion(Number(value))} disabled={busy}>
+                <SelectTrigger id="qb-reverse"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="0">None</SelectItem><SelectItem value="0.25">About one quarter</SelectItem><SelectItem value="0.5">Half</SelectItem></SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Natural opposite-pole behaviours, with scoring direction checked independently by all three models. Reverse wording is a design choice, not a guarantee against response bias.</p>
             </div>
           </div>
         )}
@@ -873,15 +886,15 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
                   </div>
                   <div className='flex items-center gap-2 text-foreground/80'>
                     <ArrowRight className='size-4' />
-                    Critique pass for consistency
+                    Three independent reviews of fit, wording and fairness
                   </div>
                   <div className='flex items-center gap-2 text-foreground/80'>
                     <ArrowRight className='size-4' />
-                    Congruence panel for alignment
+                    Blind scoring-direction and response-interpretation checks
                   </div>
                   <div className='flex items-center gap-2 text-foreground/80'>
                     <ArrowRight className='size-4' />
-                    Fairness screen for accessibility
+                    Automatic rewriting, replacement and balanced form selection
                   </div>
                 </div>
               </div>

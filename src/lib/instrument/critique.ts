@@ -262,7 +262,8 @@ export async function runCritiquePass(
   let failedParses = 0
   let providerErrors = 0
 
-  for (const result of critiqueResults) {
+  for (const outer of critiqueResults) {
+    const result = outer.ok ? outer.value : outer
     if (!result.ok) {
       if (result.error instanceof Error && result.error.message === 'Malformed response') {
         failedParses++
@@ -271,11 +272,10 @@ export async function runCritiquePass(
       }
       continue
     }
-
-    // result is a success result with itemId, stem, verdict, reason
-    const successResult = result as unknown as ItemCritiqueResult
+    const successResult: ItemCritiqueResult = {
+      itemId: result.itemId!, stem: result.stem!, verdict: result.verdict!, reason: result.reason,
+    }
     results.push(successResult)
-
     if (successResult.verdict === 'keep') kept++
     else if (successResult.verdict === 'revise') revised++
     else if (successResult.verdict === 'drop') dropped++

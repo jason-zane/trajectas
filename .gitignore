@@ -73,3 +73,7 @@ __pycache__/
 /tmp/pdfs/
 
 /.playwright-cli/
+
+# Local real-model Likert benchmarks and browser verification
+/output/autonomous-likert/
+/output/playwright/

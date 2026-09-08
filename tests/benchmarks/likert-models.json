@@ -1,0 +1,31 @@
+[
+  {
+    "purpose": "instrument_blueprint",
+    "model_id": "anthropic/claude-sonnet-4-5",
+    "config": {
+      "max_tokens": 2048,
+      "temperature": 0.3
+    }
+  },
+  {
+    "purpose": "instrument_items",
+    "model_id": "minimax/minimax-m2.5",
+    "config": {
+      "max_tokens": 4096,
+      "temperature": 0.8
+    }
+  },
+  {
+    "purpose": "instrument_congruence",
+    "model_id": "anthropic/claude-sonnet-4-5",
+    "config": {
+      "models": [
+        "anthropic/claude-sonnet-4-5",
+        "minimax/minimax-m2.5",
+        "deepseek/deepseek-v3.2"
+      ],
+      "max_tokens": 1024,
+      "temperature": 0.3
+    }
+  }
+]

@@ -1,3 +1,4 @@
+import type { LikertAuditReport } from './likert/contracts'
 /**
  * Technical Report: Pure assembly of instrument validation evidence.
  *
@@ -155,6 +156,7 @@ export interface LimitationsSection {
 }
 
 export interface TechnicalReport {
+  likert?: LikertAuditReport
   id: string;
   identity: IdentitySection;
   specification: SpecificationSection;
@@ -513,16 +515,17 @@ function buildReliabilitySection(
   const warnings = (alphaForecast?.warnings ?? []).slice();
 
   const alphaValue = alphaForecast?.predictedAlpha ?? NaN;
-  const alphaInterval = alphaForecast?.interval;
+  // Assumption ranges are not confidence intervals.
+  const alphaInterval = undefined;
   const meanRValue = alphaForecast?.meanInterItemR ?? NaN;
-  const meanRInterval = alphaForecast?.meanInterItemRInterval;
+  const meanRInterval = undefined;
   const basis = alphaForecast?.basis ?? 'facet_prior';
 
   // If no forecast provided, add a default caution
   if (!alphaForecast) {
     warnings.push({
       level: 'caution',
-      message: 'No empirical or synthetic data provided. Using facet-count prior; confidence is lower.',
+      message: 'No reliability estimate is available for this form. AI review does not estimate respondent covariance.',
     });
   }
 
@@ -656,9 +659,7 @@ function buildLimitationsSection(
   }
 
   const validationStatus: 'designed_to_standard' | 'piloting' | 'calibrated' =
-    hasEmpiricalAlpha && respondentN >= MIN_SAMPLE_FOR_IRT_DIF
-      ? 'calibrated'
-      : hasEmpiricalAlpha
+    hasEmpiricalAlpha
         ? 'piloting'
         : 'designed_to_standard';
 

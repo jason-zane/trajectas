@@ -3,7 +3,11 @@ import { getInstrumentBuild, listBuildBlueprints, listBuildCongruence, listBluep
 import type { PanelResult } from '@/lib/instrument/congruence'
 import type { InstrumentCandidateItemDto } from '@/lib/dal/instrument-mappers'
 import type { BlueprintCell } from '@/lib/instrument/types'
+import { getLikertBuildStatusAction } from '@/app/actions/instrument-likert'
 import { BuildDetail } from './build-detail'
+
+// Each saved generation step has a 105-second provider budget.
+export const maxDuration = 120
 
 export const metadata = {
   title: 'Instrument Build'
@@ -52,6 +56,7 @@ export default async function InstrumentPage({ params }: InstrumentPageProps) {
   return (
     <BuildDetail
       build={build}
+      likertStatus={build.config?.likert ? await getLikertBuildStatusAction(buildId) : null}
       blueprints={blueprints}
       cellsByBlueprintId={cellsByBlueprintId}
       itemsByBlueprintId={itemsByBlueprintId}

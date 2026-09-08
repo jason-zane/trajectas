@@ -350,21 +350,18 @@ describe("Instrument Fairness Assessment", () => {
         raw,
         new Set(["item-1"])
       );
-      expect(results.length).toBe(1);
+      expect(results).toHaveLength(0);
       expect(warnings.some((w) => w.includes("duplicate"))).toBe(true);
     });
 
-    it("drops unknown flag values and warns", () => {
+    it("rejects an incomplete review containing unknown flag values", () => {
       const raw =
         '[{ "id": "item-1", "flags": ["idiom", "unknown_flag", "metaphor"] }]';
       const { results, warnings } = parseFairnessResponse(
         raw,
         new Set(["item-1"])
       );
-      expect(results.length).toBe(1);
-      expect(results[0].flags).toContain("idiom");
-      expect(results[0].flags).toContain("metaphor");
-      expect(results[0].flags).not.toContain("unknown_flag");
+      expect(results).toHaveLength(0);
       expect(warnings.some((w) => w.includes("unknown flag"))).toBe(true);
     });
 

@@ -47,6 +47,8 @@ export interface BlueprintCell {
   id: string
   /** Facet label (e.g., "Communication", "Strategic Thinking") */
   facetLabel: string
+  /** Operational definition used by writers and independent reviewers. */
+  facetDefinition?: string | null
   /** Intensity level of this cell */
   intensity: Intensity
   /** Target number of items for this cell */
