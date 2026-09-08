@@ -110,7 +110,8 @@ describe.skipIf(!canRun)('transactional Likert checkpoints (local database)', ()
     const options = likertOptionsSchema.parse({ itemsPerConstruct: 4, readingLevel: 'entry', responseFormatId: formats[0].id })
     await updateBuild(db, buildId, { config: { likert: options } })
     await db.from('instrument_stage_runs').update({ output_snapshot: { ...state, options, phase: 'generate' } }).eq('id', jobId)
-    const drafts = ['one', 'two', 'three', 'four', 'five'].map((word, index) => ({ stem: `Over the past three months, I comprehensively operationalized sophisticated organizational responsibilities while simultaneously accommodating unpredictable circumstances in circumstance ${word}.`, reverseScored: index === 0, rationale: 'A specific agreed work commitment.', replacesId: null }))
+    const intents = ['small task follow-through', 'meeting agreed dates', 'keeping work promises', 'finishing started tasks', 'meeting agreed work standards'].map((focus, index) => ({ index, focus, condition: 'No special condition', distinction: `Distinct fixture content ${index}`, reverseScored: index === 0 }))
+    const drafts = ['one', 'two', 'three', 'four', 'five'].map((word, index) => ({ intentIndex: index, stem: `Over the past three months, I comprehensively operationalized sophisticated organizational responsibilities while simultaneously accommodating unpredictable circumstances in circumstance ${word}.`, reverseScored: index === 0, rationale: 'A specific agreed work commitment.', replacesId: null }))
     const simplified = [
       'Think of the past three months. I forgot small work tasks.',
       'Think of the past three months. I met agreed dates.',
@@ -120,16 +121,43 @@ describe.skipIf(!canRun)('transactional Likert checkpoints (local database)', ()
     ]
     const provider = vi.spyOn(OpenRouterProvider.prototype, 'complete').mockImplementation(async request => ({
       model: request.model!, provider: 'custom', usage: { inputTokens: 10, outputTokens: 10 },
-      content: JSON.stringify({ items: request.prompt.startsWith('Write or repair') ? drafts : simplified.map((stem, index) => ({ index, stem })) }),
+      content: JSON.stringify(request.prompt.startsWith('Plan the content') ? { intents, coverageBlocker: null } : { items: request.prompt.startsWith('Write or repair') ? drafts : simplified.map((stem, index) => ({ index, stem })) }),
     }))
     try {
+      await advanceLikert(db, buildId)
+      expect(await listCandidateItems(db, buildId)).toHaveLength(1)
+      const planned = (await listStageRuns(db, buildId)).find(run => run.id === jobId)?.outputSnapshot
+      expect(planned?.generationPlan).toMatchObject({ model: 'b/b', intents })
+      expect(planned?.generationCounts).toEqual({})
       await advanceLikert(db, buildId)
       const saved = await listCandidateItems(db, buildId)
       expect(saved.filter(item => simplified.includes(item.stem))).toHaveLength(5)
       expect(saved.some(item => item.status === 'accepted')).toBe(false)
       expect(saved.some(item => item.payload?.likertQuality)).toBe(false)
-      expect(provider).toHaveBeenCalledTimes(2)
+      expect(saved.find(item => item.stem === simplified[0])?.payload?.likertGeneration).toMatchObject({ planner: 'b/b', intent: intents[0] })
+      expect(provider).toHaveBeenCalledTimes(3)
       expect(provider.mock.calls[0][0].model?.split('/')[0]).not.toBe(provider.mock.calls[1][0].model?.split('/')[0])
+    } finally { provider.mockRestore() }
+  })
+  it('keeps an explicit planning coverage blocker as repair evidence without inventing candidates', async () => {
+    const options = likertOptionsSchema.parse({ itemsPerConstruct: 4, responseFormatId: (await listLikertFormats(db))[0].id })
+    await updateBuild(db, buildId, { config: { likert: options } })
+    await db.from('instrument_stage_runs').update({ output_snapshot: { ...state, options, phase: 'generate', round: 5 } }).eq('id', jobId)
+    const reason = 'This narrow facet cannot support more distinct manifestations without importing another construct.'
+    const provider = vi.spyOn(OpenRouterProvider.prototype, 'complete').mockImplementation(async request => ({ model: request.model!, provider: 'custom', usage: { inputTokens: 10, outputTokens: 10 }, content: JSON.stringify({ intents: [], coverageBlocker: reason }) }))
+    try {
+      await advanceLikert(db, buildId)
+      expect(await listCandidateItems(db, buildId)).toHaveLength(1)
+      const planned = (await listStageRuns(db, buildId)).find(run => run.id === jobId)?.outputSnapshot as unknown as LikertState
+      expect(Object.values(planned.planningFeedback!)).toEqual([reason])
+      expect(planned.generationPlan).toBeUndefined()
+      // The exhausted content round reaches the existing one-per-construct redesign.
+      await db.from('instrument_stage_runs').update({ output_snapshot: { ...planned, phase: 'select' } }).eq('id', jobId)
+      expect((await advanceLikert(db, buildId)).phase).toBe('blueprint')
+      const repaired = (await listStageRuns(db, buildId)).find(run => run.id === jobId)?.outputSnapshot as unknown as LikertState
+      expect(JSON.stringify(repaired.blueprintFeedback)).toContain(reason)
+      expect(repaired.blueprintRepairs).toBe(1)
+      expect(provider).toHaveBeenCalledTimes(1)
     } finally { provider.mockRestore() }
   })
   it('automatically returns to blueprint design once when item repair budgets cannot satisfy coverage', async () => {

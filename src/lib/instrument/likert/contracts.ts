@@ -1,4 +1,5 @@
 import type { FormPairCheck } from './form-review'
+import type { GenerationPlan } from './generation'
 import { normalizeLikertAnchors } from '@/lib/assess/likert-anchors'
 import { z } from 'zod'
 import type { BlueprintCell } from '../types'
@@ -26,9 +27,10 @@ export type LikertOptions = z.infer<typeof likertOptionsSchema>
 /** Budget preflight includes the quadratic final pair review, before any model usage. */
 export function assertLikertScopeBudget(constructCount: number, itemsPerConstruct: number): void {
   const facets = Math.min(4, Math.floor(itemsPerConstruct / 2))
-  const cells = Math.min(itemsPerConstruct, facets * 3)
+  const cells = facets
   const initialDrafts = itemsPerConstruct + cells
-  const minimumCalls = constructCount * (2 + cells * Math.ceil((Math.ceil(itemsPerConstruct / cells) + 1) / BATCH_SIZE)
+  // One content plan, one writer call and one possible wording edit per batch.
+  const minimumCalls = constructCount * (2 + 3 * cells * Math.ceil((Math.ceil(itemsPerConstruct / cells) + 1) / BATCH_SIZE)
     + 3 * Math.ceil(initialDrafts / BATCH_SIZE) + 2 + 2 * Math.ceil(itemsPerConstruct * (itemsPerConstruct - 1) / 2 / 8))
   if (minimumCalls > MAX_CALLS * 0.8) throw new Error('This form is too large for the automatic review budget, including every final item pair and repair headroom. Use fewer constructs or items per construct, or split the model into separate builds.')
 }
@@ -162,6 +164,8 @@ export interface LikertState {
   blockers: string[]
   refillCellIds?: string[]
   generationCounts: Record<string, number>
+  generationPlan?: GenerationPlan
+  planningFeedback?: Record<string, string>
 }
 export interface LikertStatus {
   jobId: string

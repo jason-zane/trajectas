@@ -13,6 +13,7 @@ import { LIKERT_VERSION, LIKERT_STAGE, LIKERT_STEP, BATCH_SIZE, MAX_ROUNDS, MAX_
 import { fingerprint, currentQuality, itemFingerprint, passingScores } from './identity'
 import { PAIR_REVIEW_VERSION, formPairs, pairEvidenceIsComplete, pairReviewPrompt, parseFormPairBatch } from './form-review'
 import { assessItem, blindReviewBatch, parseBlindReview, reviewPrompt, selectItems, selectWithOverlapHints } from './review'
+import { parseIntentPlan, parsePlannedDrafts } from './generation'
 
 const asRecord = (value: object): Record<string, unknown> => ({ ...value })
 const stateOf = (job: InstrumentStageRunDto): LikertState => job.outputSnapshot as unknown as LikertState
@@ -163,10 +164,11 @@ function repairBlueprint(state: LikertState, spec: LikertSpec, items: LikertCand
   state.blueprintRepairIds = [...repaired, ...constructs.map(construct => construct.id)]
   state.blueprintFeedback = Object.fromEntries(constructs.map(construct => [construct.id, {
     previousFacets: construct.cells, blockers: state.blockers,
+    planningBlockers: construct.cells.flatMap(cell => state.planningFeedback?.[cell.id] ? [{ facet: cell.facetLabel, reason: state.planningFeedback[cell.id] }] : []),
     overlaps: (state.diversity?.[construct.id]?.pairs ?? []).slice(-16).map(pair => ({ a: items.find(item => item.id === pair.a)?.stem, b: items.find(item => item.id === pair.b)?.stem, reason: pair.reason })),
   }]))
   for (const construct of constructs) delete state.blueprintHashes?.[construct.id]
-  state.phase = 'blueprint'; state.round = 0; state.generationCounts = {}; state.refillCellIds = undefined; state.formReviewStarted = false; state.formRepairRounds = 0; state.specHash = undefined; state.selectedIds = []; state.diversity = {}; state.pairChecks = {}; state.blockers = []
+  state.phase = 'blueprint'; state.round = 0; state.generationCounts = {}; state.generationPlan = undefined; state.planningFeedback = {}; state.refillCellIds = undefined; state.formReviewStarted = false; state.formRepairRounds = 0; state.specHash = undefined; state.selectedIds = []; state.diversity = {}; state.pairChecks = {}; state.blockers = []
   state.detail = 'Item repairs could not resolve the constraints. Automatically redesigning these failing facets once per construct, while preserving the construct definitions.'
   return true
 }
@@ -195,7 +197,7 @@ export async function advanceLikert(db: SupabaseClient, buildId: string, resume 
     attemptState = state
     const specHash = fingerprint(spec)
     if (state.specHash && state.specHash !== specHash) {
-      state.phase = 'blueprint'; state.round = 0; state.generationCounts = {}; state.refillCellIds = undefined; state.blueprintHashes = {}; state.blueprintRepairs = 0; state.blueprintRepairIds = []; state.blueprintFeedback = {}; state.formReviewStarted = false; state.formRepairRounds = 0; state.resumePhase = undefined; state.diversity = {}; state.pairChecks = {}; state.selectedIds = []; state.blockers = []
+      state.phase = 'blueprint'; state.round = 0; state.generationCounts = {}; state.generationPlan = undefined; state.planningFeedback = {}; state.refillCellIds = undefined; state.blueprintHashes = {}; state.blueprintRepairs = 0; state.blueprintRepairIds = []; state.blueprintFeedback = {}; state.formReviewStarted = false; state.formRepairRounds = 0; state.resumePhase = undefined; state.diversity = {}; state.pairChecks = {}; state.selectedIds = []; state.blockers = []
     } else if (state.phase === 'complete') {
       const status = statusFor(job, spec, items)
       if (status.ready) { await updateStageRun(db, lease.id, { status: 'success', completedAt: new Date().toISOString(), detail: 'Current form already passed.' }); return status }
@@ -277,44 +279,60 @@ export async function advanceLikert(db: SupabaseClient, buildId: string, resume 
       else {
         const { construct, cell } = task
         const existing = items.filter(item => item.blueprintCellId === cell.id)
-        const count = Math.min(BATCH_SIZE, state.round === 0 ? cell.targetItemCount + 1 : Math.max(2, cell.targetItemCount - existing.filter(i => passed.has(i.id)).length + 1))
+        const generated = state.generationCounts[`${state.round}:${cell.id}`] ?? 0
+        const requested = state.round === 0 ? cell.targetItemCount + 1 : Math.max(2, cell.targetItemCount - existing.filter(i => passed.has(i.id)).length + 1)
+        const count = Math.min(BATCH_SIZE, requested - generated)
         const reverseCount = spec.reverseProportion === 0 ? 0 : Math.max(1, Math.round(count * spec.reverseProportion))
         const overlaps = Object.values(state.diversity ?? {}).flatMap(result => result.pairs).filter(pair => existing.some(item => item.id === pair.a || item.id === pair.b)).map(pair => ({ a: items.find(item => item.id === pair.a)?.stem, b: items.find(item => item.id === pair.b)?.stem, reason: pair.reason })).slice(0, 12)
         const feedback = existing.flatMap(item => { const q = currentQuality(item, spec); return q && !q.pass ? [{ id: item.id, stem: item.stem, defects: q.reasons }] : [] }).slice(-5)
-        const schema = z.object({ items: z.array(z.object({ stem: z.string().trim().min(10).max(300), reverseScored: z.boolean(), rationale: z.string().min(5).max(500), replacesId: z.string().nullable() })).length(count) })
-        let drafted = await jsonCall(state.models.writer, `Write or repair exactly ${count} Likert self-report statements, including exactly ${reverseCount} reverse-keyed items. SPECIFICATION: ${JSON.stringify(spec)}. Intended construct: ${construct.id}; facet: ${JSON.stringify(cell)}. For standard Likert scales, the legacy intensity field is a storage tag, not a requirement to invent easy/hard situations. Cover distinct observable manifestations of the facet. Use ordinary relevant experiences; include a condition only when the construct itself requires it. Do not add urgent work, unexpected problems or competing demands merely to make an item harder: those conditions can import another construct. Do not claim measured difficulty or empirical discrimination. Each item should cover a different behavioural manifestation or condition; merely swapping synonyms or negating an existing statement creates redundancy. Match the supplied anchors and timeframe. Use first person for individuals; consistent team referent for climate. Prefer 8–18 common words INCLUDING the recall period, one idea, one referent. Plain words such as "people at work", "way" and "task" are better than "colleagues or supervisor", "original approach" and "task requirements". If needed, place the recall instruction in its own short sentence before the statement. Target an English reading grade of ${spec.readingCeiling}; do not repeat a failed long sentence with only one synonym changed. No double negation, "always/never" virtue claims, privileged opportunity, jargon, or dependency on managerial status. A reverse item describes a natural opposite-pole behaviour; do not merely insert "not". For self-rated capability, never ask objectively scored knowledge questions. Higher keyed scores must mean more of this construct. Avoid redundant paraphrases or mirror-image pairs. ${spec.format.anchorType === 'frequency' ? 'Write behaviour or experience frequency statements that can be answered using the frequency anchors.' : 'Write statements whose degree of truth can be endorsed with agreement anchors.'}
-Existing stems to avoid: ${JSON.stringify(items.map(item => item.stem))}.
-Overlapping content to replace with different behavioural manifestations, not paraphrases: ${JSON.stringify(overlaps)}.
-Repair feedback: ${JSON.stringify(feedback)}. Rewrite weak ideas or replace them if needed. Set replacesId only to a provided feedback ID when repairing that item; otherwise null. Return ONLY {"items":[{"stem":"...","reverseScored":false,"rationale":"connection to the facet and key direction","replacesId":null}]}.`, raw => {
-          const value = schema.parse(JSON.parse(raw))
-          if (value.items.filter(item => item.reverseScored).length !== reverseCount) throw new Error('Incorrect requested reverse-key count.')
-          if (value.items.some(item => item.replacesId && !feedback.some(source => source.id === item.replacesId))) throw new Error('Unknown repair source.')
-          return value
-        }, 3500)
-        const hardToRead = drafted.items.flatMap((item, index) => {
-          const grade = fleschKincaidGrade(item.stem)
-          return grade > spec.readingCeiling || item.stem.split(/\s+/).length > 30 ? [{ index, stem: item.stem, reverseScored: item.reverseScored, grade: Math.round(grade * 10) / 10 }] : []
-        })
-        if (hardToRead.length) {
-          const editor = state.models.reviewers.find(model => model.split('/')[0] !== state.models.writer.split('/')[0])!
-          const rewriteSchema = z.object({ items: z.array(z.object({ index: z.number().int(), stem: z.string().trim().min(10).max(300) })).length(hardToRead.length) })
-          const simplified = await jsonCall(editor, `Rewrite these Likert statements into plain English at or below reading grade ${spec.readingCeiling}. Preserve the operational meaning, referent, condition and scoring direction. Keep the recall period ${JSON.stringify(spec.timeframe)} and the ${spec.format.anchorType} response anchors. Use common short words, at most 30 words total. A short complete recall instruction followed by a short statement is allowed; do not create sentence fragments or change the recall duration. Examples of plain vocabulary: 'people at work' instead of 'coworkers', 'clear notes' instead of 'organized documentation'. Do not add behaviours, reverse the meaning or erase a condition that is necessary to the construct. Remove incidental complexity that is not part of the intended meaning. Construct: ${JSON.stringify(construct)}. Facet: ${JSON.stringify(cell)}. Items: ${JSON.stringify(hardToRead)}. Return ONLY {"items":[{"index":0,"stem":"full replacement wording"}]}, with each supplied index exactly once. These rewrites will receive three fresh blind reviews; you are editing wording, not certifying quality.`, raw => {
-            const result = rewriteSchema.parse(JSON.parse(raw))
-            if (new Set(result.items.map(item => item.index)).size !== hardToRead.length || result.items.some(item => !hardToRead.some(source => source.index === item.index))) throw new Error('Wording repair has missing or unknown item indices.')
-            return result
-          }, 3000)
-          drafted = { items: drafted.items.map((item, index) => ({ ...item, stem: simplified.items.find(rewrite => rewrite.index === index)?.stem ?? item.stem })) }
+        const planKey = `${state.round}:${cell.id}:${generated}`
+        const poolHash = fingerprint(items.map(item => ({ id: item.id, hash: itemFingerprint(item) })).sort((a, b) => a.id.localeCompare(b.id)))
+        const plan = state.generationPlan
+        if (!plan || plan.key !== planKey || plan.specHash !== specHash || plan.poolHash !== poolHash) {
+          const planner = state.models.reviewers.find(model => model.split('/')[0] !== state.models.writer.split('/')[0])!
+          const proposed = await jsonCall(planner, `Plan the content of exactly ${count} Likert item candidates BEFORE anyone writes their wording. Include exactly ${reverseCount} reverse-keyed intents. Do not write item sentences. SPECIFICATION: ${JSON.stringify(spec)}. TARGET construct: ${construct.id}; facet: ${JSON.stringify(cell)}. Each intent must specify one concrete action, experience, preference or perceived capability within this facet, any condition genuinely required by the definition (use 'No special condition' otherwise), and what substantively distinguishes it from other planned and existing items. Shared construct membership is expected; paraphrases and forward/reverse mirrors of the same behaviour are redundant. Changing a time, person or incidental situation does not itself create a new manifestation. Do not import adjacent traits, extra task demands, status privileges or problem-solving skill to manufacture diversity. A reverse intent describes a natural opposite-pole behaviour while covering a different manifestation from the forward intents. Existing pool with current quality: ${JSON.stringify(items.map(item => ({ stem: item.stem, passing: passed.has(item.id), defects: currentQuality(item, spec)?.reasons ?? [] })))}. Overlap evidence: ${JSON.stringify(overlaps)}. Earlier planning blocker: ${JSON.stringify(state.planningFeedback?.[cell.id] ?? null)}. Failed ideas may be repaired if their substantive defect can be resolved, but do not repeat them as supposedly new content. Plan different content in preference to further synonyms. Return ONLY {"intents":[{"index":0,"focus":"specific action or experience, not an item sentence","condition":"necessary condition or No special condition","distinction":"specific difference from the other planned and existing content","reverseScored":false}],"coverageBlocker":null}. Supply indices 0 through ${count - 1} exactly once. If the facet cannot support this batch without redundancy or contamination, return an empty intents array and a precise coverageBlocker explaining the definition or coverage problem. This invokes bounded coverage repair; never invent content merely to satisfy the count.`, raw => parseIntentPlan(raw, count, reverseCount), 4000)
+          output.intentPlanning = { cellId: cell.id, ...proposed }
+          if (proposed.coverageBlocker) {
+            state.planningFeedback = { ...state.planningFeedback, [cell.id]: proposed.coverageBlocker }
+            state.generationCounts[`${state.round}:${cell.id}`] = requested
+            state.generationPlan = undefined
+            state.detail = `${construct.name} / ${cell.facetLabel}: content planning found a coverage limit. Checking the existing pool before bounded repair.`
+          } else {
+            state.generationPlan = { key: planKey, specHash, poolHash, model: planner, intents: proposed.intents }
+            if (state.planningFeedback) delete state.planningFeedback[cell.id]
+            state.detail = `${construct.name}: planned ${count} distinct item intents for ${cell.facetLabel}. Wording and blind review follow.`
+          }
+        } else {
+          let drafted = await jsonCall(state.models.writer, `Write or repair exactly ${count} Likert self-report statements, including exactly ${reverseCount} reverse-keyed items. SPECIFICATION: ${JSON.stringify(spec)}. Intended construct: ${construct.id}; facet: ${JSON.stringify(cell)}. Realize each planned intent exactly once, preserving its scoring direction and substantive distinction: ${JSON.stringify(plan.intents)}. Use intentIndex to identify the planned intent; you may reorder items. Do not collapse distinct intents into a generic summary of the facet. For standard Likert scales, the legacy intensity field is a storage tag, not a requirement to invent easy/hard situations. Cover distinct observable manifestations of the facet. Use ordinary relevant experiences; include a condition only when the construct itself requires it. Do not add urgent work, unexpected problems or competing demands merely to make an item harder: those conditions can import another construct. Do not claim measured difficulty or empirical discrimination. Each item should cover a different behavioural manifestation or condition; merely swapping synonyms or negating an existing statement creates redundancy. Match the supplied anchors and timeframe. Use first person for individuals; consistent team referent for climate. Prefer 8–18 common words INCLUDING the recall period, one idea, one referent. Plain words such as "people at work", "way" and "task" are better than "colleagues or supervisor", "original approach" and "task requirements". If needed, place the recall instruction in its own short sentence before the statement. Target an English reading grade of ${spec.readingCeiling}; do not repeat a failed long sentence with only one synonym changed. No double negation, "always/never" virtue claims, privileged opportunity, jargon, or dependency on managerial status. A reverse item describes a natural opposite-pole behaviour; do not merely insert "not". For self-rated capability, never ask objectively scored knowledge questions. Higher keyed scores must mean more of this construct. Avoid redundant paraphrases or mirror-image pairs. ${spec.format.anchorType === 'frequency' ? 'Write behaviour or experience frequency statements that can be answered using the frequency anchors.' : 'Write statements whose degree of truth can be endorsed with agreement anchors.'}
+  Existing stems to avoid: ${JSON.stringify(items.map(item => item.stem))}.
+  Overlapping content to replace with different behavioural manifestations, not paraphrases: ${JSON.stringify(overlaps)}.
+  Repair feedback: ${JSON.stringify(feedback)}. Rewrite weak ideas or replace them if needed. Set replacesId only to a provided feedback ID when repairing that item; otherwise null. Return ONLY {"items":[{"intentIndex":0,"stem":"...","reverseScored":false,"rationale":"connection to the facet and planned intent","replacesId":null}]}.`, raw => parsePlannedDrafts(raw, plan.intents, feedback.map(item => item.id)), 3500)
+          const hardToRead = drafted.items.flatMap((item, index) => {
+            const grade = fleschKincaidGrade(item.stem)
+            return grade > spec.readingCeiling || item.stem.split(/\s+/).length > 30 ? [{ index, stem: item.stem, reverseScored: item.reverseScored, grade: Math.round(grade * 10) / 10 }] : []
+          })
+          if (hardToRead.length) {
+            const editor = state.models.reviewers.find(model => model.split('/')[0] !== state.models.writer.split('/')[0])!
+            const rewriteSchema = z.object({ items: z.array(z.object({ index: z.number().int(), stem: z.string().trim().min(10).max(300) })).length(hardToRead.length) })
+            const simplified = await jsonCall(editor, `Rewrite these Likert statements into plain English at or below reading grade ${spec.readingCeiling}. Preserve the operational meaning, referent, condition and scoring direction. Keep the recall period ${JSON.stringify(spec.timeframe)} and the ${spec.format.anchorType} response anchors. Use common short words, at most 30 words total. A short complete recall instruction followed by a short statement is allowed; do not create sentence fragments or change the recall duration. Examples of plain vocabulary: 'people at work' instead of 'coworkers', 'clear notes' instead of 'organized documentation'. Do not add behaviours, reverse the meaning or erase a condition that is necessary to the construct. Remove incidental complexity that is not part of the intended meaning. Construct: ${JSON.stringify(construct)}. Facet: ${JSON.stringify(cell)}. Items: ${JSON.stringify(hardToRead)}. Return ONLY {"items":[{"index":0,"stem":"full replacement wording"}]}, with each supplied index exactly once. These rewrites will receive three fresh blind reviews; you are editing wording, not certifying quality.`, raw => {
+              const result = rewriteSchema.parse(JSON.parse(raw))
+              if (new Set(result.items.map(item => item.index)).size !== hardToRead.length || result.items.some(item => !hardToRead.some(source => source.index === item.index))) throw new Error('Wording repair has missing or unknown item indices.')
+              return result
+            }, 3000)
+            drafted = { items: drafted.items.map((item, index) => ({ ...item, stem: simplified.items.find(rewrite => rewrite.index === index)?.stem ?? item.stem })) }
+          }
+          const seen = new Set(items.map(item => normaliseStem(item.stem)))
+          candidates = drafted.items.flatMap(item => {
+            const normalized = normaliseStem(item.stem)
+            if (seen.has(normalized)) return []
+            seen.add(normalized)
+            return [{ id: randomUUID(), blueprintCellId: cell.id, stem: item.stem, reverseScored: item.reverseScored, status: 'candidate', facet: cell.facetLabel, difficultyTier: cell.intensity, rationale: item.rationale, payload: { likertGeneration: { version: LIKERT_VERSION, specHash, model: state.models.writer, round: state.round, planner: plan.model, intent: plan.intents.find(intent => intent.index === item.intentIndex), replacesId: item.replacesId, createdAt: new Date().toISOString() } } }]
+          })
+          if (!candidates.length) throw new Error('Writer returned only duplicate items.')
+          state.generationCounts[`${state.round}:${cell.id}`] = (state.generationCounts[`${state.round}:${cell.id}`] ?? 0) + count
+          state.generationPlan = undefined
+          state.detail = `${construct.name}: saved ${candidates.length} candidates for ${cell.facetLabel}.`
         }
-        const seen = new Set(items.map(item => normaliseStem(item.stem)))
-        candidates = drafted.items.flatMap(item => {
-          const normalized = normaliseStem(item.stem)
-          if (seen.has(normalized)) return []
-          seen.add(normalized)
-          return [{ id: randomUUID(), blueprintCellId: cell.id, stem: item.stem, reverseScored: item.reverseScored, status: 'candidate', facet: cell.facetLabel, difficultyTier: cell.intensity, rationale: item.rationale, payload: { likertGeneration: { version: LIKERT_VERSION, specHash, model: state.models.writer, round: state.round, replacesId: item.replacesId, createdAt: new Date().toISOString() } } }]
-        })
-        if (!candidates.length) throw new Error('Writer returned only duplicate items.')
-        state.generationCounts[`${state.round}:${cell.id}`] = (state.generationCounts[`${state.round}:${cell.id}`] ?? 0) + count
-        state.detail = `${construct.name}: saved ${candidates.length} candidates for ${cell.facetLabel} (${cell.intensity}).`
       }
     } else if (state.phase === 'review') {
       const pending = items.filter(item => item.status !== 'rejected' && !currentQuality(item, spec) && spec.constructs.some(c => c.cells.some(cell => cell.id === item.blueprintCellId))).slice(0, BATCH_SIZE)
