@@ -126,6 +126,21 @@ describe.skipIf(!canRun)('transactional Likert checkpoints (local database)', ()
       expect(provider.mock.calls[0][0].model?.split('/')[0]).not.toBe(provider.mock.calls[1][0].model?.split('/')[0])
     } finally { provider.mockRestore() }
   })
+  it('automatically returns to blueprint design once when item repair budgets cannot satisfy coverage', async () => {
+    const formats = await listLikertFormats(db)
+    const options = likertOptionsSchema.parse({ itemsPerConstruct: 4, responseFormatId: formats[0].id })
+    await updateBuild(db, buildId, { config: { likert: options } })
+    await db.from('instrument_stage_runs').update({ output_snapshot: { ...state, options, phase: 'select', round: 5 } }).eq('id', jobId)
+    const provider = vi.spyOn(OpenRouterProvider.prototype, 'complete').mockRejectedValue(new Error('No AI call should be needed for a transition'))
+    try {
+      expect((await advanceLikert(db, buildId)).phase).toBe('blueprint')
+      const checkpoint = (await listStageRuns(db, buildId)).find(run => run.id === jobId)?.outputSnapshot
+      expect(checkpoint).toMatchObject({ blueprintRepairs: 1, round: 0 })
+      await db.from('instrument_stage_runs').update({ output_snapshot: { ...checkpoint, phase: 'select', round: 5 } }).eq('id', jobId)
+      expect((await advanceLikert(db, buildId)).phase).toBe('incomplete')
+      expect(provider).not.toHaveBeenCalled()
+    } finally { provider.mockRestore() }
+  })
   it('does not expose service-only checkpoint RPCs to anonymous callers', async () => {
     const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } })
     const { error } = await anon.rpc('instrument_likert_spec_snapshot', { p_build_id: buildId })

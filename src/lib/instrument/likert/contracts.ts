@@ -8,6 +8,7 @@ export const LIKERT_STAGE = 'autonomous_likert'
 export const LIKERT_STEP = 'autonomous_likert_step'
 export const MAX_ROUNDS = 6
 export const MAX_FORM_REPAIRS = 3
+export const MAX_CALLS = 600
 export const BATCH_SIZE = 5
 export const STEP_DEADLINE_MS = 105_000
 export const LEASE_MS = 180_000
@@ -21,6 +22,17 @@ export const likertOptionsSchema = z.object({
   reverseProportion: z.number().min(0).max(0.5).default(0.25),
 })
 export type LikertOptions = z.infer<typeof likertOptionsSchema>
+
+/** Budget preflight includes the quadratic final pair review, before any model usage. */
+export function assertLikertScopeBudget(constructCount: number, itemsPerConstruct: number): void {
+  const facets = Math.min(4, Math.max(2, Math.floor(itemsPerConstruct / 3)))
+  const cells = Math.min(itemsPerConstruct, facets * 3)
+  const initialDrafts = itemsPerConstruct + cells
+  const minimumCalls = constructCount * (2 + cells * Math.ceil((Math.ceil(itemsPerConstruct / cells) + 1) / BATCH_SIZE)
+    + 3 * Math.ceil(initialDrafts / BATCH_SIZE) + 2 + 2 * Math.ceil(itemsPerConstruct * (itemsPerConstruct - 1) / 2 / 8))
+  if (minimumCalls > MAX_CALLS * 0.8) throw new Error('This form is too large for the automatic review budget, including every final item pair and repair headroom. Use fewer constructs or items per construct, or split the model into separate builds.')
+}
+
 export interface LikertFormat {
   id: string
   name: string
@@ -135,6 +147,8 @@ export interface LikertState {
   round: number
   resumePhase?: Exclude<LikertState['phase'], 'complete' | 'incomplete'>
   blueprintHashes?: Record<string, string>
+  blueprintRepairs?: number
+  blueprintFeedback?: Record<string, unknown>
   formReviewStarted?: boolean
   formRepairRounds?: number
   specHash?: string

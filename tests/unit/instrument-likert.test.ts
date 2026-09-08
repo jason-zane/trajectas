@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { randomUUID } from 'node:crypto'
-import { LIKERT_VERSION, parseLikertFormat, assertLikertMeasure, type LikertCandidate, type LikertSpec, type ItemReview, type ReviewerResult, type ItemQuality } from '@/lib/instrument/likert/contracts'
+import { LIKERT_VERSION, parseLikertFormat, assertLikertMeasure, assertLikertScopeBudget, type LikertCandidate, type LikertSpec, type ItemReview, type ReviewerResult, type ItemQuality } from '@/lib/instrument/likert/contracts'
 import { assessItem, parseReview, reviewPrompt, selectItems } from '@/lib/instrument/likert/review'
 import { fingerprint, itemFingerprint, currentQuality, passingScores } from '@/lib/instrument/likert/identity'
 import { auditCoverage } from '@/lib/instrument/blueprint'
@@ -113,4 +113,11 @@ it('rejects malformed or forged pass metadata and a persisted key that contradic
   expect(passingScores([item], spec).size).toBe(0)
   item.payload = { likertQuality: { ...quality, reviews: quality.reviews.map(review => ({ ...review, clarity: 1 })) } }
   expect(passingScores([item], spec).size).toBe(0)
+})
+
+
+it('rejects a form whose exhaustive pair checks cannot fit the model budget before starting AI work', () => {
+  expect(() => assertLikertScopeBudget(2, 10)).not.toThrow()
+  expect(() => assertLikertScopeBudget(1, 30)).not.toThrow()
+  expect(() => assertLikertScopeBudget(20, 30)).toThrow(/too large/)
 })

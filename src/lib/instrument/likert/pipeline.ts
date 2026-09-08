@@ -9,12 +9,11 @@ import { getModelForTask } from '@/lib/ai/model-config'
 import { OpenRouterProvider } from '@/lib/ai/providers/openrouter'
 import { READING_GRADE_CEILING_BY_AUDIENCE, fleschKincaidGrade } from '../fairness'
 import { normaliseStem } from '../item-generation'
-import { LIKERT_VERSION, LIKERT_STAGE, LIKERT_STEP, BATCH_SIZE, MAX_ROUNDS, MAX_FORM_REPAIRS, STEP_DEADLINE_MS, likertOptionsSchema, assertLikertMeasure, type LikertState, type LikertSpec, type LikertStatus, type LikertCandidate, type ItemQuality, type ReviewerResult } from './contracts'
+import { LIKERT_VERSION, LIKERT_STAGE, LIKERT_STEP, BATCH_SIZE, MAX_ROUNDS, MAX_FORM_REPAIRS, MAX_CALLS, assertLikertScopeBudget, STEP_DEADLINE_MS, likertOptionsSchema, assertLikertMeasure, type LikertState, type LikertSpec, type LikertStatus, type LikertCandidate, type ItemQuality, type ReviewerResult } from './contracts'
 import { fingerprint, currentQuality, itemFingerprint, passingScores } from './identity'
 import { formPairs, pairReviewPrompt, parsePairReview } from './form-review'
 import { assessItem, parseReview, reviewPrompt, selectItems } from './review'
 
-const MAX_CALLS = 600
 const asRecord = (value: object): Record<string, unknown> => ({ ...value })
 const stateOf = (job: InstrumentStageRunDto): LikertState => job.outputSnapshot as unknown as LikertState
 const blueprintInputHash = (spec: LikertSpec) => fingerprint({ ...spec, constructs: spec.constructs.map(construct => ({ ...construct, cells: undefined })) })
@@ -97,6 +96,7 @@ export async function startLikert(db: SupabaseClient, buildId: string, rawOption
   const format = options.responseFormatId ? formats.find(f => f.id === options.responseFormatId) : formats.find(f => f.anchorType === 'agreement')
   if (!format) throw new Error('Create an active Likert response format with every category labelled first.')
   options.responseFormatId = format.id
+  assertLikertScopeBudget((await listBlueprints(db, buildId)).length, options.itemsPerConstruct)
   const priorJob = await latestLikertJob(db, buildId)
   if (priorJob) {
     if (fingerprint(stateOf(priorJob).options) !== fingerprint(options)) throw new Error('This build already has an automatic specification. Resume it, or create a new build to use different settings.')
@@ -149,6 +149,22 @@ function failingCells(spec: LikertSpec, items: LikertCandidate[], state: LikertS
   })
 }
 
+function repairBlueprint(state: LikertState, spec: LikertSpec, items: LikertCandidate[]): boolean {
+  if ((state.blueprintRepairs ?? 0) >= 1 || state.calls >= MAX_CALLS) return false
+  const failing = new Set(failingCells(spec, items, state))
+  const constructs = spec.constructs.filter(construct => construct.cells.some(cell => failing.has(cell.id)))
+  if (!constructs.length) return false
+  state.blueprintRepairs = (state.blueprintRepairs ?? 0) + 1
+  state.blueprintFeedback = Object.fromEntries(constructs.map(construct => [construct.id, {
+    previousFacets: construct.cells, blockers: state.blockers,
+    overlaps: (state.diversity?.[construct.id]?.pairs ?? []).slice(-16).map(pair => ({ a: items.find(item => item.id === pair.a)?.stem, b: items.find(item => item.id === pair.b)?.stem, reason: pair.reason })),
+  }]))
+  for (const construct of constructs) delete state.blueprintHashes?.[construct.id]
+  state.phase = 'blueprint'; state.round = 0; state.generationCounts = {}; state.refillCellIds = undefined; state.formReviewStarted = false; state.formRepairRounds = 0; state.specHash = undefined; state.selectedIds = []; state.diversity = {}; state.pairChecks = {}; state.blockers = []
+  state.detail = 'Item repairs could not resolve the constraints. Automatically redesigning the failing facets once, while preserving the construct definitions.'
+  return true
+}
+
 export async function advanceLikert(db: SupabaseClient, buildId: string, resume = false): Promise<LikertStatus> {
   await expireLikertStep(db, buildId)
   let lease: InstrumentStageRunDto
@@ -173,19 +189,24 @@ export async function advanceLikert(db: SupabaseClient, buildId: string, resume 
     attemptState = state
     const specHash = fingerprint(spec)
     if (state.specHash && state.specHash !== specHash) {
-      state.phase = 'blueprint'; state.round = 0; state.generationCounts = {}; state.refillCellIds = undefined; state.blueprintHashes = {}; state.formReviewStarted = false; state.formRepairRounds = 0; state.resumePhase = undefined; state.diversity = {}; state.pairChecks = {}; state.selectedIds = []; state.blockers = []
+      state.phase = 'blueprint'; state.round = 0; state.generationCounts = {}; state.refillCellIds = undefined; state.blueprintHashes = {}; state.blueprintRepairs = 0; state.blueprintFeedback = {}; state.formReviewStarted = false; state.formRepairRounds = 0; state.resumePhase = undefined; state.diversity = {}; state.pairChecks = {}; state.selectedIds = []; state.blockers = []
     } else if (state.phase === 'complete') {
       const status = statusFor(job, spec, items)
       if (status.ready) { await updateStageRun(db, lease.id, { status: 'success', completedAt: new Date().toISOString(), detail: 'Current form already passed.' }); return status }
       state.phase = 'review'; state.diversity = {}; state.selectedIds = []
     } else if (state.phase === 'incomplete') {
       if (!resume) { await updateStageRun(db, lease.id, { status: 'success', completedAt: new Date().toISOString(), detail: state.detail }); return statusFor(job, spec, items) }
-      // Retry provider failures. Quality-budget exhaustion requires a changed specification/new build.
-      if ((!state.resumePhase && !(Object.keys(state.pairChecks ?? {}).length && (state.formRepairRounds ?? 0) < MAX_FORM_REPAIRS)) || state.calls >= MAX_CALLS) throw new Error('Automatic quality budget reached. Review the recorded blockers and refine the construct model before restarting.')
-      state.formReviewStarted ||= Object.keys(state.pairChecks ?? {}).length > 0
-      if (!state.resumePhase && state.formReviewStarted) state.formRepairRounds = (state.formRepairRounds ?? 0) + 1
-      state.phase = state.resumePhase ?? (state.formReviewStarted ? 'generate' : 'review'); state.resumePhase = undefined; state.failures = 0; state.blockers = []
-      if (state.phase === 'generate') state.refillCellIds = failingCells(spec, items, state)
+      // Resume provider failures at their actual phase. Older stopped builds can use a newly available blueprint repair.
+      const hasFormRepair = Object.keys(state.pairChecks ?? {}).length > 0 && (state.formRepairRounds ?? 0) < MAX_FORM_REPAIRS
+      if (!state.resumePhase && !hasFormRepair) {
+        if (!repairBlueprint(state, spec, items)) throw new Error('Automatic quality budget reached. Review the recorded blockers and refine the construct model before restarting.')
+      } else {
+        if (state.calls >= MAX_CALLS) throw new Error('Automatic model-call budget reached.')
+        state.formReviewStarted ||= Object.keys(state.pairChecks ?? {}).length > 0
+        if (!state.resumePhase && state.formReviewStarted) state.formRepairRounds = (state.formRepairRounds ?? 0) + 1
+        state.phase = state.resumePhase ?? (state.formReviewStarted ? 'generate' : 'review'); state.resumePhase = undefined; state.failures = 0; state.blockers = []
+        if (state.phase === 'generate') state.refillCellIds = failingCells(spec, items, state)
+      }
     }
     const output: Record<string, unknown> = { version: LIKERT_VERSION, fromPhase: previous.phase, round: state.round, spec, specHash, calls: [] }
     attemptOutput = output
@@ -219,11 +240,13 @@ export async function advanceLikert(db: SupabaseClient, buildId: string, resume 
       const construct = spec.constructs.find(c => state.blueprintHashes?.[c.id] !== inputHash || !c.cells.length || c.cells.some(cell => !cell.facetDefinition?.trim()) || c.cells.reduce((sum, cell) => sum + cell.targetItemCount, 0) !== spec.itemsPerConstruct)
       if (!construct) { state.phase = 'generate'; state.specHash = specHash; state.detail = 'Operational facets saved. Generating contrasting wording and scoring directions.' }
       else {
-        const facetCount = Math.min(4, Math.max(2, Math.floor(spec.itemsPerConstruct / 3)))
-        const schema = z.object({ facets: z.array(z.object({ label: z.string().trim().min(2).max(100), definition: z.string().trim().min(15).max(500) })).length(facetCount) })
-        const parse = (raw: string) => { const value = schema.parse(JSON.parse(raw)); if (new Set(value.facets.map(f => f.label.toLowerCase())).size !== facetCount) throw new Error('Facet labels must be distinct.'); return value }
-        const drafted = await jsonCall(state.models.blueprint, `Design exactly ${facetCount} distinguishable facets for this Likert construct. Keep its intended meaning. Operationalize observable or recallable experiences; avoid double-barrel facets and imported adjacent constructs. Context: ${JSON.stringify({ ...spec, constructs: spec.constructs.map(c => ({ ...c, cells: undefined })) })}. TARGET: ${JSON.stringify(construct)}. Return {"facets":[{"label":"...","definition":"one precise sentence"}]}.`, parse, 2200)
-        const checked = await jsonCall(state.models.reviewers.find(model => model.split('/')[0] !== state.models.blueprint.split('/')[0])!, `Independently examine and improve this Likert blueprint for construct underrepresentation, overlapping facets and contamination. Preserve the target definition. Return exactly ${facetCount} final distinct facets, correcting weaknesses automatically. Context: ${JSON.stringify({ ...spec, constructs: spec.constructs.map(c => ({ ...c, cells: undefined })) })}. Target: ${JSON.stringify(construct)}. Proposed facets: ${JSON.stringify(drafted)}. Return {"facets":[{"label":"...","definition":"one precise operational sentence"}]}.`, parse, 2200)
+        const maxFacets = Math.min(4, Math.floor(spec.itemsPerConstruct / 2))
+        const schema = z.object({ facets: z.array(z.object({ label: z.string().trim().min(2).max(100), definition: z.string().trim().min(15).max(500) })).min(2).max(maxFacets) })
+        const parse = (raw: string) => { const value = schema.parse(JSON.parse(raw)); if (new Set(value.facets.map(f => f.label.toLowerCase())).size !== value.facets.length) throw new Error('Facet labels must be distinct.'); return value }
+        const repairContext = JSON.stringify(state.blueprintFeedback?.[construct.id] ?? {})
+        const drafted = await jsonCall(state.models.blueprint, `Design between 2 and ${maxFacets} distinguishable facets for this Likert construct, choosing the number that faithfully covers its meaning and supports ${spec.itemsPerConstruct} distinct items. Facets must define different observable manifestations, not synonymous summaries of the parent construct. Do not import a new construct just to fill a quota. Previous failed coverage/overlap evidence to resolve, if any: ${repairContext}. Keep its intended meaning. Operationalize observable or recallable experiences; avoid double-barrel facets and imported adjacent constructs. Context: ${JSON.stringify({ ...spec, constructs: spec.constructs.map(c => ({ ...c, cells: undefined })) })}. TARGET: ${JSON.stringify(construct)}. Return {"facets":[{"label":"...","definition":"one precise sentence"}]}.`, parse, 2200)
+        const checked = await jsonCall(state.models.reviewers.find(model => model.split('/')[0] !== state.models.blueprint.split('/')[0])!, `Independently examine and improve this Likert blueprint for construct underrepresentation, overlapping facets and contamination. Preserve the target definition. Return between 2 and ${maxFacets} final distinct facets, choosing a count that supports ${spec.itemsPerConstruct} non-redundant items and correcting weaknesses automatically. Prior failed coverage/overlap evidence, if any: ${repairContext}. Do not retain synonymous facets; keep the original construct boundaries. Context: ${JSON.stringify({ ...spec, constructs: spec.constructs.map(c => ({ ...c, cells: undefined })) })}. Target: ${JSON.stringify(construct)}. Proposed facets: ${JSON.stringify(drafted)}. Return {"facets":[{"label":"...","definition":"one precise operational sentence"}]}.`, parse, 2200)
+        const facetCount = checked.facets.length
         let order = 0
         const planned = checked.facets.flatMap((facet, index) => {
           const count = Math.floor(spec.itemsPerConstruct / facetCount) + Number(index < spec.itemsPerConstruct % facetCount)
@@ -342,7 +365,8 @@ Repair feedback: ${JSON.stringify(feedback)}. Rewrite weak ideas or replace them
         const exhausted = state.formReviewStarted ? state.formRepairRounds! > MAX_FORM_REPAIRS : state.round >= MAX_ROUNDS
         state.phase = exhausted ? 'incomplete' : 'generate'
         state.detail = state.phase === 'incomplete' ? 'Automatic creation stopped with unresolved quality constraints. No form marked ready.' : `Repair round ${state.round + 1}: replacing weak or overlapping items and filling remaining coverage.`
-        buildStatus = state.phase === 'incomplete' ? 'failed' : 'generating'
+        if (exhausted && repairBlueprint(state, spec, items)) buildStatus = 'blueprinting'
+        else buildStatus = state.phase === 'incomplete' ? 'failed' : 'generating'
       }
     }
     if (state.phase === 'form_review' && previous.phase === 'form_review') {

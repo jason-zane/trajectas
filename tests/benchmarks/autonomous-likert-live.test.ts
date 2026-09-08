@@ -20,6 +20,7 @@ import { startLikert, advanceLikert, loadLikertContext, assertLikertPublishable 
 import { publishBuild } from '@/app/actions/instrument'
 
 const enabled = process.env.LIKERT_LIVE === '1'
+const itemCount = Number(process.env.LIKERT_ITEMS_PER_CONSTRUCT ?? 6)
 const dir = process.env.LIKERT_ARTIFACT_DIR ?? 'output/autonomous-likert'
 let buildId: string | undefined
 const progress: unknown[] = []
@@ -56,7 +57,7 @@ it.runIf(enabled)('creates and reviews a complete two-construct Likert form, and
   ]
   for (const [draftConstructName, draftConstructDefinition] of definitions) await createBlueprint(runtime.db, { buildId, measureType, draftConstructName, draftConstructDefinition })
   }
-  let status = await startLikert(runtime.db, buildId!, { itemsPerConstruct: 6, readingLevel: 'entry', reverseProportion: 1 / 3, timeframe: 'Over the past three months' })
+  let status = await startLikert(runtime.db, buildId!, { itemsPerConstruct: itemCount, readingLevel: 'entry', reverseProportion: 1 / 3, timeframe: 'Over the past three months' })
   if (status.phase === 'incomplete' && process.env.LIKERT_RESUME_BUILD) status = await advanceLikert(runtime.db, buildId!, true)
   let errors = 0
   for (let step = 0; step < 200 && !status.ready && status.phase !== 'incomplete'; step++) {
@@ -70,12 +71,12 @@ it.runIf(enabled)('creates and reviews a complete two-construct Likert form, and
   expect(status.ready, status.blockers.join('\n')).toBe(true)
   const { spec, items } = await loadLikertContext(runtime.db, buildId!)
   const selected = items.filter(item => item.status === 'accepted')
-  expect(selected).toHaveLength(12)
-  expect(selected.filter(item => item.reverseScored)).toHaveLength(4)
+  expect(selected).toHaveLength(itemCount * 2)
+  expect(selected.filter(item => item.reverseScored)).toHaveLength(Math.round(itemCount / 3) * 2)
   await assertLikertPublishable(runtime.db, buildId!, spec.format.id)
   const published = await publishBuild(buildId!, { responseFormatId: spec.format.id })
   progress.push({ published })
-  expect(published.itemsPublished).toBe(12)
+  expect(published.itemsPublished).toBe(itemCount * 2)
   expect(published.warnings).toEqual([])
   expect((await loadLikertContext(runtime.db, buildId!)).build.status).toBe('published')
 }, 2_400_000)
