@@ -90,14 +90,23 @@ it('uses the same 1–5 reverse key in calibration matrices and CTT totals', () 
   expect(calculateRawScore(responses).rawScore).toBe(5)
 })
 
-import { formPairs, parsePairReview, parseFormPairBatch, pairReviewPrompt } from '@/lib/instrument/likert/form-review'
+import { PAIR_REVIEW_VERSION, formPairs, pairEvidenceIsComplete, parsePairReview, parseFormPairBatch, pairReviewPrompt, type FormPairCheck } from '@/lib/instrument/likert/form-review'
+const pairJudgment = (id: string) => ({ id, behaviorA: 'Completing an agreed task.', behaviorB: 'Recording the next step.', relation: 'different_behaviors', conditionsEquivalent: true, redundant: false, reason: 'Different observable behaviours.' })
+it('requires current complete pair evidence and recomputes its verdict from both judgments', () => {
+  const check: FormPairCheck = { id: 'a:b', a: 'a', b: 'b', aHash: 'a-hash', bHash: 'b-hash', reviewVersion: PAIR_REVIEW_VERSION, models: ['b/b', 'c/c'], redundant: false, reason: 'Different actions.', judgments: ['b/b', 'c/c'].map(model => ({ ...pairJudgment('a:b'), relation: 'different_behaviors', model })) }
+  expect(pairEvidenceIsComplete(check, 'a/a')).toBe(true)
+  expect(pairEvidenceIsComplete({ ...check, judgments: undefined }, 'a/a')).toBe(false)
+  expect(pairEvidenceIsComplete({ ...check, redundant: true }, 'a/a')).toBe(false)
+  expect(pairEvidenceIsComplete({ ...check, reviewVersion: undefined }, 'a/a')).toBe(false)
+  expect(pairEvidenceIsComplete(check, 'b/writer')).toBe(false)
+})
 it('enumerates every within-construct pair and rejects a claimed scan without individual results', () => {
   const pool = [candidate('a'), candidate('b'), candidate('c', 'cell-1'), candidate('d', 'cell-1')]
   const pairs = formPairs(spec, pool)
   expect(pairs).toHaveLength(6)
   expect(new Set(pairs.map(pair => pair.id)).size).toBe(6)
-  expect(() => parsePairReview(JSON.stringify({ pairs: [{ id: pairs[0].id, redundant: false, reason: 'Different observable behaviours.' }] }), pairs.map(pair => pair.id))).toThrow()
-  expect(parsePairReview(JSON.stringify({ pairs: pairs.map(pair => ({ id: pair.id, redundant: false, reason: 'Different observable behaviours.' })) }), pairs.map(pair => pair.id))).toHaveLength(6)
+  expect(() => parsePairReview(JSON.stringify({ pairs: [pairJudgment(pairs[0].id)] }), pairs.map(pair => pair.id))).toThrow()
+  expect(parsePairReview(JSON.stringify({ pairs: pairs.map(pair => pairJudgment(pair.id)) }), pairs.map(pair => pair.id))).toHaveLength(6)
 })
 
 
@@ -137,10 +146,21 @@ it('maps reordered short pair judgments back to the correct item pair and reject
   const pairs = formPairs(spec, pool)
   const prompt = pairReviewPrompt(spec, pairs, pool)
   expect(prompt).toContain('pair-1')
-  const judgments = [...pairs].reverse().map((pair, index) => ({ id: `pair-${pairs.length - index}`, redundant: pair.id === 'a:b', reason: 'Specific common content or a meaningful difference.' }))
+  const judgments = [...pairs].reverse().map((pair, index) => ({ ...pairJudgment(`pair-${pairs.length - index}`), relation: pair.id === 'a:b' ? 'mirror' : 'different_behaviors', redundant: pair.id === 'a:b' }))
   const parsed = parseFormPairBatch(JSON.stringify({ pairs: judgments }), pairs)
   expect(parsed.find(result => result.redundant)?.id).toBe('a:b')
   expect(() => parseFormPairBatch(JSON.stringify({ pairs: judgments.slice(1) }), pairs)).toThrow()
+})
+
+it('requires a coherent action and condition comparison, with full facet context', () => {
+  const prompt = pairReviewPrompt(spec, [{ id: 'a:b', a: 'a', b: 'b' }], [candidate('a'), candidate('b')])
+  expect(prompt).toContain(cells[0].facetDefinition)
+  expect(prompt).toContain('Sociability') // Exclusion definitions accompany the facets.
+  const parse = (patch: object) => parsePairReview(JSON.stringify({ pairs: [{ ...pairJudgment('pair-1'), ...patch }] }), ['pair-1'])
+  expect(() => parse({ relation: 'shared_construct_only', redundant: true })).toThrow(/Sharing a construct/)
+  expect(() => parse({ relation: 'mirror', conditionsEquivalent: true, redundant: false })).toThrow(/redundancy/)
+  expect(parse({ relation: 'mirror', conditionsEquivalent: true, redundant: true })[0].redundant).toBe(true)
+  expect(parse({ relation: 'shared_construct_only', redundant: false })[0].redundant).toBe(false)
 })
 
 

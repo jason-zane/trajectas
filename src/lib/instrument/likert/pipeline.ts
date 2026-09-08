@@ -11,7 +11,7 @@ import { READING_GRADE_CEILING_BY_AUDIENCE, fleschKincaidGrade } from '../fairne
 import { normaliseStem } from '../item-generation'
 import { LIKERT_VERSION, LIKERT_STAGE, LIKERT_STEP, BATCH_SIZE, MAX_ROUNDS, MAX_FORM_REPAIRS, MAX_CALLS, assertLikertScopeBudget, STEP_DEADLINE_MS, likertOptionsSchema, assertLikertMeasure, type LikertState, type LikertSpec, type LikertStatus, type LikertCandidate, type ItemQuality, type ReviewerResult } from './contracts'
 import { fingerprint, currentQuality, itemFingerprint, passingScores } from './identity'
-import { formPairs, pairReviewPrompt, parseFormPairBatch } from './form-review'
+import { PAIR_REVIEW_VERSION, formPairs, pairEvidenceIsComplete, pairReviewPrompt, parseFormPairBatch } from './form-review'
 import { assessItem, blindReviewBatch, parseBlindReview, reviewPrompt, selectItems, selectWithOverlapHints } from './review'
 
 const asRecord = (value: object): Record<string, unknown> => ({ ...value })
@@ -135,7 +135,7 @@ function pairIsCurrent(pair: { id: string; a: string; b: string }, state: Likert
   const check = state.pairChecks?.[pair.id]
   const a = items.find(item => item.id === pair.a)
   const b = items.find(item => item.id === pair.b)
-  return !!check && !!a && !!b && check.models.length === 2 && new Set(check.models.map(model => model.split('/')[0])).size === 2 && check.models.every(model => model.split('/')[0] !== state.models.writer.split('/')[0]) && check.aHash === itemFingerprint(a) && check.bHash === itemFingerprint(b)
+  return !!check && check.id === pair.id && check.a === pair.a && check.b === pair.b && !!a && !!b && pairEvidenceIsComplete(check, state.models.writer) && check.aHash === itemFingerprint(a) && check.bHash === itemFingerprint(b)
 }
 
 function confirmedPairs(state: LikertState, items: LikertCandidate[]) {
@@ -244,7 +244,9 @@ export async function advanceLikert(db: SupabaseClient, buildId: string, resume 
     let candidates: Record<string, unknown>[] = []
     let cells: Record<string, unknown> | undefined
     let buildStatus = 'generating'
-    if (state.calls >= MAX_CALLS) { buildStatus = 'failed'; state.phase = 'incomplete'; state.blockers = ['Automatic model-call budget reached.']; state.detail = state.blockers[0] }
+    // Already-reviewed forms can still be assembled/finalized without another model call.
+    // jsonCall enforces the cap if a form-review step actually needs more evidence.
+    if (state.calls >= MAX_CALLS && state.phase !== 'select' && state.phase !== 'form_review') { buildStatus = 'failed'; state.phase = 'incomplete'; state.blockers = ['Automatic model-call budget reached.']; state.detail = state.blockers[0] }
     if (state.phase === 'blueprint') {
       const inputHash = blueprintInputHash(spec)
       const construct = spec.constructs.find(c => state.blueprintHashes?.[c.id] !== inputHash || !c.cells.length || c.cells.some(cell => !cell.facetDefinition?.trim()) || c.cells.reduce((sum, cell) => sum + cell.targetItemCount, 0) !== spec.itemsPerConstruct)
@@ -404,16 +406,33 @@ Repair feedback: ${JSON.stringify(feedback)}. Rewrite weak ideas or replace them
         candidates = items.filter(item => spec.constructs.some(c => c.cells.some(cell => cell.id === item.blueprintCellId))).map(item => ({ ...item, status: state.selectedIds.includes(item.id) ? 'accepted' : item.status === 'rejected' ? 'rejected' : 'candidate' }))
       } else {
         const models = state.models.reviewers.filter(model => model.split('/')[0] !== state.models.writer.split('/')[0]).slice(0, 2)
+        output.pairReviewBatch = { version: PAIR_REVIEW_VERSION, pairs: pending }
         const results = await Promise.allSettled(models.map(async model => ({ model, pairs: await jsonCall(model, pairReviewPrompt(spec, pending, items), raw => parseFormPairBatch(raw, pending), 5000) })))
         const failure = results.find(result => result.status === 'rejected')
         if (failure?.status === 'rejected') throw failure.reason
         const reviews = results.flatMap(result => result.status === 'fulfilled' ? [result.value] : [])
+        const disputed = pending.filter(pair => new Set(reviews.map(review => review.pairs.find(result => result.id === pair.id)!.redundant)).size > 1)
+        const selfReviewedBy: string[] = []
+        if (disputed.length && Date.now() < deadlineAt - 20_000 && state.calls + models.length <= MAX_CALLS) {
+          output.pairSelfReviewBatch = disputed
+          await Promise.all(reviews.map(async review => {
+            const own = disputed.map((pair, index) => ({ ...review.pairs.find(result => result.id === pair.id)!, id: `pair-${index + 1}` }))
+            try {
+              const checked = await jsonCall(review.model, pairReviewPrompt(spec, disputed, items) + `\nPerform one targeted self-check of your own earlier comparisons: ${JSON.stringify(own)}. Re-read the operational facets and the actual actions/experiences. Correct either over-broad redundancy claims or missed paraphrases/mirrors if the wording supports that correction. Keep a concern when it remains supported; do not change a decision simply to make the form pass. No other reviewer's judgment is provided.`, raw => parseFormPairBatch(raw, disputed), 5000)
+              review.pairs = review.pairs.map(pair => checked.find(result => result.id === pair.id) ?? pair)
+              selfReviewedBy.push(review.model)
+            } catch (error) {
+              const failures = (output.pairSelfReviewErrors ??= []) as unknown[]
+              failures.push({ model: review.model, error: String(error) }) // Keep the complete original judgment if self-checking fails.
+            }
+          }))
+        }
         state.pairChecks ??= {}
         for (const pair of pending) {
           const judgments = reviews.map(review => review.pairs.find(result => result.id === pair.id)!)
           const redundant = judgments.some(judgment => judgment.redundant)
           const reason = judgments.filter(judgment => judgment.redundant === redundant).map(judgment => judgment.reason).join('; ')
-          state.pairChecks[pair.id] = { ...pair, aHash: itemFingerprint(items.find(item => item.id === pair.a)!), bHash: itemFingerprint(items.find(item => item.id === pair.b)!), models, redundant, reason }
+          state.pairChecks[pair.id] = { ...pair, reviewVersion: PAIR_REVIEW_VERSION, aHash: itemFingerprint(items.find(item => item.id === pair.a)!), bHash: itemFingerprint(items.find(item => item.id === pair.b)!), models, redundant, reason, disagreedInitially: disputed.some(result => result.id === pair.id), selfReviewedBy: disputed.some(result => result.id === pair.id) ? selfReviewedBy : [], judgments: reviews.map(review => ({ ...review.pairs.find(result => result.id === pair.id)!, model: review.model })) }
           if (redundant) {
             const construct = spec.constructs.find(c => c.cells.some(cell => cell.id === items.find(item => item.id === pair.a)?.blueprintCellId))!
             state.diversity![construct.id].pairs.push({ a: pair.a, b: pair.b, reason })

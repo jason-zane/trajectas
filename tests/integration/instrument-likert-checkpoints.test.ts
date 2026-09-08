@@ -3,7 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
 import { createBuild, createBlueprint, replaceBlueprintCells, createCandidateItem, recordStageRun, claimStageRun, getCandidateItem, updateCandidateItem, updateBuild, updateBlueprint, getBuild, listStageRuns, listCandidateItems } from '@/lib/dal/instrument'
 import { commitLikertStep, expireLikertStep, likertSpecSnapshot, listLikertFormats } from '@/lib/dal/instrument-likert'
-import { advanceLikert } from '@/lib/instrument/likert/pipeline'
+import { advanceLikert, getLikertStatus, loadLikertContext } from '@/lib/instrument/likert/pipeline'
+import { fingerprint, itemFingerprint } from '@/lib/instrument/likert/identity'
+import { PAIR_REVIEW_VERSION } from '@/lib/instrument/likert/form-review'
 import { OpenRouterProvider } from '@/lib/ai/providers/openrouter'
 import { LIKERT_STAGE, LIKERT_STEP, LIKERT_VERSION, likertOptionsSchema, type LikertState } from '@/lib/instrument/likert/contracts'
 
@@ -193,6 +195,51 @@ describe.skipIf(!canRun)('transactional Likert checkpoints (local database)', ()
       expect(status.passed).toBe(fixesIt ? 1 : 0)
       expect(thirdReviewerCalls).toBe(2)
       expect((await getCandidateItem(db, itemId))?.payload?.likertQuality).toMatchObject({ pass: fixesIt })
+    } finally { provider.mockRestore() }
+  })
+  it.each(['corrected', 'retained', 'interrupted'])('self-checks disputed pairs once and preserves unresolved concerns: %s', async mode => {
+    const formats = await listLikertFormats(db)
+    const options = likertOptionsSchema.parse({ itemsPerConstruct: 4, reverseProportion: 0, responseFormatId: formats[0].id })
+    await updateBuild(db, buildId, { config: { likert: options } })
+    const { spec } = await loadLikertContext(db, buildId)
+    const construct = spec.constructs[0]
+    for (const stem of ['I check which work is due next.', 'I write down the tasks I agree to do.', 'I tell others when my work is done.']) await createCandidateItem(db, { buildId, blueprintCellId: construct.cells[0].id, stem, reverseScored: false })
+    const items = (await listCandidateItems(db, buildId)).sort((a, b) => a.id.localeCompare(b.id))
+    for (const item of items) await updateCandidateItem(db, item.id, { payload: { likertQuality: {
+      version: LIKERT_VERSION, specHash: fingerprint(spec), itemHash: itemFingerprint(item), reviewedAt: new Date().toISOString(), pass: true, reasons: [], score: 4, correctedKey: false, readingGrade: 4,
+      reviews: state.models.reviewers.map(model => ({ model, id: item.id, constructId: construct.id, facetLabel: construct.cells[0].facetLabel, relevance: 4, clarity: 4, reverseScored: false, lowTypicalHigh: [1, Math.ceil(spec.format.points / 2), spec.format.points], paraphrase: 'Recall an agreed action.', issues: [], rationale: 'This tests the publication and pair-review mechanism.' })),
+    } } })
+    const models = ['b/b', 'c/c']
+    const prepared: LikertState = { ...state, options, phase: 'form_review', specHash: fingerprint(spec), selectedIds: items.map(item => item.id), diversity: { [construct.id]: { models, model: models.join(', '), pairs: [], contentHash: fingerprint(items.map(item => ({ id: item.id, hash: itemFingerprint(item) }))) } } }
+    await db.from('instrument_stage_runs').update({ output_snapshot: prepared }).eq('id', jobId)
+    const provider = vi.spyOn(OpenRouterProvider.prototype, 'complete').mockImplementation(async request => {
+      const selfCheck = request.prompt.includes('Perform one targeted self-check')
+      if (selfCheck && mode === 'interrupted' && request.model === 'b/b') throw new Error('Fixture self-check outage')
+      const pairs = JSON.parse(request.prompt.split('\nPairs: ')[1].split('\nReturn ONLY ')[0]) as Array<{ id: string; a: string; b: string }>
+      return { model: request.model!, provider: 'custom', usage: { inputTokens: 10, outputTokens: 10 }, content: JSON.stringify({ pairs: pairs.map((pair, index) => {
+        const redundant = request.model === 'b/b' && index === 0 && (!selfCheck || mode !== 'corrected')
+        return { id: pair.id, behaviorA: pair.a, behaviorB: pair.b, relation: redundant ? 'mirror' : 'different_behaviors', conditionsEquivalent: true, redundant, reason: redundant ? 'The specific actions remain equivalent.' : 'The specific actions add different coverage.' }
+      }) }) }
+    })
+    try {
+      const result = await advanceLikert(db, buildId)
+      expect(result.phase).toBe(mode === 'corrected' ? 'form_review' : 'select')
+      expect(provider).toHaveBeenCalledTimes(4)
+      const checkpoint = (await listStageRuns(db, buildId)).find(run => run.id === jobId)!.outputSnapshot as unknown as LikertState
+      const checks = Object.values(checkpoint.pairChecks!)
+      expect(checks).toHaveLength(6)
+      expect(checks.every(check => check.reviewVersion === PAIR_REVIEW_VERSION)).toBe(true)
+      expect(checks.filter(check => check.disagreedInitially)).toHaveLength(1)
+      if (mode === 'corrected') {
+        // The call cap must not discard a form whose evidence is already complete.
+        await db.from('instrument_stage_runs').update({ output_snapshot: { ...checkpoint, calls: 600 } }).eq('id', jobId)
+        expect((await advanceLikert(db, buildId)).ready).toBe(true)
+        expect(provider).toHaveBeenCalledTimes(4)
+        const complete = (await listStageRuns(db, buildId)).find(run => run.id === jobId)!.outputSnapshot as unknown as LikertState
+        delete Object.values(complete.pairChecks!)[0].reviewVersion
+        await db.from('instrument_stage_runs').update({ output_snapshot: complete }).eq('id', jobId)
+        expect((await getLikertStatus(db, buildId))?.ready).toBe(false)
+      } else expect(checks.some(check => check.redundant)).toBe(true)
     } finally { provider.mockRestore() }
   })
   it('does not expose service-only checkpoint RPCs to anonymous callers', async () => {
