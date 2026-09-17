@@ -23,10 +23,11 @@ import localFont from "next/font/local";
 // root layout as `--font-sans` — no separate load here.
 // =============================================================================
 
-const LATIN_EXT_RANGE =
-  "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF";
-const LATIN_RANGE =
-  "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD";
+// Next's font-loader plugin statically analyses this call's arguments — the
+// `declarations` array must be a literal, not a reference to a shared const
+// (tried that; the plugin silently drops the value). So the two ranges below
+// are repeated verbatim, exactly as every other loader call in this codebase
+// does it (see src/app/layout.tsx).
 
 const wallDisplayExt = localFont({
   src: [{ path: "../fonts/libre-caslon-display-latin-ext-400.woff2", weight: "400", style: "normal" }],
@@ -36,7 +37,11 @@ const wallDisplayExt = localFont({
   adjustFontFallback: false,
   declarations: [
     { prop: "font-family", value: "wallDisplay" },
-    { prop: "unicode-range", value: LATIN_EXT_RANGE },
+    {
+      prop: "unicode-range",
+      value:
+        "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF",
+    },
   ],
 });
 
@@ -44,7 +49,13 @@ const wallDisplay = localFont({
   src: [{ path: "../fonts/libre-caslon-display-latin-400.woff2", weight: "400", style: "normal" }],
   variable: "--font-wall-display",
   display: "swap",
-  declarations: [{ prop: "unicode-range", value: LATIN_RANGE }],
+  declarations: [
+    {
+      prop: "unicode-range",
+      value:
+        "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+    },
+  ],
 });
 
 const wallTextExt = localFont({
@@ -59,7 +70,11 @@ const wallTextExt = localFont({
   adjustFontFallback: false,
   declarations: [
     { prop: "font-family", value: "wallText" },
-    { prop: "unicode-range", value: LATIN_EXT_RANGE },
+    {
+      prop: "unicode-range",
+      value:
+        "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF",
+    },
   ],
 });
 
@@ -71,7 +86,13 @@ const wallText = localFont({
   ],
   variable: "--font-wall-text",
   display: "swap",
-  declarations: [{ prop: "unicode-range", value: LATIN_RANGE }],
+  declarations: [
+    {
+      prop: "unicode-range",
+      value:
+        "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+    },
+  ],
 });
 
 const wallMonoExt = localFont({
@@ -85,7 +106,11 @@ const wallMonoExt = localFont({
   adjustFontFallback: false,
   declarations: [
     { prop: "font-family", value: "wallMono" },
-    { prop: "unicode-range", value: LATIN_EXT_RANGE },
+    {
+      prop: "unicode-range",
+      value:
+        "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF",
+    },
   ],
 });
 
@@ -96,7 +121,13 @@ const wallMono = localFont({
   ],
   variable: "--font-wall-mono",
   display: "swap",
-  declarations: [{ prop: "unicode-range", value: LATIN_RANGE }],
+  declarations: [
+    {
+      prop: "unicode-range",
+      value:
+        "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+    },
+  ],
 });
 
 /** Apply on the outermost `.wall` element so wall.css's font variables resolve. */
