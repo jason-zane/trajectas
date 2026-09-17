@@ -41,7 +41,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const FONT_FILES = [
   "src/app/layout.tsx",
   "src/app/(marketing)/layout.tsx",
-  "src/app/(marketing)/page.tsx",
+  "src/app/(marketing)/wall-fonts.ts",
 ];
 
 /** `const someBinding = localFont({` */
@@ -71,9 +71,9 @@ describe("self-hosted font family bindings", () => {
       const src = readFileSync(join(ROOT, rel), "utf8");
       return n + matchAll(src, BINDING_RE).length;
     }, 0);
-    // Three families in the root layout, two in the marketing layout, one on
-    // the marketing page — each a latin + latin-ext pair.
-    expect(total).toBeGreaterThanOrEqual(12);
+    // Three families in the root layout, two in the marketing layout, three
+    // in the Panel's Wall's shared wall-fonts.ts — each a latin + latin-ext pair.
+    expect(total).toBeGreaterThanOrEqual(16);
   });
 
   for (const rel of FONT_FILES) {

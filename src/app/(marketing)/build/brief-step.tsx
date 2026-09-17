@@ -19,13 +19,15 @@ export function BriefStep({
   email,
   onSubmit,
   error,
+  initialPdText,
 }: {
   email: string;
   onSubmit: (input: { roleTitle: string; pdText: string; tier: PublicBuildTier }) => void;
   error: string | null;
+  initialPdText?: string;
 }) {
   const [roleTitle, setRoleTitle] = useState("");
-  const [pdText, setPdText] = useState("");
+  const [pdText, setPdText] = useState(() => (initialPdText ?? "").slice(0, PUBLIC_BUILDS_MAX_PD_CHARS));
   const [tier, setTier] = useState<PublicBuildTier>("core");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, startUpload] = useTransition();
