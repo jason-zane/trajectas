@@ -59,8 +59,8 @@ export function HomePasteBox() {
         }}
       />
       <p className="body-soft" style={{ fontSize: 13 }}>
-        Paste yours, or upload a PDF or Word file on the next screen. Nothing is stored until you
-        create the assessment.
+        Paste yours, or upload a PDF or Word file on the next screen. The text is kept only to build
+        your assessment, and cleared after 30 days.
       </p>
       <div className="mt-1.5 flex items-center justify-between gap-4">
         <button type="submit" className="btn btn-primary">

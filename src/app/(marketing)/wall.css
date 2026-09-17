@@ -164,7 +164,12 @@
 .wall .cap-card .unpin:hover { border-color: var(--ink); color: var(--ink); }
 
 /* Report mock rows */
-.wall .report-row { display: grid; grid-template-columns: 172px 1fr 64px; align-items: center; gap: 12px; }
+.wall .report-row { display: grid; grid-template-columns: 172px minmax(0, 1fr) 64px; align-items: center; gap: 12px; }
+/* Narrow phones (and WCAG's 320px reflow width): the name takes its own line above the band. */
+@media (max-width: 600px) {
+  .wall .report-row { grid-template-columns: minmax(0, 1fr) 56px; row-gap: 6px; }
+  .wall .report-row > :first-child { grid-column: 1 / -1; }
+}
 .wall .band { position: relative; height: 10px; background: var(--paper-edge); border-radius: 1px; }
 .wall .band i { position: absolute; top: 0; bottom: 0; left: 0; background: var(--baize); border-radius: 1px; }
 .wall .band b { position: absolute; top: -4px; width: 2px; height: 18px; background: var(--gold-ink); }

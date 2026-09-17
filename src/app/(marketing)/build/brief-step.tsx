@@ -121,7 +121,7 @@ export function BriefStep({
                 {uploadError && <p className="body-soft text-red-700">{uploadError}</p>}
                 <p className="body-soft" style={{ fontSize: 13 }}>
                   {pdText.length.toLocaleString("en-AU")} / {PUBLIC_BUILDS_MAX_PD_CHARS.toLocaleString("en-AU")}{" "}
-                  characters. Nothing is stored until you create the assessment.
+                  characters. The text is kept only to build your assessment, and cleared after 30 days.
                 </p>
               </div>
               {error && <p className="body-soft text-red-700">{error}</p>}

@@ -7,7 +7,7 @@ import type { Brief } from "@/types/ai";
 import type { ArchitectMatchResult } from "@/types/architect";
 import { VerifyStep } from "./verify-step";
 import { BriefStep } from "./brief-step";
-import { readAndClearPdHandoff } from "./pd-handoff";
+import { readPdHandoff, clearPdHandoff } from "./pd-handoff";
 import { WorkingStep, type WorkingStage } from "./working-step";
 import { ResultStep } from "./result-step";
 import { SentStep } from "./sent-step";
@@ -26,7 +26,7 @@ function sleep(ms: number) {
 export function RoleBuilder() {
   const [step, setStep] = useState<Step>("verify");
   const [email, setEmail] = useState<string | null>(null);
-  const [pdHandoff] = useState<string | null>(() => readAndClearPdHandoff());
+  const [pdHandoff] = useState<string | null>(() => readPdHandoff());
   const [briefError, setBriefError] = useState<string | null>(null);
   const [brief, setBrief] = useState<Brief | null>(null);
   const [buildId, setBuildId] = useState<string | null>(null);
@@ -42,6 +42,7 @@ export function RoleBuilder() {
   const [emailSent, setEmailSent] = useState(true);
 
   async function handleBriefSubmit(input: { roleTitle: string; pdText: string; tier: PublicBuildTier }) {
+    clearPdHandoff();
     setBriefError(null);
     setTier(input.tier);
     setStep("working");
