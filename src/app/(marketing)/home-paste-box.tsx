@@ -31,11 +31,11 @@ export function HomePasteBox() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="flex items-baseline justify-between gap-4">
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
         <p className="title" style={{ fontSize: 20 }}>
           Senior Product Manager, Payments
         </p>
-        <span className="measure whitespace-nowrap">Example &middot; replace with yours</span>
+        <span className="measure">Example &middot; replace with yours</span>
       </div>
       <div className="rule" />
       <label htmlFor="home-pd" className="field-label" style={{ margin: 0 }}>
