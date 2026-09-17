@@ -1,6 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { readdirSync } from "node:fs";
+import { dirname, join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { NextRequest } from "next/server";
 import { proxy } from "../../src/proxy";
+import robots from "../../src/app/robots";
+import sitemap from "../../src/app/sitemap";
+import { MARKETING_PATHS } from "../../src/lib/seo/marketing-routes";
+
+const MARKETING_GROUP = join(
+  resolve(dirname(fileURLToPath(import.meta.url)), "..", ".."),
+  "src",
+  "app",
+  "(marketing)"
+);
 
 // Mock Supabase middleware client
 let mockSupabaseClient: {
@@ -127,6 +140,94 @@ describe("proxy surface routing", () => {
       )
     );
     expect(webhookResponse.status).not.toBe(403);
+  });
+});
+
+describe("proxy public-host marketing routes", () => {
+  beforeEach(() => {
+    vi.stubEnv("PUBLIC_APP_URL", "https://trajectas.test");
+    vi.stubEnv("ADMIN_APP_URL", "https://admin.trajectas.test");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  // Every non-allowlisted page path on the public host is redirected to the
+  // admin host, which is how these pages were once served from admin.* with a
+  // noindex header. Local dev skips that redirect, so only a test catches it.
+  it.each([
+    "/psychometric-assessment",
+    "/capability-assessment",
+    "/performance-and-outcomes?utm_source=linkedin",
+    "/classic",
+  ])("serves %s on the public host", async (path) => {
+    const response = await proxy(createRequest(`https://trajectas.test${path}`));
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("x-trajectas-surface")).toBe("public");
+    expect(response.headers.get("X-Robots-Tag")).toBeNull();
+    expect(response.headers.get("Content-Security-Policy-Report-Only")).toContain(
+      "frame-src https://app.cal.com https://cal.com"
+    );
+  });
+
+  it("still redirects paths beneath a marketing page to the admin host", async () => {
+    const response = await proxy(
+      createRequest("https://trajectas.test/capability-assessment/admin")
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "https://admin.trajectas.test/capability-assessment/admin"
+    );
+  });
+
+  it("serves every sitemap URL on the public host", async () => {
+    const entries = sitemap();
+    expect(entries.length).toBeGreaterThan(0);
+
+    for (const { url } of entries) {
+      expect(new URL(url).origin, url).toBe("https://trajectas.test");
+      const response = await proxy(createRequest(url));
+      expect(response.headers.get("location"), url).toBeNull();
+      expect(response.headers.get("x-trajectas-surface"), url).toBe("public");
+    }
+  });
+
+  it("keeps the noindex /classic page out of the sitemap", () => {
+    const paths = sitemap().map(({ url }) => new URL(url).pathname);
+
+    expect(paths).not.toContain("/classic");
+    expect(MARKETING_PATHS.has("/classic")).toBe(true);
+  });
+
+  it("does not disallow any sitemap URL in robots.txt", () => {
+    const disallow = [robots().rules]
+      .flat()
+      .flatMap((rule) => [rule.disallow ?? []].flat());
+
+    for (const { url } of sitemap()) {
+      const { pathname } = new URL(url);
+      expect(
+        disallow.filter((prefix) => pathname.startsWith(prefix)),
+        pathname
+      ).toEqual([]);
+    }
+  });
+
+  it("allowlists every page in the (marketing) route group", () => {
+    const pagePaths = readdirSync(MARKETING_GROUP, { recursive: true })
+      .map(String)
+      .filter((file) => file === "page.tsx" || file.endsWith(`${sep}page.tsx`))
+      .map((file) => {
+        const segments = dirname(file)
+          .split(sep)
+          .filter((segment) => segment !== "." && !/^\(.*\)$/.test(segment));
+        return `/${segments.join("/")}`;
+      })
+      .sort();
+
+    expect(pagePaths).toEqual([...MARKETING_PATHS].sort());
   });
 });
 
