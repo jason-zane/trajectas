@@ -13,6 +13,9 @@ export const assessmentSchema = z.object({
   scoringLevel: z.enum(['factor', 'construct']).default('factor'),
   minCustomConstructs: z.coerce.number().int().nonnegative().nullable().optional(),
   sourceId: z.string().uuid().optional().or(z.literal('')),
+  // Only ever set by the public Role Builder's system scope (createAssessment
+  // opts.systemScope); the admin builder never surfaces this field.
+  clientId: z.string().uuid().optional().or(z.literal('')),
   factors: z.array(z.object({
     factorId: postgresUuid(),
     weight: z.coerce.number().positive().default(1),

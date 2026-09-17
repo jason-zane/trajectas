@@ -79,6 +79,7 @@ export async function runMatching(
     },
     modelUsed: response.model,
     promptVersion: prompt.version ?? PROMPT_VERSION,
+    usage: response.usage,
   }
 }
 

@@ -88,6 +88,18 @@ export function applyPerConstructLimit<
   return result;
 }
 
+export interface SectionBuildOptions {
+  /**
+   * Skip the item_selection_rules band lookup and use this as the
+   * per-construct item limit directly. The public Role Builder fixes 6 items
+   * per capability regardless of pool size — see
+   * docs/superpowers/specs/2026-09-17-public-role-builder-design.md.
+   */
+  itemsPerConstructOverride?: number;
+  /** Exclude cognitive-format items (the public Role Builder never exposes the cognitive bank). */
+  excludeCognitive?: boolean;
+}
+
 /**
  * Resolve the response-format breakdown for a factor/construct scope: which
  * formats the rule-limited item pool spans and how many items land in each.
@@ -96,6 +108,7 @@ export function applyPerConstructLimit<
 export async function getFormatBreakdownForScope(
   db: DbClient,
   scope: { factorIds?: string[]; constructIds?: string[] },
+  options: SectionBuildOptions = {},
 ): Promise<FormatGroup[]> {
   const factorIds = scope.factorIds ?? [];
   const directConstructIds = scope.constructIds ?? [];
@@ -114,16 +127,21 @@ export async function getFormatBreakdownForScope(
   }
   if (constructIds.length === 0) return [];
 
-  const limit = await getItemsPerConstructForCount(constructIds.length);
+  const limit =
+    options.itemsPerConstructOverride ?? (await getItemsPerConstructForCount(constructIds.length));
 
-  const { data: items } = await db
+  let itemsQuery = db
     .from("items")
     .select(
-      "id, construct_id, response_format_id, display_order, difficulty, reverse_scored, response_formats(id, name, type)",
+      "id, construct_id, response_format_id, display_order, difficulty, reverse_scored, response_formats!inner(id, name, type)",
     )
     .in("construct_id", constructIds)
     .eq("status", "active")
     .is("deleted_at", null);
+  if (options.excludeCognitive) {
+    itemsQuery = itemsQuery.neq("response_formats.type", "cognitive");
+  }
+  const { data: items } = await itemsQuery;
 
   if (!items || items.length === 0) return [];
 
@@ -172,6 +190,7 @@ export async function persistSections(
   assessmentId: string,
   sections: SectionDraft[],
   scope: { factorIds: string[]; constructIds?: string[] },
+  options: SectionBuildOptions = {},
 ): Promise<PersistSectionsResult> {
   const sectionInserts = sections.map((s) => ({
     assessment_id: assessmentId,
@@ -210,14 +229,21 @@ export async function persistSections(
   }
   if (constructIds.length === 0) return { error: null, sectionIds };
 
-  const limit = await getItemsPerConstructForCount(constructIds.length);
+  const limit =
+    options.itemsPerConstructOverride ?? (await getItemsPerConstructForCount(constructIds.length));
 
-  const { data: items } = await db
+  let itemsQuery = db
     .from("items")
-    .select("id, construct_id, response_format_id, display_order, difficulty, reverse_scored")
+    .select(
+      "id, construct_id, response_format_id, display_order, difficulty, reverse_scored, response_formats!inner(type)",
+    )
     .in("construct_id", constructIds)
     .eq("status", "active")
     .is("deleted_at", null);
+  if (options.excludeCognitive) {
+    itemsQuery = itemsQuery.neq("response_formats.type", "cognitive");
+  }
+  const { data: items } = await itemsQuery;
 
   if (!items || items.length === 0) return { error: null, sectionIds };
 

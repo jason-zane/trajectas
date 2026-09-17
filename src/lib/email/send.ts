@@ -14,7 +14,7 @@
 
 import { resolveTemplate } from './template-registry'
 import { renderEmailHtml, substituteVariables } from './render'
-import { sendHtmlEmail } from './provider'
+import { sendHtmlEmail, type SendHtmlEmailAttachment } from './provider'
 import { getEffectiveBrand } from '@/app/actions/brand'
 import { DEFAULT_EMAIL_STYLES } from '@/lib/brand/defaults'
 import type { EmailType } from './types'
@@ -31,8 +31,9 @@ export async function sendEmail(params: {
   scopePartnerId?: string
   scopeClientId?: string
   replyTo?: string
+  attachments?: SendHtmlEmailAttachment[]
 }): Promise<void> {
-  const { type, to, variables, scopeCampaignId, scopePartnerId, scopeClientId, replyTo } = params
+  const { type, to, variables, scopeCampaignId, scopePartnerId, scopeClientId, replyTo, attachments } = params
 
   // ── 1. Resolve template via cascade (clientId, partnerId) ─────────────────
   const template = await resolveTemplate(type, {
@@ -135,6 +136,7 @@ export async function sendEmail(params: {
     text,
     from,
     replyTo,
+    attachments,
   })
 }
 

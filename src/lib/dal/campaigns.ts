@@ -1,5 +1,6 @@
 import "server-only";
 import { PARTICIPANT_COLUMNS } from "./participant-columns";
+import { PUBLIC_BUILDS_CLIENT_ID } from "@/lib/public-builds/constants";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -70,6 +71,11 @@ export async function listCampaigns(
     .from("campaigns_with_counts")
     .select("*, clients(name)")
     .is("deleted_at", null)
+    // The public Role Builder's system client has its own admin screen
+    // (/public-builds); hide it from the ordinary campaigns list. `.neq`
+    // alone would also hide every NULL-client_id (clientless) campaign, since
+    // SQL's `<> ` on NULL is NULL, not true — so this is an explicit OR.
+    .or(`client_id.is.null,client_id.neq.${PUBLIC_BUILDS_CLIENT_ID}`)
     .order("created_at", { ascending: false });
 
   if (scope.effectiveClientId) {

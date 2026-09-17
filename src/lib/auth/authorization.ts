@@ -680,8 +680,11 @@ export async function requireClientAccess(
   };
 }
 
-export async function requireCampaignAccess(campaignId: string) {
-  const scope = await resolveAuthorizedScope();
+export async function requireCampaignAccess(
+  campaignId: string,
+  opts: { systemScope?: AuthorizedScope } = {},
+) {
+  const scope = opts.systemScope ?? (await resolveAuthorizedScope());
   const db = createAdminClient();
   const { data, error } = await db
     .from("campaigns")
@@ -720,8 +723,11 @@ export async function requireCampaignAccess(campaignId: string) {
  * or invite into any campaign that tenant owns, because the actions run on the
  * service-role client and RLS never sees the request.
  */
-export async function requireCampaignManage(campaignId: string) {
-  const access = await requireCampaignAccess(campaignId);
+export async function requireCampaignManage(
+  campaignId: string,
+  opts: { systemScope?: AuthorizedScope } = {},
+) {
+  const access = await requireCampaignAccess(campaignId, opts);
 
   if (!canManageCampaign(access.scope, access.partnerId, access.clientId)) {
     throw new AuthorizationError(

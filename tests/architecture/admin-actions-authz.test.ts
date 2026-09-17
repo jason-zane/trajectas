@@ -85,6 +85,10 @@ const MUTATION_ALLOWLIST = new Map<string, string>([
     "src/app/actions/profile.ts#updateDisplayName",
     "Self-service: updates only the caller's own profiles row, keyed by the session user id from auth.getUser().",
   ],
+  [
+    "src/app/actions/public-builds.ts#createBuild",
+    "Public Role Builder: gated by the signed tf_public_build cookie; loadOwnedBuild checks build ownership before this runs. Creates real records via createAssessment/createCampaign under PUBLIC_BUILDS_SYSTEM_SCOPE, which those functions still authorize through their normal canManage* checks. See docs/superpowers/specs/2026-09-17-public-role-builder-design.md.",
+  ],
 ]);
 
 // Admin-client READS that are intentionally callable without a scope check.
@@ -125,6 +129,22 @@ const READ_ALLOWLIST = new Map<string, string>([
   [
     "src/app/actions/report-resend.ts#requestNewReportLink",
     "Public by design (expired-report resend): constant {ok:true} response regardless of match, and the new link is emailed only to the participant address already stored on the snapshot.",
+  ],
+  [
+    "src/app/actions/public-builds.ts#requestCode",
+    "Public Role Builder (unauthenticated by design): gated by mode check + BotID + per-IP/per-email rate limits, not a user session. See docs/superpowers/specs/2026-09-17-public-role-builder-design.md.",
+  ],
+  [
+    "src/app/actions/public-builds.ts#verifyCode",
+    "Public Role Builder: hash-compares a code against public_build_codes with a bounded attempt counter, then issues the signed tf_public_build cookie — the token IS the authorization for every later action in this file.",
+  ],
+  [
+    "src/app/actions/public-builds.ts#startBuild",
+    "Public Role Builder: gated by the signed tf_public_build cookie (verifyCode) plus per-email/global daily caps and the one-live-build check, not a user session.",
+  ],
+  [
+    "src/app/actions/public-builds.ts#rankBuild",
+    "Public Role Builder: gated by the signed tf_public_build cookie; loadOwnedBuild checks the build's stored email against the cookie's email before this runs.",
   ],
 ]);
 
