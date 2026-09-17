@@ -87,6 +87,7 @@ describe.skipIf(!canRun)('public Role Builder backend', () => {
       .from('assessments')
       .insert({
         title: `PB assessment ${ts}`,
+        slug: testSlug('library-read'),
         status: 'active',
         item_selection_strategy: 'fixed',
         creation_mode: 'ai_generated',
@@ -127,15 +128,51 @@ describe.skipIf(!canRun)('public Role Builder backend', () => {
       tier: 'core',
     })
 
+    // markPublicBuildCreated's assessment/campaign/participant columns carry
+    // real FKs (ON DELETE SET NULL) — mirror the real action's shape rather
+    // than fake ids.
+    const { data: assessment, error: assessmentErr } = await admin
+      .from('assessments')
+      .insert({
+        title: `PB live-build assessment ${ts}`,
+        slug: testSlug('live-build-assessment'),
+        status: 'active',
+        item_selection_strategy: 'fixed',
+        creation_mode: 'ai_generated',
+        format_mode: 'traditional',
+        client_id: PUBLIC_BUILDS_CLIENT_ID,
+      })
+      .select('id')
+      .single()
+    if (assessmentErr) throw new Error(`assessment insert failed: ${assessmentErr.message}`)
+
+    const { data: campaign, error: campaignErr } = await admin
+      .from('campaigns')
+      .insert({
+        title: `PB live-build campaign ${ts}`,
+        slug: testSlug('live-build-campaign'),
+        client_id: PUBLIC_BUILDS_CLIENT_ID,
+      })
+      .select('id')
+      .single()
+    if (campaignErr) throw new Error(`campaign insert failed: ${campaignErr.message}`)
+
+    const { data: participant, error: participantErr } = await admin
+      .from('campaign_participants')
+      .insert({ campaign_id: campaign!.id, email, first_name: 'PB', last_name: 'Live' })
+      .select('id')
+      .single()
+    if (participantErr) throw new Error(`participant insert failed: ${participantErr.message}`)
+
     try {
       // Merely "ranked" (not yet created) — not live.
       expect(await hasLiveBuildForEmail(admin, email)).toBe(false)
 
       await markPublicBuildCreated(admin, buildId, {
         picks: ['f1', 'f2', 'f3', 'f4'],
-        assessmentId: '00000000-0000-0000-0000-000000000000',
-        campaignId: '00000000-0000-0000-0000-000000000000',
-        participantId: '00000000-0000-0000-0000-000000000000',
+        assessmentId: assessment!.id,
+        campaignId: campaign!.id,
+        participantId: participant!.id,
       })
 
       expect(await hasLiveBuildForEmail(admin, email)).toBe(true)
@@ -145,6 +182,9 @@ describe.skipIf(!canRun)('public Role Builder backend', () => {
       expect(await hasLiveBuildForEmail(admin, email, buildId)).toBe(false)
     } finally {
       await admin.from('public_builds').delete().eq('id', buildId)
+      await admin.from('campaign_participants').delete().eq('id', participant!.id)
+      await admin.from('campaigns').delete().eq('id', campaign!.id)
+      await admin.from('assessments').delete().eq('id', assessment!.id)
     }
   })
 
@@ -184,6 +224,12 @@ describe.skipIf(!canRun)('public Role Builder backend', () => {
   })
 
   it('signs and verifies the tf_public_build cookie, rejecting tampering', () => {
+    // Pure signing logic — no DB — but still needs the HMAC pepper CI never
+    // sets for this job. Mirrors the tests/unit/public-builds-codes.test.ts
+    // pattern rather than relying on a real secret being present.
+    const original = process.env.TRAJECTAS_CONTEXT_SECRET
+    process.env.TRAJECTAS_CONTEXT_SECRET = 'test-pepper-secret'
+
     const cookie = encodePublicBuildCookie('cookie-test@test.local')
     const decoded = decodePublicBuildCookie(cookie)
     expect(decoded?.email).toBe('cookie-test@test.local')
@@ -194,6 +240,8 @@ describe.skipIf(!canRun)('public Role Builder backend', () => {
 
     expect(decodePublicBuildCookie(undefined)).toBeNull()
     expect(decodePublicBuildCookie('not-a-cookie')).toBeNull()
+
+    process.env.TRAJECTAS_CONTEXT_SECRET = original
   })
 
   it('RLS: platform admin can SELECT public_builds; an ordinary client admin cannot', async () => {
