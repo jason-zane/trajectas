@@ -8,6 +8,7 @@ import {
   inferSurfaceFromRequest,
   isLocalDevelopmentHost,
 } from "@/lib/hosts";
+import { MARKETING_PATHS } from "@/lib/seo/marketing-routes";
 import { checkRequestRateLimit } from "@/lib/security/rate-limit";
 import {
   hasCredentialedApiAuth,
@@ -28,7 +29,7 @@ import {
 const mutationMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 const publicHostedExactPaths = new Set([
-  "/",
+  ...MARKETING_PATHS,
   "/login",
   "/logout",
   "/unauthorized",
