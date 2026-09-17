@@ -8,6 +8,7 @@ import {
   AuthorizationError,
   canManageAssessment,
   canManageAssessmentLibrary,
+  canManageClient,
   getAccessibleCampaignIds,
   getAccessiblePartnerIds,
   getPreferredPartnerIdForAssessmentCreation,
@@ -31,7 +32,7 @@ import {
   persistSections,
 } from '@/lib/dal/assessment-sections'
 import { seedAssessmentPreview } from '@/lib/sample-data/seed-preview'
-import { PUBLIC_BUILDS_CLIENT_ID } from '@/lib/public-builds/constants'
+import { EXCLUDE_PUBLIC_BUILDS_CLIENT_FILTER } from '@/lib/public-builds/constants'
 import type { Assessment, ItemOrdering, ScoringProfile } from '@/types/database'
 import type { ForcedChoiceBlockDraft } from '@/lib/forced-choice-generator'
 
@@ -248,11 +249,7 @@ export async function getAssessments(): Promise<AssessmentWithMeta[]> {
     .from('assessments')
     .select('*, assessment_factors(count)')
     .is('deleted_at', null)
-    // The public Role Builder's system client has its own admin screen
-    // (/public-builds); hide it from the ordinary assessments list. `.neq`
-    // alone would also hide every NULL-client_id assessment, since SQL's
-    // `<>` on NULL is NULL, not true — so this is an explicit OR.
-    .or(`client_id.is.null,client_id.neq.${PUBLIC_BUILDS_CLIENT_ID}`)
+    .or(EXCLUDE_PUBLIC_BUILDS_CLIENT_FILTER)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -887,6 +884,13 @@ export async function createAssessment(
   const parsed = assessmentSchema.safeParse(payload)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
+  }
+
+  // A system scope is confined to the clients it manages, exactly as
+  // createCampaign confines every caller — the constant scope must not be
+  // able to write an assessment under some other client.
+  if (opts.systemScope && (!parsed.data.clientId || !canManageClient(scope, parsed.data.clientId))) {
+    return { error: { clientId: ['You do not have permission to manage this client'] } }
   }
 
   const db = createAdminClient()

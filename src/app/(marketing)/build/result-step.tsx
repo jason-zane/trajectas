@@ -8,9 +8,9 @@ import {
   PUBLIC_BUILDS_TIERS,
   PUBLIC_BUILDS_ITEMS_PER_FACTOR,
   type PublicBuildTier,
+  estimatePublicBuildMinutes,
 } from "@/lib/public-builds/shared";
-import { estimateAssessmentDurationMinutes } from "@/lib/assessments/duration";
-import { WallHeader } from "./wall-header";
+import { WallPage } from "./wall-page";
 
 function nearestTier(optimal: number): PublicBuildTier {
   let best: PublicBuildTier = "core";
@@ -66,7 +66,7 @@ export function ResultStep({
   );
   const recommendedTier = nearestTier(ranking.recommendedCount.optimal);
   const totalItems = selected.length * PUBLIC_BUILDS_ITEMS_PER_FACTOR;
-  const minutes = estimateAssessmentDurationMinutes(totalItems);
+  const minutes = estimatePublicBuildMinutes(selected.length);
   const openFactor = openFactorId ? byId.get(openFactorId) : null;
 
   function pinAlternative(factorId: string) {
@@ -80,9 +80,7 @@ export function ResultStep({
   }
 
   return (
-    <div className="wall" style={{ minHeight: "100vh" }}>
-      <WallHeader email={email} />
-      <div className="mx-auto max-w-[1280px] px-6 pb-24 pt-4 sm:px-12">
+    <WallPage email={email} width="wide">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-4">
           <h1 className="display" style={{ fontSize: "clamp(2rem, 4.5vw, 2.75rem)" }}>
             {selected.length} capabilit{selected.length === 1 ? "y" : "ies"} this role turns on.
@@ -132,7 +130,7 @@ export function ResultStep({
                       {meta.label}
                     </span>
                     <span className="measure">
-                      {meta.capabilities} &middot; ~{estimateAssessmentDurationMinutes(meta.capabilities * PUBLIC_BUILDS_ITEMS_PER_FACTOR)} min
+                      {meta.capabilities} &middot; ~{estimatePublicBuildMinutes(meta.capabilities)} min
                     </span>
                     {isRecommended && (
                       <span className="stamp" style={{ right: -14, top: -18 }}>
@@ -210,7 +208,7 @@ export function ResultStep({
                         disabled={selected.length >= 8}
                         onClick={() => pinAlternative(alt.factorId)}
                       >
-                        Pin &middot; +{estimateAssessmentDurationMinutes(PUBLIC_BUILDS_ITEMS_PER_FACTOR)} min
+                        Pin &middot; +{estimatePublicBuildMinutes(1)} min
                       </button>
                     </div>
                   ))}
@@ -287,7 +285,6 @@ export function ResultStep({
             {creating ? "Creating…" : "Create my assessment"}
           </button>
         </div>
-      </div>
-    </div>
+    </WallPage>
   );
 }

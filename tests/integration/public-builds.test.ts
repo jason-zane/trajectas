@@ -22,6 +22,7 @@ import {
   insertPublicBuild,
   findCachedRankedBuild,
   hasLiveBuildForEmail,
+  claimPublicBuildForCreation,
   markPublicBuildCreated,
 } from '@/lib/dal/public-builds'
 import { hashPdText } from '@/lib/public-builds/codes'
@@ -166,6 +167,11 @@ describe.skipIf(!canRun)('public Role Builder backend', () => {
 
     try {
       // Merely "ranked" (not yet created) — not live.
+      expect(await hasLiveBuildForEmail(admin, email)).toBe(false)
+
+      // The claim is exclusive: a double-submit loses it.
+      expect(await claimPublicBuildForCreation(admin, buildId)).toBe(true)
+      expect(await claimPublicBuildForCreation(admin, buildId)).toBe(false)
       expect(await hasLiveBuildForEmail(admin, email)).toBe(false)
 
       await markPublicBuildCreated(admin, buildId, {

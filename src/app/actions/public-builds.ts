@@ -32,6 +32,7 @@ import {
   verifyPublicBuildCode,
   hashIp,
   hashPdText,
+  secretsEqual,
 } from '@/lib/public-builds/codes'
 import {
   encodePublicBuildCookie,
@@ -52,6 +53,7 @@ import {
   getPublicBuildsDailyCap,
   type PublicBuildTier,
 } from '@/lib/public-builds/constants'
+import { startOfUtcDayIso } from '@/lib/public-builds/shared'
 import { validatePicks } from '@/lib/public-builds/validation'
 import {
   insertPublicBuildCode,
@@ -62,6 +64,7 @@ import {
   getPublicBuildById,
   findCachedRankedBuild,
   updatePublicBuildRanking,
+  claimPublicBuildForCreation,
   markPublicBuildCreated,
   markPublicBuildFailed,
   countPublicBuildsSince,
@@ -106,11 +109,6 @@ async function loadOwnedBuild(buildId: string, email: string): Promise<OwnedBuil
   return { ok: true, build }
 }
 
-function startOfUtcDayIso(): string {
-  const now = new Date()
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString()
-}
-
 const emailSchema = z.string().trim().toLowerCase().email().max(320)
 
 type ActionResult<T> = T | { error: string }
@@ -130,7 +128,7 @@ export async function requestCode(input: {
 
   if (mode === 'closed') {
     const expected = process.env.PUBLIC_BUILDS_INVITE_CODE
-    if (!expected || input.inviteCode !== expected) {
+    if (!expected || !secretsEqual(input.inviteCode ?? '', expected)) {
       return { error: 'Invalid invite code.' }
     }
   }
@@ -436,7 +434,7 @@ export async function summariseBuild(input: {
 export async function createBuild(
   buildId: string,
   picks: string[],
-): Promise<ActionResult<{ token: string }>> {
+): Promise<ActionResult<{ token: string; emailSent: boolean }>> {
   if (getPublicBuildsMode() === 'off') {
     return { error: 'The Role Builder is not available right now.' }
   }
@@ -467,6 +465,13 @@ export async function createBuild(
   // "ranked", not yet live).
   if (await hasLiveBuildForEmail(db, email, buildId)) {
     return { error: 'You already have a build in progress.' }
+  }
+
+  // Claim the build (ranked → creating) atomically before creating anything
+  // real: a double-click or second tab loses the claim instead of creating a
+  // second assessment, campaign and participant.
+  if (!(await claimPublicBuildForCreation(db, buildId))) {
+    return { error: 'This build has already been created.' }
   }
 
   try {
@@ -559,7 +564,9 @@ export async function createBuild(
       logActionError('publicBuilds.createBuild.invite', new Error(inviteResult.error ?? 'unknown'))
     }
 
-    return { token: participant.access_token as string }
+    // The build exists either way. Say whether the link actually went out so
+    // the screen can show it instead of claiming "Sent".
+    return { token: participant.access_token as string, emailSent: inviteResult.success }
   } catch (error) {
     logActionError('publicBuilds.createBuild', error)
     await markPublicBuildFailed(db, buildId, error instanceof Error ? error.message : 'create_failed')

@@ -1,23 +1,26 @@
 import { PUBLIC_BUILDS_ITEMS_PER_FACTOR } from "@/lib/public-builds/shared";
-import { WallHeader } from "./wall-header";
+import { WallPage } from "./wall-page";
 
 export function SentStep({
   email,
   roleTitle,
   capabilityCount,
+  token,
+  emailSent,
   onBuildAnother,
 }: {
   email: string;
   roleTitle: string;
   capabilityCount: number;
+  token: string;
+  emailSent: boolean;
   onBuildAnother: () => void;
 }) {
   const itemCount = capabilityCount * PUBLIC_BUILDS_ITEMS_PER_FACTOR;
+  const assessPath = `/assess/${token}`;
 
   return (
-    <div className="wall" style={{ minHeight: "100vh" }}>
-      <WallHeader email={email} />
-      <div className="mx-auto max-w-[1120px] px-6 pb-24 pt-6 sm:px-12">
+    <WallPage email={email}>
         <div className="grid gap-8 lg:grid-cols-[264px_1fr_264px]">
           <section>
             <div className="card relative flex flex-col gap-2 p-5">
@@ -45,12 +48,25 @@ export function SentStep({
                 className="title"
                 style={{ fontFamily: "var(--display)", fontWeight: 400, fontSize: 30, lineHeight: 1.1 }}
               >
-                Sent to {email}.
+                {emailSent ? `Sent to ${email}.` : "Your link is ready."}
               </h1>
-              <p className="body">
-                Open the email and follow the link. When you finish, your report comes back to the
-                same address as a PDF, with a link to the page.
-              </p>
+              {emailSent ? (
+                <p className="body">
+                  Open the email and follow the link. When you finish, your report comes back to the
+                  same address as a PDF, with a link to the page.
+                </p>
+              ) : (
+                <>
+                  <p className="body">
+                    We couldn&rsquo;t deliver the email to {email}. Open the link below instead. When
+                    you finish, your report is sent to the same address as a PDF, with a link to the
+                    page.
+                  </p>
+                  <a className="btn btn-primary self-start" href={assessPath}>
+                    Open the assessment
+                  </a>
+                </>
+              )}
               <div className="rule" />
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <span className="measure">Link lasts 7 days &middot; one taker &middot; free</span>
@@ -79,10 +95,11 @@ export function SentStep({
           </section>
         </div>
 
-        <p className="label label-paper mt-12" style={{ opacity: 0.7 }}>
-          Didn&rsquo;t get it? Check spam.
-        </p>
-      </div>
-    </div>
+        {emailSent && (
+          <p className="label label-paper mt-12" style={{ opacity: 0.7 }}>
+            Didn&rsquo;t get it? Check spam.
+          </p>
+        )}
+    </WallPage>
   );
 }

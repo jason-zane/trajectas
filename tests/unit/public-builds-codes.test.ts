@@ -24,6 +24,14 @@ describe('public-builds codes', () => {
     expect(verifyPublicBuildCode('038292', hash1)).toBe(false)
   })
 
+  it('compares secrets in constant time, including on length mismatch', async () => {
+    const { secretsEqual } = await import('@/lib/public-builds/codes')
+    expect(secretsEqual('abc123', 'abc123')).toBe(true)
+    expect(secretsEqual('abc123', 'abc124')).toBe(false)
+    expect(secretsEqual('abc123', 'abc12')).toBe(false)
+    expect(secretsEqual('', '')).toBe(true)
+  })
+
   it('produces different hashes for different codes', async () => {
     const { hashPublicBuildCode } = await import('@/lib/public-builds/codes')
     expect(hashPublicBuildCode('000000')).not.toBe(hashPublicBuildCode('111111'))

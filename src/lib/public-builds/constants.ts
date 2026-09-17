@@ -19,6 +19,14 @@ export {
 export const PUBLIC_BUILDS_CLIENT_ID = "00000000-0000-4000-8000-0000c0de6001";
 
 /**
+ * Pass to `.or()` on any ordinary admin list of assessments or campaigns to
+ * hide the public-builds client's rows (they have their own screen at
+ * /public-builds). `.neq` alone would also hide every NULL-client_id row,
+ * since SQL's `<>` on NULL is NULL, not true — hence the explicit OR.
+ */
+export const EXCLUDE_PUBLIC_BUILDS_CLIENT_FILTER = `client_id.is.null,client_id.neq.${PUBLIC_BUILDS_CLIENT_ID}`;
+
+/**
  * A fixed, non-request-derived AuthorizedScope representing "an admin of the
  * public-builds client". Passed as `opts.systemScope` to createAssessment,
  * createCampaign, and sendParticipantInviteEmail so the public Role Builder's

@@ -153,7 +153,7 @@ One row per run, from the first AI call to the report email.
 | `tier` | `essentials \| core \| full` |
 | `picks` | jsonb, final factor ids after the user's adjustments |
 | `usage` | jsonb `{ inputTokens, outputTokens, reasoningTokens }` per stage |
-| `status` | `ranked \| created \| started \| completed \| report_sent \| failed` |
+| `status` | `ranked \| creating \| created \| started \| completed \| report_sent \| failed` — `creating` is the atomic claim `createBuild` takes before writing anything real |
 | `assessment_id`, `campaign_id`, `participant_id` | set at create |
 | `error` | text |
 | `created_at`, `created_assessment_at`, `started_at`, `completed_at`, `report_sent_at` | |

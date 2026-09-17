@@ -6,16 +6,13 @@ import {
   PUBLIC_BUILDS_TIER_ORDER,
   PUBLIC_BUILDS_TIERS,
   PUBLIC_BUILDS_MAX_PD_CHARS,
-  PUBLIC_BUILDS_ITEMS_PER_FACTOR,
   type PublicBuildTier,
+  estimatePublicBuildMinutes,
 } from "@/lib/public-builds/shared";
-import { estimateAssessmentDurationMinutes } from "@/lib/assessments/duration";
-import { WallHeader } from "./wall-header";
+import { WallPage } from "./wall-page";
 
 function tierMinutes(tier: PublicBuildTier) {
-  return estimateAssessmentDurationMinutes(
-    PUBLIC_BUILDS_TIERS[tier].capabilities * PUBLIC_BUILDS_ITEMS_PER_FACTOR,
-  );
+  return estimatePublicBuildMinutes(PUBLIC_BUILDS_TIERS[tier].capabilities);
 }
 
 export function BriefStep({
@@ -55,9 +52,7 @@ export function BriefStep({
   }
 
   return (
-    <div className="wall" style={{ minHeight: "100vh" }}>
-      <WallHeader email={email} />
-      <div className="mx-auto max-w-[1120px] px-6 pb-24 pt-4 sm:px-12">
+    <WallPage email={email}>
         <h1 className="display mb-10" style={{ fontSize: "clamp(2.25rem, 5vw, 2.75rem)" }}>
           Pin up the role.
         </h1>
@@ -199,7 +194,6 @@ export function BriefStep({
         <p className="label label-paper mt-10" style={{ opacity: 0.7 }}>
           Free &middot; one taker &middot; your report by email
         </p>
-      </div>
-    </div>
+    </WallPage>
   );
 }

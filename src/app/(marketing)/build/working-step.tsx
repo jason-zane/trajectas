@@ -1,6 +1,6 @@
 import type { Brief } from "@/types/ai";
 import type { ArchitectPick } from "@/types/architect";
-import { WallHeader } from "./wall-header";
+import { WallPage } from "./wall-page";
 
 export type WorkingStage = "reading" | "weighing" | "pinning";
 
@@ -22,9 +22,7 @@ export function WorkingStep({
   const faceDown = Math.max(target - revealed.length, 0);
 
   return (
-    <div className="wall" style={{ minHeight: "100vh" }}>
-      <WallHeader email={email} />
-      <div className="mx-auto max-w-[1120px] px-6 pb-24 pt-4 sm:px-12">
+    <WallPage email={email}>
         <h1 className="display mb-10" style={{ fontSize: "clamp(2.25rem, 5vw, 2.75rem)" }}>
           Reading the role.
         </h1>
@@ -118,7 +116,6 @@ export function WorkingStep({
         <p className="label label-paper mt-10" style={{ opacity: 0.7 }}>
           About 20 seconds &middot; nothing is created yet
         </p>
-      </div>
-    </div>
+    </WallPage>
   );
 }

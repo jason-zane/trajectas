@@ -83,14 +83,16 @@ CREATE TABLE IF NOT EXISTS public_builds (
     CONSTRAINT public_builds_email_not_empty CHECK (char_length(trim(email)) > 0),
     CONSTRAINT public_builds_tier_valid CHECK (tier IS NULL OR tier IN ('essentials', 'core', 'full')),
     CONSTRAINT public_builds_status_valid CHECK (
-        status IN ('ranked', 'created', 'started', 'completed', 'report_sent', 'failed')
+        status IN ('ranked', 'creating', 'created', 'started', 'completed', 'report_sent', 'failed')
     )
 );
 
 COMMENT ON TABLE public_builds IS
     'One row per public Role Builder run, from the first AI call through the report email. Owns the created assessment/campaign/participant via PUBLIC_BUILDS_CLIENT_ID. See docs/superpowers/specs/2026-09-17-public-role-builder-design.md.';
 
-CREATE INDEX IF NOT EXISTS idx_public_builds_email ON public_builds (email);
+-- (email, status) serves hasLiveBuildForEmail on every AI call; the leading
+-- column still serves the plain per-email lookups.
+CREATE INDEX IF NOT EXISTS idx_public_builds_email_status ON public_builds (email, status);
 CREATE INDEX IF NOT EXISTS idx_public_builds_ip_hash ON public_builds (ip_hash);
 CREATE INDEX IF NOT EXISTS idx_public_builds_created_at ON public_builds (created_at);
 CREATE INDEX IF NOT EXISTS idx_public_builds_pd_hash ON public_builds (pd_hash);

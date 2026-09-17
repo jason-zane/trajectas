@@ -1013,7 +1013,7 @@ export async function toggleCampaignSetting(id: string, field: string, value: bo
  * for a client attaching an assessment from a shared library it was
  * *assigned*, which doesn't apply when the assessment is itself owned by
  * (created directly under) the same client, as every public Role Builder
- * assessment is.
+ * assessment is — verified below, not assumed.
  */
 export async function addAssessmentToCampaign(
   campaignId: string,
@@ -1028,6 +1028,22 @@ export async function addAssessmentToCampaign(
       return { error: error.message }
     }
     throw error
+  }
+
+  if (opts.systemScope) {
+    const { data: owned, error: ownedError } = await createAdminClient()
+      .from('assessments')
+      .select('client_id')
+      .eq('id', assessmentId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (ownedError) {
+      logActionError('addAssessmentToCampaign', ownedError)
+      return { error: 'Unable to verify assessment availability.' }
+    }
+    if (!owned || !access.clientId || owned.client_id !== access.clientId) {
+      return { error: 'This assessment is not available for your client' }
+    }
   }
 
   if (!opts.systemScope && !access.scope.isPlatformAdmin && access.clientId) {

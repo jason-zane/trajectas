@@ -37,6 +37,7 @@ export function RoleBuilder() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [sentToken, setSentToken] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(true);
 
   async function handleBriefSubmit(input: { roleTitle: string; pdText: string; tier: PublicBuildTier }) {
     setBriefError(null);
@@ -119,6 +120,7 @@ export function RoleBuilder() {
       return;
     }
     setSentToken(result.token);
+    setEmailSent(result.emailSent);
     setStep("sent");
   }
 
@@ -130,6 +132,7 @@ export function RoleBuilder() {
     setSummary(null);
     setSelectedIds([]);
     setSentToken(null);
+    setEmailSent(true);
     setCreateError(null);
     setBriefError(null);
     setStep("brief");
@@ -175,6 +178,8 @@ export function RoleBuilder() {
         email={email}
         roleTitle={brief?.roleTitle || "Your role"}
         capabilityCount={selectedIds.length}
+        token={sentToken}
+        emailSent={emailSent}
         onBuildAnother={handleBuildAnother}
       />
     );

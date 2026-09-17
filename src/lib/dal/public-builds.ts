@@ -4,12 +4,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Brief } from "@/types/ai";
 import type { ArchitectMatchResult } from "@/types/architect";
 import type { PublicBuildTier } from "@/lib/public-builds/constants";
+import { sumPublicBuildTokens } from "@/lib/public-builds/shared";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DB = SupabaseClient<any>;
 
 export type PublicBuildStatus =
   | "ranked"
+  | "creating"
   | "created"
   | "started"
   | "completed"
@@ -75,7 +77,12 @@ function mapPublicBuildRow(row: Record<string, any>): PublicBuildDTO {
 
 export async function insertPublicBuildCode(
   db: DB,
-  input: { email: string; codeHash: string; expiresAt: string; ipHash: string | null },
+  input: {
+    email: string;
+    codeHash: string;
+    expiresAt: string;
+    ipHash: string | null;
+  },
 ): Promise<{ id: string }> {
   const { data, error } = await db
     .from("public_build_codes")
@@ -145,7 +152,11 @@ export async function reserveNextPublicBuildCodeAttempt(
   maxAttempts: number,
 ): Promise<number | null> {
   for (;;) {
-    const { data } = await db.from("public_build_codes").select("attempts").eq("id", id).single();
+    const { data } = await db
+      .from("public_build_codes")
+      .select("attempts")
+      .eq("id", id)
+      .single();
     const current = data?.attempts ?? 0;
     if (current >= maxAttempts) return null;
     const { data: updated } = await db
@@ -160,7 +171,10 @@ export async function reserveNextPublicBuildCodeAttempt(
   }
 }
 
-export async function consumePublicBuildCode(db: DB, id: string): Promise<void> {
+export async function consumePublicBuildCode(
+  db: DB,
+  id: string,
+): Promise<void> {
   const { error } = await db
     .from("public_build_codes")
     .update({ consumed_at: new Date().toISOString() })
@@ -178,7 +192,8 @@ export async function countRecentCodeRequestsByEmail(
     .select("id", { count: "exact", head: true })
     .eq("email", email)
     .gte("created_at", sinceISO);
-  if (error) throw new Error(`countRecentCodeRequestsByEmail: ${error.message}`);
+  if (error)
+    throw new Error(`countRecentCodeRequestsByEmail: ${error.message}`);
   return count ?? 0;
 }
 
@@ -220,8 +235,15 @@ export async function insertPublicBuild(
   return { id: data.id as string };
 }
 
-export async function getPublicBuildById(db: DB, id: string): Promise<PublicBuildDTO | null> {
-  const { data, error } = await db.from("public_builds").select("*").eq("id", id).maybeSingle();
+export async function getPublicBuildById(
+  db: DB,
+  id: string,
+): Promise<PublicBuildDTO | null> {
+  const { data, error } = await db
+    .from("public_builds")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
   if (error) throw new Error(`getPublicBuildById: ${error.message}`);
   return data ? mapPublicBuildRow(data) : null;
 }
@@ -261,7 +283,10 @@ export async function findCachedRankedBuild(
 export async function updatePublicBuildRanking(
   db: DB,
   id: string,
-  input: { ranking: ArchitectMatchResult; usage: Record<string, PublicBuildUsage> },
+  input: {
+    ranking: ArchitectMatchResult;
+    usage: Record<string, PublicBuildUsage>;
+  },
 ): Promise<void> {
   const { error } = await db
     .from("public_builds")
@@ -270,12 +295,36 @@ export async function updatePublicBuildRanking(
   if (error) throw new Error(`updatePublicBuildRanking: ${error.message}`);
 }
 
+/**
+ * Atomic ranked → creating transition. False when the build was not in
+ * "ranked" (already claimed, created, or failed) — that is how createBuild
+ * refuses a double-submit without a read-then-write window.
+ */
+export async function claimPublicBuildForCreation(
+  db: DB,
+  id: string,
+): Promise<boolean> {
+  const { data, error } = await db
+    .from("public_builds")
+    .update({ status: "creating" })
+    .eq("id", id)
+    .eq("status", "ranked")
+    .select("id");
+  if (error) throw new Error(`claimPublicBuildForCreation: ${error.message}`);
+  return (data ?? []).length === 1;
+}
+
 export async function markPublicBuildCreated(
   db: DB,
   id: string,
-  input: { picks: string[]; assessmentId: string; campaignId: string; participantId: string },
+  input: {
+    picks: string[];
+    assessmentId: string;
+    campaignId: string;
+    participantId: string;
+  },
 ): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from("public_builds")
     .update({
       picks: input.picks,
@@ -285,15 +334,32 @@ export async function markPublicBuildCreated(
       status: "created",
       created_assessment_at: new Date().toISOString(),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("status", "creating")
+    .select("id");
   if (error) throw new Error(`markPublicBuildCreated: ${error.message}`);
+  if ((data ?? []).length !== 1) {
+    throw new Error(
+      "markPublicBuildCreated: build was not claimed (status is not 'creating')",
+    );
+  }
 }
 
-export async function markPublicBuildFailed(db: DB, id: string, error: string): Promise<void> {
-  await db.from("public_builds").update({ status: "failed", error }).eq("id", id);
+export async function markPublicBuildFailed(
+  db: DB,
+  id: string,
+  error: string,
+): Promise<void> {
+  await db
+    .from("public_builds")
+    .update({ status: "failed", error })
+    .eq("id", id);
 }
 
-export async function markPublicBuildStarted(db: DB, participantId: string): Promise<void> {
+export async function markPublicBuildStarted(
+  db: DB,
+  participantId: string,
+): Promise<void> {
   await db
     .from("public_builds")
     .update({ status: "started", started_at: new Date().toISOString() })
@@ -301,7 +367,10 @@ export async function markPublicBuildStarted(db: DB, participantId: string): Pro
     .eq("status", "created");
 }
 
-export async function markPublicBuildCompleted(db: DB, participantId: string): Promise<void> {
+export async function markPublicBuildCompleted(
+  db: DB,
+  participantId: string,
+): Promise<void> {
   await db
     .from("public_builds")
     .update({ status: "completed", completed_at: new Date().toISOString() })
@@ -309,16 +378,67 @@ export async function markPublicBuildCompleted(db: DB, participantId: string): P
     .in("status", ["created", "started"]);
 }
 
-export async function markPublicBuildReportSent(db: DB, participantId: string): Promise<void> {
-  await db
+/**
+ * Atomically claims the one report email for this participant's build: stamps
+ * report_sent_at and returns the build, or null when it was already stamped
+ * (another PDF generation got there first) or the build never reached a
+ * state that has a report. Send only on a non-null return, and call
+ * releasePublicBuildReportSend if the send then fails.
+ */
+export async function claimPublicBuildReportSend(
+  db: DB,
+  participantId: string,
+): Promise<PublicBuildDTO | null> {
+  const { data, error } = await db
     .from("public_builds")
     .update({ status: "report_sent", report_sent_at: new Date().toISOString() })
     .eq("participant_id", participantId)
-    .is("report_sent_at", null);
+    .is("report_sent_at", null)
+    .in("status", ["created", "started", "completed"])
+    .select("*")
+    .maybeSingle();
+  if (error) throw new Error(`claimPublicBuildReportSend: ${error.message}`);
+  return data ? mapPublicBuildRow(data) : null;
+}
+
+/** Undo a claim whose email failed to send, so the next PDF generation retries it. */
+export async function releasePublicBuildReportSend(
+  db: DB,
+  participantId: string,
+): Promise<void> {
+  const { error } = await db
+    .from("public_builds")
+    .update({ status: "completed", report_sent_at: null })
+    .eq("participant_id", participantId)
+    .eq("status", "report_sent");
+  if (error) throw new Error(`releasePublicBuildReportSend: ${error.message}`);
+}
+
+/** The admin meter for one UTC day: builds and tokens since `sinceISO`, without loading whole rows. */
+export async function getPublicBuildsMeterSince(
+  db: DB,
+  sinceISO: string,
+): Promise<{ builds: number; tokens: number }> {
+  const { data, error } = await db
+    .from("public_builds")
+    .select("usage")
+    .gte("created_at", sinceISO);
+  if (error) throw new Error(`getPublicBuildsMeterSince: ${error.message}`);
+  const rows = data ?? [];
+  return {
+    builds: rows.length,
+    tokens: rows.reduce(
+      (sum, row) => sum + sumPublicBuildTokens(row.usage ?? null),
+      0,
+    ),
+  };
 }
 
 /** Builds counted for the per-UTC-day global cap. */
-export async function countPublicBuildsSince(db: DB, sinceISO: string): Promise<number> {
+export async function countPublicBuildsSince(
+  db: DB,
+  sinceISO: string,
+): Promise<number> {
   const { count, error } = await db
     .from("public_builds")
     .select("id", { count: "exact", head: true })
@@ -370,15 +490,22 @@ export interface ListPublicBuildsOptions {
   offset?: number;
 }
 
+/** Everything the admin list renders; the PD text, brief and ranking JSON stay on the detail read. */
+const LIST_COLUMNS =
+  "id, email, role_title, pd_hash, tier, picks, usage, status, assessment_id, campaign_id, participant_id, error, created_at, created_assessment_at, started_at, completed_at, report_sent_at";
+
 export async function listPublicBuilds(
   db: DB,
   options: ListPublicBuildsOptions = {},
 ): Promise<PublicBuildDTO[]> {
   const { data, error } = await db
     .from("public_builds")
-    .select("*")
+    .select(LIST_COLUMNS)
     .order("created_at", { ascending: false })
-    .range(options.offset ?? 0, (options.offset ?? 0) + (options.limit ?? 50) - 1);
+    .range(
+      options.offset ?? 0,
+      (options.offset ?? 0) + (options.limit ?? 50) - 1,
+    );
   if (error) throw new Error(`listPublicBuilds: ${error.message}`);
   return (data ?? []).map(mapPublicBuildRow);
 }

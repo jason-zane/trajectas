@@ -6,12 +6,14 @@ import { DataTable, DataTableColumnHeader } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
 import type { PublicBuildDTO } from "@/lib/dal/public-builds";
+import { sumPublicBuildTokens } from "@/lib/public-builds/shared";
 
 const STATUS_CONFIG: Record<
   PublicBuildDTO["status"],
   { label: string; icon: typeof Wand2; variant: "default" | "secondary" | "outline" | "destructive" }
 > = {
   ranked: { label: "Ranked", icon: Wand2, variant: "secondary" },
+  creating: { label: "Creating", icon: Wand2, variant: "secondary" },
   created: { label: "Created", icon: Mail, variant: "default" },
   started: { label: "Started", icon: PlayCircle, variant: "default" },
   completed: { label: "Completed", icon: CheckCircle2, variant: "outline" },
@@ -38,14 +40,6 @@ function formatRelativeDate(value: string | null) {
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays < 7) return `${diffDays}d ago`;
   return date.toLocaleDateString("en-AU", { month: "short", day: "numeric", year: "numeric" });
-}
-
-function sumTokens(usage: PublicBuildDTO["usage"]): number {
-  if (!usage) return 0;
-  return Object.values(usage).reduce(
-    (sum, stage) => sum + (stage?.inputTokens ?? 0) + (stage?.outputTokens ?? 0),
-    0,
-  );
 }
 
 const columns: ColumnDef<PublicBuildDTO>[] = [
@@ -87,7 +81,7 @@ const columns: ColumnDef<PublicBuildDTO>[] = [
     header: ({ column }) => <DataTableColumnHeader column={column} title="Tokens" />,
     cell: ({ row }) => (
       <span className="tabular-nums text-sm text-muted-foreground">
-        {sumTokens(row.original.usage).toLocaleString("en-AU")}
+        {sumPublicBuildTokens(row.original.usage).toLocaleString("en-AU")}
       </span>
     ),
   },

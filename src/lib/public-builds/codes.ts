@@ -3,7 +3,7 @@
  * pd_hash cache key. No "server-only" import — these are exercised directly
  * by unit tests and have no DB/env dependency beyond the pepper.
  */
-import { createHash, randomInt } from "crypto";
+import { createHash, randomInt, timingSafeEqual } from "crypto";
 
 function getPepper(): string {
   const pepper = process.env.TRAJECTAS_CONTEXT_SECRET;
@@ -24,8 +24,19 @@ export function hashPublicBuildCode(code: string): string {
   return createHash("sha256").update(`${code}:${getPepper()}`).digest("hex");
 }
 
+/**
+ * Constant-time equality for secrets (code hashes, the invite code). A
+ * length mismatch short-circuits: every real value here has a fixed,
+ * public length, so that reveals nothing.
+ */
+export function secretsEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
 export function verifyPublicBuildCode(code: string, hash: string): boolean {
-  return hashPublicBuildCode(code) === hash;
+  return secretsEqual(hashPublicBuildCode(code), hash);
 }
 
 export function hashIp(ip: string): string {

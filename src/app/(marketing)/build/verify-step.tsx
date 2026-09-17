@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { requestCode, verifyCode } from "@/app/actions/public-builds";
-import { WallHeader } from "./wall-header";
+import { WallPage } from "./wall-page";
 
 export function VerifyStep({ onVerified }: { onVerified: (email: string) => void }) {
   const [stage, setStage] = useState<"email" | "code">("email");
@@ -39,9 +39,7 @@ export function VerifyStep({ onVerified }: { onVerified: (email: string) => void
   }
 
   return (
-    <div className="wall" style={{ minHeight: "100vh" }}>
-      <WallHeader />
-      <div className="mx-auto max-w-[560px] px-6 pb-24 pt-16 sm:pt-24">
+    <WallPage width="narrow">
         <h1 className="display mb-8" style={{ fontSize: "clamp(2.5rem, 6vw, 3.25rem)" }}>
           Build a role-specific assessment.
         </h1>
@@ -133,7 +131,6 @@ export function VerifyStep({ onVerified }: { onVerified: (email: string) => void
         <p className="label label-paper mt-10" style={{ opacity: 0.7 }}>
           Free &middot; one taker &middot; your report by email
         </p>
-      </div>
-    </div>
+    </WallPage>
   );
 }

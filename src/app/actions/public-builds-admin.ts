@@ -8,21 +8,14 @@
 
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { listPublicBuilds, getPublicBuildById, type PublicBuildDTO } from '@/lib/dal/public-builds'
+import {
+  listPublicBuilds,
+  getPublicBuildById,
+  getPublicBuildsMeterSince,
+  type PublicBuildDTO,
+} from '@/lib/dal/public-builds'
 import { getPublicBuildsMode, getPublicBuildsDailyCap } from '@/lib/public-builds/constants'
-
-function startOfUtcDayIso(): string {
-  const now = new Date()
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString()
-}
-
-function sumTokens(usage: PublicBuildDTO['usage']): number {
-  if (!usage) return 0
-  return Object.values(usage).reduce(
-    (sum, stage) => sum + (stage?.inputTokens ?? 0) + (stage?.outputTokens ?? 0),
-    0,
-  )
-}
+import { startOfUtcDayIso } from '@/lib/public-builds/shared'
 
 export interface PublicBuildsAdminSummary {
   mode: ReturnType<typeof getPublicBuildsMode>
@@ -44,17 +37,16 @@ export async function getPublicBuildsAdminSummary(): Promise<PublicBuildsAdminSu
   await requireAdminScope()
   const db = createAdminClient()
 
-  const sinceUtc = startOfUtcDayIso()
-  const runs = await listPublicBuilds(db, { limit: 500 })
-  const todaysRuns = runs.filter((r) => r.createdAt >= sinceUtc)
-  const buildsToday = todaysRuns.length
-  const tokensToday = todaysRuns.reduce((sum, r) => sum + sumTokens(r.usage), 0)
+  const [meter, runs] = await Promise.all([
+    getPublicBuildsMeterSince(db, startOfUtcDayIso()),
+    listPublicBuilds(db, { limit: 500 }),
+  ])
 
   return {
     mode: getPublicBuildsMode(),
     dailyCap: getPublicBuildsDailyCap(),
-    buildsToday,
-    tokensToday,
+    buildsToday: meter.builds,
+    tokensToday: meter.tokens,
     runs,
   }
 }
