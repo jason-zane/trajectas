@@ -34,6 +34,7 @@ import {
   TrendingUp,
   Scale,
   Receipt,
+  Wand2,
   type LucideIcon,
 } from "lucide-react";
 import Image from "next/image";
@@ -127,6 +128,11 @@ const adminNav: NavSection[] = [
       { title: "Campaigns", href: "/campaigns", icon: Megaphone },
       { title: "Participants", href: "/participants", icon: Users },
     ],
+  },
+  {
+    label: "Public Site",
+    defaultOpen: false,
+    items: [{ title: "Role Builder", href: "/public-builds", icon: Wand2 }],
   },
   {
     label: "Insights",
