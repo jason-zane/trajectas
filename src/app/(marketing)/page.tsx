@@ -227,13 +227,13 @@ export default async function HomePage() {
                 {ASSESSMENT_FACTORS.map((f, i) => (
                   <li
                     key={f.name}
-                    className={`grid grid-cols-[160px_1fr] gap-5 py-3 sm:grid-cols-[220px_1fr] ${i < ASSESSMENT_FACTORS.length - 1 ? "border-b" : ""}`}
+                    className={`flex flex-col gap-1.5 py-3 sm:grid sm:grid-cols-[160px_1fr] sm:items-baseline sm:gap-5 lg:grid-cols-[220px_1fr] ${i < ASSESSMENT_FACTORS.length - 1 ? "border-b" : ""}`}
                     style={{ borderColor: "var(--paper-edge)" }}
                   >
                     <span className="title" style={{ fontSize: 16 }}>
                       {f.name}
                     </span>
-                    <span className="body-soft">{f.body}</span>
+                    <span className="body-soft min-w-0">{f.body}</span>
                   </li>
                 ))}
               </ol>
