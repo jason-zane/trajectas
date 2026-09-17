@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { buildPublicUrl, PUBLIC_SITE_NAME } from "@/lib/seo/public-site";
+import { getPublicBuildsMode } from "@/lib/public-builds/constants";
 import { RoleBuilder } from "./role-builder";
+import { wallFontVariables } from "../wall-fonts";
 import "../wall.css";
 
 export const metadata: Metadata = {
@@ -11,5 +13,12 @@ export const metadata: Metadata = {
 };
 
 export default function BuildPage() {
-  return <RoleBuilder />;
+  // The wall's type (Caslon, Courier Prime) is bound to CSS variables by
+  // next/font; without this wrapper `--display`/`--serif`/`--mono` are empty
+  // here and every screen falls back to the root layout's sans.
+  return (
+    <div className={wallFontVariables}>
+      <RoleBuilder inviteRequired={getPublicBuildsMode() === "closed"} />
+    </div>
+  );
 }

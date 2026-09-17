@@ -4,7 +4,14 @@ import { useState, useTransition } from "react";
 import { requestCode, verifyCode } from "@/app/actions/public-builds";
 import { WallPage } from "./wall-page";
 
-export function VerifyStep({ onVerified }: { onVerified: (email: string) => void }) {
+export function VerifyStep({
+  inviteRequired,
+  onVerified,
+}: {
+  /** Closed mode: the server refuses every request without the invite code, so say so. */
+  inviteRequired: boolean;
+  onVerified: (email: string) => void;
+}) {
   const [stage, setStage] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [inviteCode, setInviteCode] = useState("");
@@ -68,19 +75,29 @@ export function VerifyStep({ onVerified }: { onVerified: (email: string) => void
                   placeholder="you@example.com"
                 />
               </div>
-              <div>
-                <label htmlFor="rb-invite" className="field-label">
-                  Invite code (if you have one)
-                </label>
-                <input
-                  id="rb-invite"
-                  className="strip"
-                  type="text"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
-                  placeholder="Optional"
-                />
-              </div>
+              {inviteRequired && (
+                <div>
+                  <label htmlFor="rb-invite" className="field-label">
+                    Invite code
+                  </label>
+                  <input
+                    id="rb-invite"
+                    className="strip"
+                    type="text"
+                    required
+                    autoComplete="off"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value.trim())}
+                    placeholder="e.g. wall-1a2b3c4d"
+                  />
+                  <p className="body-soft mt-2" style={{ fontSize: 13 }}>
+                    The Role Builder is invite-only while we test it. No code?{" "}
+                    <a href="mailto:hello@trajectas.com" style={{ color: "var(--gold-ink)" }}>
+                      Ask us for one.
+                    </a>
+                  </p>
+                </div>
+              )}
               {error && <p className="body-soft text-red-700">{error}</p>}
               <button type="submit" className="btn btn-primary" disabled={pending}>
                 {pending ? "Sending…" : "Send me a code"}
