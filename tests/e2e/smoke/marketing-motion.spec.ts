@@ -1,13 +1,15 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("Panel's Wall homepage", () => {
-  test("renders the Panel's Wall front door at /", async ({ page }) => {
+test.describe("editorial homepage", () => {
+  test("renders the editorial front door at /", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.locator(".wall").first()).toBeVisible();
-    await expect(page.locator("h1.display")).toContainText("Paste the role");
-    await expect(page.locator('nav[aria-label="Main"]')).toBeVisible();
-    // The animated particle surface lives on /classic, not the Panel's Wall home.
+    await expect(page.locator('[data-surface="welcome"]')).toBeVisible();
+    await expect(page.locator(".wl-hero-title")).toContainText(
+      "Understanding people",
+    );
+    await expect(page.locator(".wl-nav")).toBeVisible();
+    // The animated particle surface lives on /classic, not the editorial home.
     await expect(page.locator("canvas")).toHaveCount(0);
   });
 });

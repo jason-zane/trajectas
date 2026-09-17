@@ -23,7 +23,7 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function RoleBuilder() {
+export function RoleBuilder({ inviteRequired }: { inviteRequired: boolean }) {
   const [step, setStep] = useState<Step>("verify");
   const [email, setEmail] = useState<string | null>(null);
   const [pdHandoff] = useState<string | null>(() => readPdHandoff());
@@ -142,7 +142,12 @@ export function RoleBuilder() {
   }
 
   if (step === "verify" || !email) {
-    return <VerifyStep onVerified={(e) => { setEmail(e); setStep("brief"); }} />;
+    return (
+      <VerifyStep
+        inviteRequired={inviteRequired}
+        onVerified={(e) => { setEmail(e); setStep("brief"); }}
+      />
+    );
   }
   if (step === "brief") {
     return (
@@ -190,5 +195,10 @@ export function RoleBuilder() {
     );
   }
 
-  return <VerifyStep onVerified={(e) => { setEmail(e); setStep("brief"); }} />;
+  return (
+    <VerifyStep
+      inviteRequired={inviteRequired}
+      onVerified={(e) => { setEmail(e); setStep("brief"); }}
+    />
+  );
 }
