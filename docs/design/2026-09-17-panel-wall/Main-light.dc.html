@@ -1,0 +1,128 @@
+<!doctype html>
+<!-- VARIANT for one question only: same composition as Main, light ground with emerald as accent. Not the committed world. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+  <link rel="stylesheet" href="wall.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Courier+Prime:wght@400;700&family=Plus+Jakarta+Sans:wght@800&display=swap">
+  <style>
+    body { margin: 0; background: #eef3ef; }
+    a { color: #1a1a1a; } a:hover { color: #2d6a5a; }
+    .wall .display, .wall .headline, .wall .mark { color: #1a1a1a; }
+    .wall .lede { color: #4a4a45; }
+    .wall .label-paper { color: #8a6d2c; }
+    .wall .on-baize-link { color: #1a1a1a; border-bottom-color: rgba(26, 26, 26, 0.3); }
+    .wall .card, .wall .cap, .wall .tag { background: #ffffff; border: 1px solid #d9e2db; }
+    .wall .cap.pinned { border-color: #2d6a5a; }
+    .wall .cap.dim { opacity: 1; color: #4a4a45; }
+    .wall .btn-ghost { color: #1a1a1a; border-color: rgba(26, 26, 26, 0.3); }
+  </style>
+</helmet>
+<div class="wall" style="width: 1440px; height: 1100px; position: relative; background-color: #eef3ef; background-image: none; color: #1a1a1a;">
+
+  <svg class="thread-svg" width="1440" height="1100" viewBox="0 0 1440 1100" aria-hidden="true">
+    <path class="thread" d="M720,388 L720,1092"></path>
+    <circle class="thread-dot" cx="720" cy="388" r="4"></circle>
+    <path class="thread" d="M664,506 C700,506 690,442 720,442 C760,442 900,442 972,442"></path>
+    <path class="thread" d="M664,546 C700,546 690,498 720,498 C900,498 1000,498 1168,498"></path>
+    <path class="thread" d="M664,586 C700,586 690,554 720,554 C900,554 1000,554 1168,554"></path>
+    <path class="thread" d="M664,626 C690,626 700,554 720,554 C740,554 760,554 776,554"></path>
+    <path class="thread" d="M664,706 C690,706 700,666 720,666 C740,666 760,666 776,666"></path>
+    <path class="thread" d="M664,746 C700,746 690,666 720,666 C820,666 900,666 972,666"></path>
+    <circle class="thread-dot" cx="664" cy="506" r="3.5"></circle>
+    <circle class="thread-dot" cx="664" cy="546" r="3.5"></circle>
+    <circle class="thread-dot" cx="664" cy="586" r="3.5"></circle>
+    <circle class="thread-dot" cx="664" cy="626" r="3.5"></circle>
+    <circle class="thread-dot" cx="664" cy="706" r="3.5"></circle>
+    <circle class="thread-dot" cx="664" cy="746" r="3.5"></circle>
+  </svg>
+
+  <header style="position: absolute; left: 96px; right: 96px; top: 0; height: 84px; display: flex; align-items: center; justify-content: space-between;">
+    <a class="mark" href="#top" aria-label="Trajectas home">
+      <svg width="30" height="22" viewBox="0 0 30 22" aria-hidden="true">
+        <rect x="0" y="14" width="5" height="8" rx="2.5" fill="#2d6a5a"></rect>
+        <rect x="8.3" y="9.5" width="5" height="12.5" rx="2.5" fill="#2d6a5a"></rect>
+        <rect x="16.6" y="5" width="5" height="17" rx="2.5" fill="#2d6a5a"></rect>
+        <rect x="25" y="0" width="5" height="22" rx="2.5" fill="#2d6a5a"></rect>
+      </svg>
+      <span>trajectas</span>
+    </a>
+    <nav style="display: flex; align-items: center; gap: 28px;" aria-label="Main">
+      <a class="on-baize-link" href="#method">How it works</a>
+      <a class="on-baize-link" href="#signin">Sign in</a>
+      <a class="tag" href="mailto:hello@trajectas.com"><i class="pin" aria-hidden="true"></i>Talk to us</a>
+    </nav>
+  </header>
+
+  <section style="position: absolute; left: 96px; top: 132px; width: 1248px; display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 48px; align-items: end;">
+    <h1 class="display" style="font-size: 72px; max-width: 14ch;">Paste the role. We'll find the capabilities it turns on.</h1>
+    <p class="lede" style="max-width: 44ch; padding-bottom: 6px;">A short, role-specific assessment built from a position description: the few capabilities that matter for this job, measured properly, in about ten minutes.</p>
+  </section>
+
+  <section style="position: absolute; left: 96px; top: 380px; width: 568px;" aria-labelledby="role-label-l">
+    <p id="role-label-l" class="label label-paper" style="margin-bottom: 14px;">The role</p>
+    <div class="card" style="padding: 32px 36px 28px 36px; min-height: 540px; display: flex; flex-direction: column; gap: 18px;">
+      <i class="pin" aria-hidden="true"></i>
+      <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px;">
+        <p class="title" style="font-size: 20px;">Senior Product Manager, Payments</p>
+        <span class="measure" style="white-space: nowrap;">Example · replace with yours</span>
+      </div>
+      <div class="rule"></div>
+      <label for="pd-l" class="field-label" style="margin: 0;">Position description</label>
+      <textarea id="pd-l" class="sheet-text" rows="12">Reports to the Head of Product. Owns the roadmap for the merchant payments platform and is accountable for its gross margin and transaction growth across three markets. Breaks down ambiguous merchant problems into root causes before committing engineering time. Makes the call on trade-offs between compliance obligations and merchant experience when the data is incomplete. Decides which of many competing requests the squad takes on each quarter, and which it declines. Writes the case for those decisions for the executive team and the board. Negotiates scope and sequencing with Risk, Finance and two external processors.</textarea>
+      <p class="body-soft" style="font-size: 13px;">Paste yours, or upload a PDF or Word file. Nothing is stored until you create the assessment.</p>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 6px;">
+        <a class="btn btn-primary" href="Build-brief.dc.html">Build the assessment</a>
+        <span class="measure">Free · one taker · about 7 min</span>
+      </div>
+    </div>
+  </section>
+
+  <section style="position: absolute; left: 776px; top: 380px; width: 568px;" aria-labelledby="lib-label-l">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px;">
+      <p id="lib-label-l" class="label label-paper">The library</p>
+      <p class="label label-paper" style="color: #2d6a5a;">29 capabilities · 360 items · live</p>
+    </div>
+    <ul style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 20px;">
+      <li class="cap dim">Analytical Thinking</li>
+      <li class="cap pinned"><i class="pin" aria-hidden="true"></i>Commercial Acumen</li>
+      <li class="cap dim">Execution</li>
+      <li class="cap dim">Organisation</li>
+      <li class="cap dim">Process Discipline</li>
+      <li class="cap pinned"><i class="pin" aria-hidden="true"></i>Critical Analysis</li>
+      <li class="cap pinned"><i class="pin" aria-hidden="true"></i>Decision Prioritisation</li>
+      <li class="cap dim">Decisive Leadership</li>
+      <li class="cap pinned"><i class="pin" aria-hidden="true"></i>Judgement</li>
+      <li class="cap dim">Learning Agility</li>
+      <li class="cap dim">Building Relationships</li>
+      <li class="cap dim">Collaboration</li>
+      <li class="cap pinned"><i class="pin" aria-hidden="true"></i>Communication</li>
+      <li class="cap pinned"><i class="pin" aria-hidden="true"></i>Influence</li>
+      <li class="cap dim">Interpersonal Sensitivity</li>
+      <li class="cap dim">Achievement Drive</li>
+      <li class="cap dim">Ingenuity</li>
+      <li class="cap dim">People Development</li>
+      <li class="cap dim">Performance Tenacity</li>
+      <li class="cap dim">Strategic Vision</li>
+      <li class="cap dim">Emotional Regulation</li>
+      <li class="cap dim">Flexibility</li>
+      <li class="cap dim">Resilience</li>
+      <li class="cap dim">Self-Insight</li>
+      <li class="cap dim">Visible Self-Development</li>
+    </ul>
+    <p class="body" style="color: #4a4a45; font-size: 14.5px; margin-top: 22px; max-width: 52ch;">Every capability is defined, itemised and calibrated before it can be chosen. The six pinned here are what this role turned on; the thread shows the line of the description each one came from.</p>
+  </section>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
