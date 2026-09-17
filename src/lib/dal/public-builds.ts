@@ -124,15 +124,40 @@ export async function getLatestPublicBuildCode(
 }
 
 /**
- * Read-then-write increment. Not atomic, but the attempt counter is bounded
- * at 5 and driven by one visitor typing a code — a lost increment under
- * concurrency only costs one extra guess, never an unbounded loop.
+ * Atomically reserves the next verification attempt, capped at maxAttempts.
+ * Returns null once the cap is reached (caller must reject before checking
+ * the code — reserving AFTER the check would let concurrent requests race
+ * past the cap, each burning the oracle on a stale attempts read).
+ *
+ * There is no `attempts + 1` SQL expression available through PostgREST, so
+ * this is a compare-and-swap retry loop instead of a single UPDATE: read the
+ * current committed value, then update conditioned on that exact value still
+ * holding. Postgres serializes concurrent writers on the row, so at most one
+ * racing request can win a given (current -> current + 1) transition; every
+ * loser re-reads the now-advanced value and retries. That bounds the total
+ * number of successful reservations to exactly maxAttempts regardless of how
+ * many requests race, closing the read-then-write brute-force window a plain
+ * increment would leave open.
  */
-export async function incrementPublicBuildCodeAttempts(db: DB, id: string): Promise<number> {
-  const { data } = await db.from("public_build_codes").select("attempts").eq("id", id).single();
-  const next = (data?.attempts ?? 0) + 1;
-  await db.from("public_build_codes").update({ attempts: next }).eq("id", id);
-  return next;
+export async function reserveNextPublicBuildCodeAttempt(
+  db: DB,
+  id: string,
+  maxAttempts: number,
+): Promise<number | null> {
+  for (;;) {
+    const { data } = await db.from("public_build_codes").select("attempts").eq("id", id).single();
+    const current = data?.attempts ?? 0;
+    if (current >= maxAttempts) return null;
+    const { data: updated } = await db
+      .from("public_build_codes")
+      .update({ attempts: current + 1 })
+      .eq("id", id)
+      .eq("attempts", current)
+      .select("attempts")
+      .single();
+    if (updated) return updated.attempts;
+    // Lost the race to a concurrent reservation — retry with a fresh read.
+  }
 }
 
 export async function consumePublicBuildCode(db: DB, id: string): Promise<void> {

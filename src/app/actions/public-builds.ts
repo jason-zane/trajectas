@@ -56,7 +56,7 @@ import { validatePicks } from '@/lib/public-builds/validation'
 import {
   insertPublicBuildCode,
   getLatestPublicBuildCode,
-  incrementPublicBuildCodeAttempts,
+  reserveNextPublicBuildCodeAttempt,
   consumePublicBuildCode,
   insertPublicBuild,
   getPublicBuildById,
@@ -213,15 +213,22 @@ export async function verifyCode(input: {
   if (!row) {
     return { error: 'Request a new code.' }
   }
-  if (row.attempts >= PUBLIC_BUILDS_CODE_MAX_ATTEMPTS) {
-    return { error: 'Too many attempts. Request a new code.' }
-  }
   if (new Date(row.expiresAt).getTime() <= Date.now()) {
     return { error: 'That code has expired. Request a new one.' }
   }
 
+  // Reserve the attempt BEFORE checking the code: reserving after (on a
+  // wrong guess) would let concurrent requests all read the same stale
+  // attempts count and each burn a guess against the cap, defeating it
+  // under concurrency. Reserving first bounds total guesses against this
+  // code to exactly PUBLIC_BUILDS_CODE_MAX_ATTEMPTS no matter how many
+  // requests race.
+  const reserved = await reserveNextPublicBuildCodeAttempt(db, row.id, PUBLIC_BUILDS_CODE_MAX_ATTEMPTS)
+  if (reserved === null) {
+    return { error: 'Too many attempts. Request a new code.' }
+  }
+
   if (!verifyPublicBuildCode(code, row.codeHash)) {
-    await incrementPublicBuildCodeAttempts(db, row.id)
     return { error: 'Incorrect code.' }
   }
 
