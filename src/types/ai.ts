@@ -216,6 +216,12 @@ export interface MatchingOutput {
     /** Upper limit before incremental value becomes negligible. */
     maximum: number
   }
+  /** Token usage for this matching call — surfaced so callers (e.g. public_builds.usage) can record spend. */
+  usage?: {
+    inputTokens: number
+    outputTokens: number
+    reasoningTokens?: number
+  }
   /** The model identifier that produced this output (e.g. "claude-opus-4-20250514"). */
   modelUsed: string
   /** Version number of the system prompt used for this run. */

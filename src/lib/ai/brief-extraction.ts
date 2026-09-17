@@ -48,7 +48,7 @@ export interface BriefExtractionOptions {
 export async function runBriefExtraction(
   input: BriefExtractionInput,
   options: BriefExtractionOptions = {},
-): Promise<Brief> {
+): Promise<Brief & { usage: { inputTokens: number; outputTokens: number; reasoningTokens?: number } }> {
   const provider = options.providerId
     ? getProvider(options.providerId)
     : await getDefaultProvider()
@@ -66,7 +66,10 @@ export async function runBriefExtraction(
     responseFormat: 'json',
   })
 
-  return normaliseBrief(parseJsonResponse(response.content), input.outcomeIntent)
+  return {
+    ...normaliseBrief(parseJsonResponse(response.content), input.outcomeIntent),
+    usage: response.usage,
+  }
 }
 
 /** Build the user prompt for brief extraction. */

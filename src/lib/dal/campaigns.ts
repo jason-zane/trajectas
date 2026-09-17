@@ -1,5 +1,6 @@
 import "server-only";
 import { PARTICIPANT_COLUMNS } from "./participant-columns";
+import { EXCLUDE_PUBLIC_BUILDS_CLIENT_FILTER } from "@/lib/public-builds/constants";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -70,6 +71,7 @@ export async function listCampaigns(
     .from("campaigns_with_counts")
     .select("*, clients(name)")
     .is("deleted_at", null)
+    .or(EXCLUDE_PUBLIC_BUILDS_CLIENT_FILTER)
     .order("created_at", { ascending: false });
 
   if (scope.effectiveClientId) {

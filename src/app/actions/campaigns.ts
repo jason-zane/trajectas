@@ -46,6 +46,7 @@ import {
   requireClientAccess,
   resolveAuthorizedScope,
   resolveTenantClientFilter,
+  type AuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { zeroFilledTimeline } from '@/lib/dal/partner-dashboard-mappers'
@@ -212,13 +213,22 @@ export const getCampaignById = cache(getCampaignByIdImpl)
 // Create / Update (Zone 2 — explicit save)
 // ---------------------------------------------------------------------------
 
-export async function createCampaign(payload: Record<string, unknown>) {
+/**
+ * `opts.systemScope` lets the public Role Builder's cookie-gated actions
+ * create a campaign without an admin session — see the same note on
+ * createAssessment (src/app/actions/assessments.ts) and
+ * docs/superpowers/specs/2026-09-17-public-role-builder-design.md.
+ */
+export async function createCampaign(
+  payload: Record<string, unknown>,
+  opts: { systemScope?: AuthorizedScope } = {},
+) {
   const parsed = campaignSchema.safeParse(payload)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
   }
 
-  const scope = await resolveAuthorizedScope()
+  const scope = opts.systemScope ?? (await resolveAuthorizedScope())
   const clientId = parsed.data.clientId || null
 
   // 360 is an admin-only test-bed feature for now. Enforce server-side — the
@@ -997,10 +1007,22 @@ export async function toggleCampaignSetting(id: string, field: string, value: bo
 // Campaign Assessments
 // ---------------------------------------------------------------------------
 
-export async function addAssessmentToCampaign(campaignId: string, assessmentId: string) {
+/**
+ * `opts.systemScope` — see the same note on createAssessment. Also skips the
+ * client_assessment_assignments entitlement check below: that check exists
+ * for a client attaching an assessment from a shared library it was
+ * *assigned*, which doesn't apply when the assessment is itself owned by
+ * (created directly under) the same client, as every public Role Builder
+ * assessment is — verified below, not assumed.
+ */
+export async function addAssessmentToCampaign(
+  campaignId: string,
+  assessmentId: string,
+  opts: { systemScope?: AuthorizedScope } = {},
+) {
   let access
   try {
-    access = await requireCampaignManage(campaignId)
+    access = await requireCampaignManage(campaignId, opts)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -1008,7 +1030,23 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
     throw error
   }
 
-  if (!access.scope.isPlatformAdmin && access.clientId) {
+  if (opts.systemScope) {
+    const { data: owned, error: ownedError } = await createAdminClient()
+      .from('assessments')
+      .select('client_id')
+      .eq('id', assessmentId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (ownedError) {
+      logActionError('addAssessmentToCampaign', ownedError)
+      return { error: 'Unable to verify assessment availability.' }
+    }
+    if (!owned || !access.clientId || owned.client_id !== access.clientId) {
+      return { error: 'This assessment is not available for your client' }
+    }
+  }
+
+  if (!opts.systemScope && !access.scope.isPlatformAdmin && access.clientId) {
     const supabase = createAdminClient()
     const { data: assignment, error: assignmentError } = await supabase
       .from('client_assessment_assignments')
@@ -1391,9 +1429,10 @@ export async function sendParticipantInviteEmails(
 export async function sendParticipantInviteEmail(
   campaignId: string,
   participantId: string,
+  opts: { systemScope?: AuthorizedScope } = {},
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireCampaignManage(campaignId)
+    await requireCampaignManage(campaignId, opts)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { success: false, error: error.message }

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+  <link rel="stylesheet" href="wall.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Courier+Prime:wght@400;700&family=Plus+Jakarta+Sans:wght@800&display=swap">
+  <style>
+    body { margin: 0; background: #2d6a5a; }
+    a { color: #fbfaf6; } a:hover { color: #c9a962; }
+  </style>
+</helmet>
+<div class="wall" style="width: 1440px; height: 900px; position: relative;">
+  <svg class="thread-svg" width="1440" height="900" viewBox="0 0 1440 900" aria-hidden="true">
+    <path class="thread" d="M720,168 L720,820"></path>
+    <circle class="thread-dot" cx="720" cy="168" r="4"></circle>
+    <!-- drawn threads: role lines -> face-up cards (row 1) -->
+    <path class="thread" d="M664,352 C700,352 690,318 720,318 C760,318 780,318 776,318 L893,318"></path>
+    <path class="thread" d="M664,392 C700,392 690,318 720,318 C900,318 1000,318 1085,318"></path>
+    <path class="thread" d="M664,432 C700,432 690,318 720,318 C1000,318 1100,318 1277,318"></path>
+    <circle class="thread-dot" cx="664" cy="352" r="3.5"></circle>
+    <circle class="thread-dot" cx="664" cy="392" r="3.5"></circle>
+    <circle class="thread-dot" cx="664" cy="432" r="3.5"></circle>
+    <!-- threads still to come: dashed to the face-down row -->
+    <path class="thread-dim" d="M664,512 C700,512 690,506 720,506 C760,506 780,506 893,506"></path>
+    <path class="thread-dim" d="M664,552 C700,552 690,506 720,506 C900,506 1000,506 1085,506"></path>
+    <path class="thread-dim" d="M664,592 C700,592 690,506 720,506 C1000,506 1100,506 1277,506"></path>
+  </svg>
+
+  <header style="position: absolute; left: 96px; right: 96px; top: 0; height: 84px; display: flex; align-items: center; justify-content: space-between;">
+    <a class="mark" href="Main.dc.html" aria-label="Trajectas home">
+      <svg width="30" height="22" viewBox="0 0 30 22" aria-hidden="true">
+        <rect x="0" y="14" width="5" height="8" rx="2.5" fill="#c9a962"></rect>
+        <rect x="8.3" y="9.5" width="5" height="12.5" rx="2.5" fill="#c9a962"></rect>
+        <rect x="16.6" y="5" width="5" height="17" rx="2.5" fill="#c9a962"></rect>
+        <rect x="25" y="0" width="5" height="22" rx="2.5" fill="#c9a962"></rect>
+      </svg>
+      <span>trajectas</span>
+    </a>
+    <span class="tag"><i class="pin" aria-hidden="true"></i>Verified · j.hunt@example.com</span>
+  </header>
+
+  <div style="position: absolute; left: 96px; top: 108px; width: 1248px;">
+    <h1 class="display" style="font-size: 44px;">Reading the role.</h1>
+  </div>
+
+  <!-- LEFT: the role, being read -->
+  <section style="position: absolute; left: 96px; top: 190px; width: 568px;" aria-labelledby="w-role">
+    <p id="w-role" class="label label-paper" style="margin-bottom: 14px;">The role</p>
+    <div class="card" style="padding: 28px 36px 26px; display: flex; flex-direction: column; gap: 14px; min-height: 480px;">
+      <i class="pin" aria-hidden="true"></i>
+      <p class="title" style="font-size: 20px;">Senior Product Manager, Payments</p>
+      <div class="rule"></div>
+      <p class="sheet-text">Reports to the Head of Product. Owns the roadmap for the merchant payments platform and is accountable for its <span class="hl">gross margin and transaction growth</span> across three markets. <span class="hl">Breaks down ambiguous merchant problems into root causes</span> before committing engineering time. <span class="hl">Makes the call on trade-offs</span> between compliance obligations and merchant experience when the data is incomplete. Decides which of many competing requests the squad takes on each quarter, and which it declines. Writes the case for those decisions for the executive team and the board. Negotiates scope and sequencing with Risk, Finance and two external processors.</p>
+      <div class="rule" style="margin-top: 6px;"></div>
+      <div style="display: grid; grid-template-columns: 110px 1fr; gap: 8px 16px; font-size: 14px;">
+        <span class="label label-ink" style="padding-top: 3px;">Read as</span><span class="body" style="font-size: 14.5px;">Senior Product Manager · Product · mid-level · hiring decision</span>
+        <span class="label label-ink" style="padding-top: 3px;">Owns</span><span class="body" style="font-size: 14.5px;">Roadmap, margin and growth for merchant payments; quarterly scope calls; the case to executives and the board</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: the capabilities, being pinned -->
+  <section style="position: absolute; left: 776px; top: 190px; width: 568px;" aria-labelledby="w-pins" aria-live="polite">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px;">
+      <p id="w-pins" class="label label-paper">Pinned for this role</p>
+      <p class="label label-paper" style="color: #c9a962;">3 of 6</p>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;">
+      <div class="cap-card" style="min-height: 150px;"><i class="pin" aria-hidden="true"></i><p class="title" style="font-size: 16px;">Commercial Acumen</p><p class="body-soft" style="font-size: 13px;">Reads commercial signals and lets them shape decisions.</p></div>
+      <div class="cap-card" style="min-height: 150px;"><i class="pin" aria-hidden="true"></i><p class="title" style="font-size: 16px;">Critical Analysis</p><p class="body-soft" style="font-size: 13px;">Separates symptoms from causes before acting.</p></div>
+      <div class="cap-card" style="min-height: 150px;"><i class="pin" aria-hidden="true"></i><p class="title" style="font-size: 16px;">Judgement</p><p class="body-soft" style="font-size: 13px;">Decides well when the picture is incomplete.</p></div>
+      <div class="card face-down" style="min-height: 150px; border-radius: 2px;"></div>
+      <div class="card face-down" style="min-height: 150px; border-radius: 2px;"></div>
+      <div class="card face-down" style="min-height: 150px; border-radius: 2px;"></div>
+    </div>
+    <div style="margin-top: 32px; display: flex; flex-direction: column; gap: 6px;" class="narrate">
+      <p class="done" style="margin: 0;">Read the role — Senior Product Manager · Product · mid-level</p>
+      <p class="done" style="margin: 0;">Weighed 25 capabilities against it</p>
+      <p style="margin: 0;">Pinning the ones it turns on — 3 of 6<span class="caret" aria-hidden="true"></span></p>
+    </div>
+  </section>
+
+  <p class="label label-paper" style="position: absolute; left: 96px; top: 856px; opacity: 0.7;">About 20 seconds · nothing is created yet</p>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

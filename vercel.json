@@ -31,6 +31,10 @@
     {
       "path": "/api/cron/outcome-analysis-sweep",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/public-builds-retention-sweep",
+      "schedule": "0 18 * * *"
     }
   ],
   "functions": {

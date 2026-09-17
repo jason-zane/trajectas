@@ -209,6 +209,30 @@ const ADMIN_NOTIFICATION = doc(
   button('{{actionLabel}}', 'actionUrl'),
 )
 
+const PUBLIC_BUILD_CODE = doc(
+  heading(2, [text('Your Role Builder code')]),
+  paragraph([
+    text('Enter this code to continue. It expires in 10 minutes.'),
+  ]),
+  spacer(8),
+  heading(1, [variable('code', '------')]),
+  spacer(8),
+  paragraph([
+    text('If you did not request this, you can safely ignore it.'),
+  ]),
+)
+
+const PUBLIC_BUILD_REPORT = doc(
+  heading(2, [text('Your report is ready')]),
+  paragraph([
+    text('The assessment you built for '),
+    variable('roleTitle', 'this role'),
+    text(' has been completed. Your report is attached as a PDF, and you can also view it online.'),
+  ]),
+  spacer(8),
+  button('View Report', 'reportUrl'),
+)
+
 // ---------------------------------------------------------------------------
 // Export map
 // ---------------------------------------------------------------------------
@@ -223,4 +247,6 @@ export const DEFAULT_TEMPLATES: Record<EmailType, Record<string, unknown>> = {
   report_ready: REPORT_READY,
   welcome: WELCOME,
   admin_notification: ADMIN_NOTIFICATION,
+  public_build_code: PUBLIC_BUILD_CODE,
+  public_build_report: PUBLIC_BUILD_REPORT,
 }

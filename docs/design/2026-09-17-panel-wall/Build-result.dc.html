@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+  <link rel="stylesheet" href="wall.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Courier+Prime:wght@400;700&family=Plus+Jakarta+Sans:wght@800&display=swap">
+  <style>
+    body { margin: 0; background: #2d6a5a; }
+    a { color: #fbfaf6; } a:hover { color: #c9a962; }
+  </style>
+</helmet>
+<div class="wall" style="width: 1440px; height: 1040px; position: relative;">
+  <svg class="thread-svg" width="1440" height="1040" viewBox="0 0 1440 1040" aria-hidden="true">
+    <!-- row rails: from the role sheet, through the pins of each row -->
+    <path class="thread" d="M520,300 C560,300 560,236 600,236 L1227,236"></path>
+    <path class="thread" d="M520,420 C560,420 560,406 600,406 L1227,406"></path>
+    <circle class="thread-dot" cx="520" cy="300" r="3.5"></circle>
+    <circle class="thread-dot" cx="520" cy="420" r="3.5"></circle>
+  </svg>
+
+  <header style="position: absolute; left: 96px; right: 96px; top: 0; height: 84px; display: flex; align-items: center; justify-content: space-between;">
+    <a class="mark" href="Main.dc.html" aria-label="Trajectas home">
+      <svg width="30" height="22" viewBox="0 0 30 22" aria-hidden="true">
+        <rect x="0" y="14" width="5" height="8" rx="2.5" fill="#c9a962"></rect>
+        <rect x="8.3" y="9.5" width="5" height="12.5" rx="2.5" fill="#c9a962"></rect>
+        <rect x="16.6" y="5" width="5" height="17" rx="2.5" fill="#c9a962"></rect>
+        <rect x="25" y="0" width="5" height="22" rx="2.5" fill="#c9a962"></rect>
+      </svg>
+      <span>trajectas</span>
+    </a>
+    <span class="tag"><i class="pin" aria-hidden="true"></i>Verified · j.hunt@example.com</span>
+  </header>
+
+  <div style="position: absolute; left: 96px; top: 104px; width: 1248px; display: flex; align-items: baseline; justify-content: space-between; gap: 24px;">
+    <h1 class="display" style="font-size: 44px;">Six capabilities this role turns on.</h1>
+    <span class="tag" style="font-size: 12px;"><i class="pin" aria-hidden="true"></i>6 capabilities · 36 items · about 7 min</span>
+  </div>
+
+  <!-- LEFT: the role, read -->
+  <section style="position: absolute; left: 96px; top: 200px; width: 424px;" aria-labelledby="r-role">
+    <div class="card" style="padding: 24px 28px 22px; display: flex; flex-direction: column; gap: 12px;">
+      <i class="pin" aria-hidden="true"></i>
+      <p id="r-role" class="label label-ink">The role</p>
+      <p class="title" style="font-size: 19px;">Senior Product Manager, Payments</p>
+      <p class="body-soft" style="font-size: 13.5px;">Read as Senior Product Manager · Product · mid-level · hiring decision. <a href="Build-brief.dc.html" style="color: var(--gold-ink);">Not right? Edit the role.</a></p>
+      <div class="rule"></div>
+      <p class="sheet-text" style="font-size: 14px; line-height: 1.6;">…accountable for its <span class="hl">gross margin and transaction growth</span>… <span class="hl">Breaks down ambiguous merchant problems into root causes</span>… <span class="hl">Makes the call on trade-offs</span> when the data is incomplete. <span class="hl">Decides which of many competing requests</span> the squad takes on… <span class="hl">Writes the case</span> for the executive team and the board. <span class="hl">Negotiates scope</span> with Risk, Finance and two external processors.</p>
+    </div>
+
+    <div style="margin-top: 28px; display: flex; flex-direction: column; gap: 12px; position: relative;">
+      <p class="label label-paper">How much of the role to measure</p>
+      <div class="card" style="padding: 14px 16px; display: flex; justify-content: space-between; box-shadow: none; border: 1px solid rgba(251,250,246,0.35); background: rgba(251,250,246,0.94);"><span class="body" style="font-size: 15px;">Essentials</span><span class="measure">4 · ~5 min</span></div>
+      <div class="card lift" style="padding: 14px 16px; display: flex; justify-content: space-between; border: 1px solid var(--gold);"><span class="title" style="font-size: 15px;">Core</span><span class="measure">6 · ~7 min</span><span class="stamp" style="right: -18px; top: -20px;">Recommended for this role</span></div>
+      <div class="card" style="padding: 14px 16px; display: flex; justify-content: space-between; box-shadow: none; border: 1px solid rgba(251,250,246,0.35); background: rgba(251,250,246,0.94);"><span class="body" style="font-size: 15px;">Full picture</span><span class="measure">8 · ~10 min</span></div>
+    </div>
+  </section>
+
+  <!-- RIGHT: pinned cards -->
+  <section style="position: absolute; left: 600px; top: 200px; width: 744px;" aria-labelledby="r-pins">
+    <p id="r-pins" class="label label-paper" style="margin-bottom: 16px;">Pinned for this role</p>
+    <div style="position: relative; height: 340px;">
+      <div class="cap-card" style="position: absolute; left: 0; top: 20px; width: 234px; height: 150px;"><i class="pin" aria-hidden="true"></i><button type="button" class="unpin" aria-label="Unpin Commercial Acumen">×</button><p class="title" style="font-size: 16px; padding-right: 36px;">Commercial Acumen</p><p class="body-soft" style="font-size: 13px;">Reads commercial signals and lets them shape decisions.</p></div>
+      <div class="cap-card" style="position: absolute; left: 255px; top: 20px; width: 234px; height: 150px;"><i class="pin" aria-hidden="true"></i><button type="button" class="unpin" aria-label="Unpin Critical Analysis">×</button><p class="title" style="font-size: 16px; padding-right: 36px;">Critical Analysis</p><p class="body-soft" style="font-size: 13px;">Separates symptoms from causes before acting.</p></div>
+      <div class="cap-card" style="position: absolute; left: 510px; top: 20px; width: 234px; height: 150px;"><i class="pin" aria-hidden="true"></i><button type="button" class="unpin" aria-label="Unpin Judgement">×</button><p class="title" style="font-size: 16px; padding-right: 36px;">Judgement</p><p class="body-soft" style="font-size: 13px;">Decides well when the picture is incomplete.</p></div>
+      <div class="cap-card" style="position: absolute; left: 0; top: 190px; width: 234px; height: 150px;"><i class="pin" aria-hidden="true"></i><button type="button" class="unpin" aria-label="Unpin Decision Prioritisation">×</button><p class="title" style="font-size: 16px; padding-right: 36px;">Decision Prioritisation</p><p class="body-soft" style="font-size: 13px;">Spends attention where it changes the outcome.</p></div>
+      <div class="cap-card" style="position: absolute; left: 255px; top: 190px; width: 234px; height: 150px;"><i class="pin" aria-hidden="true"></i><button type="button" class="unpin" aria-label="Unpin Communication">×</button><p class="title" style="font-size: 16px; padding-right: 36px;">Communication</p><p class="body-soft" style="font-size: 13px;">Clear, structured, economical, in the right register.</p></div>
+      <div class="cap-card" style="position: absolute; left: 510px; top: 190px; width: 234px; height: 150px;"><i class="pin" aria-hidden="true"></i><button type="button" class="unpin" aria-label="Unpin Influence">×</button><p class="title" style="font-size: 16px; padding-right: 36px;">Influence</p><p class="body-soft" style="font-size: 13px;">Finds the path between competing positions.</p></div>
+    </div>
+
+    <div style="margin-top: 36px;">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px;">
+        <p class="label label-paper">Close alternatives</p>
+        <p class="body" style="color: #dbeadf; font-size: 13.5px; margin: 0;">Pin one and the length updates. Take one out with ×.</p>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding: 18px 18px 16px; background: #224d41; border-top: 1px solid rgba(201,169,98,0.6); border-radius: 2px;">
+        <div class="cap" style="flex-direction: column; align-items: stretch; gap: 10px; padding: 14px 14px 12px;"><span class="title" style="font-size: 14.5px; font-weight: 700;">Strategic Vision</span><button type="button" class="btn btn-ink-outline" style="min-height: 34px; font-size: 11px; padding: 0 10px;">Pin · +4 min</button></div>
+        <div class="cap" style="flex-direction: column; align-items: stretch; gap: 10px; padding: 14px 14px 12px;"><span class="title" style="font-size: 14.5px; font-weight: 700;">Collaboration</span><button type="button" class="btn btn-ink-outline" style="min-height: 34px; font-size: 11px; padding: 0 10px;">Pin · +4 min</button></div>
+        <div class="cap" style="flex-direction: column; align-items: stretch; gap: 10px; padding: 14px 14px 12px;"><span class="title" style="font-size: 14.5px; font-weight: 700;">Analytical Thinking</span><button type="button" class="btn btn-ink-outline" style="min-height: 34px; font-size: 11px; padding: 0 10px;">Pin · +4 min</button></div>
+        <div class="cap" style="flex-direction: column; align-items: stretch; gap: 10px; padding: 14px 14px 12px;"><span class="title" style="font-size: 14.5px; font-weight: 700;">Resilience</span><button type="button" class="btn btn-ink-outline" style="min-height: 34px; font-size: 11px; padding: 0 10px;">Pin · +4 min</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Detail card, opened from "Commercial Acumen" -->
+  <aside class="card lift" role="dialog" aria-labelledby="d-title" style="position: absolute; left: 860px; top: 262px; width: 440px; padding: 26px 28px 22px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 1px 0 rgba(0,0,0,0.25), 0 24px 40px -16px rgba(0,0,0,0.6); z-index: 2;">
+    <i class="pin pin-left" aria-hidden="true"></i>
+    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px;">
+      <p id="d-title" class="title" style="font-size: 20px;">Commercial Acumen</p>
+      
+    </div>
+    <p class="body" style="font-size: 14.5px;">Understands how the business actually makes and protects money, and uses that understanding to shape decisions. Reads commercial signals early.</p>
+    <div class="rule"></div>
+    <p class="label label-ink">Looks like, at a high level</p>
+    <p class="body-soft" style="font-size: 13.5px;">Names the cost, revenue and competitive implications of proposed decisions before signing off; reads market signals and adjusts before they show up in the numbers.</p>
+    <p class="label label-ink" style="margin-top: 4px;">Looks like, at a low level</p>
+    <p class="body-soft" style="font-size: 13.5px;">Treats decisions as functional rather than commercial; defers cost and revenue questions to "the business side" rather than weighing them in own choices.</p>
+    <div class="rule"></div>
+    <p class="label label-ink">Why it was pinned</p>
+    <p class="body-soft" style="font-size: 13.5px;">"…accountable for its gross margin and transaction growth across three markets."</p>
+    <div style="display: flex; gap: 10px; margin-top: 6px;">
+      <button type="button" class="btn btn-ink-outline" style="min-height: 40px; font-size: 11.5px;">Keep pinned</button>
+      <button type="button" class="btn btn-paper" style="min-height: 40px; font-size: 11.5px; box-shadow: none;">Close</button>
+    </div>
+  </aside>
+
+  <!-- Bottom: create -->
+  <div style="position: absolute; left: 600px; right: 96px; top: 940px; display: flex; align-items: center; justify-content: space-between; gap: 24px;">
+    <span class="body" style="color: #dbeadf; font-size: 14.5px;">Creates the assessment and its link, and sends it to j.hunt@example.com. One taker; the link lasts 7 days.</span>
+    <a class="btn btn-primary" href="Build-sent.dc.html" style="min-height: 52px; padding: 0 26px;">Create my assessment</a>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

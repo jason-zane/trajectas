@@ -8,6 +8,7 @@ import { scoreSession } from '@/lib/scoring/dispatch'
 import { PARTICIPANT_COMPLETABLE_STATUSES } from '@/lib/assess/participant-status'
 import { shouldGenerateIndividualReports, type CampaignConfidentialityMode } from '@/lib/reports/confidentiality'
 import { enqueueAssessmentCompletedEvent } from '@/lib/integrations/events'
+import { markPublicBuildCompleted } from '@/lib/dal/public-builds'
 import { triggerReportGenerationInputSchema } from '@/lib/validations/assess'
 import type { SubmitSessionResult } from '@/lib/assess/session-processing'
 import type { ParticipantSessionProcessingStatus, ReportSnapshotStatus } from '@/types/database'
@@ -438,6 +439,10 @@ export async function finalizeCompletedSessionProcessing(input: {
 
       if (participantUpdateError) {
         logActionError('submitSession.participantStatus', participantUpdateError)
+      } else {
+        // No-op update for every non-public-build participant (WHERE matches
+        // nothing) — see docs/superpowers/specs/2026-09-17-public-role-builder-design.md.
+        await markPublicBuildCompleted(db, input.campaignParticipantId)
       }
     }
 

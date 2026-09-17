@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+  <link rel="stylesheet" href="wall.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Courier+Prime:wght@400;700&family=Plus+Jakarta+Sans:wght@800&display=swap">
+  <style>
+    body { margin: 0; background: #2d6a5a; }
+    a { color: #fbfaf6; } a:hover { color: #c9a962; }
+  </style>
+</helmet>
+<div class="wall" style="width: 1440px; height: 900px; position: relative;">
+  <svg class="thread-svg" width="1440" height="900" viewBox="0 0 1440 900" aria-hidden="true">
+    <path class="thread-dim" d="M720,168 L720,820"></path>
+    <circle class="thread-dot" cx="720" cy="168" r="4"></circle>
+  </svg>
+
+  <header style="position: absolute; left: 96px; right: 96px; top: 0; height: 84px; display: flex; align-items: center; justify-content: space-between;">
+    <a class="mark" href="Main.dc.html" aria-label="Trajectas home">
+      <svg width="30" height="22" viewBox="0 0 30 22" aria-hidden="true">
+        <rect x="0" y="14" width="5" height="8" rx="2.5" fill="#c9a962"></rect>
+        <rect x="8.3" y="9.5" width="5" height="12.5" rx="2.5" fill="#c9a962"></rect>
+        <rect x="16.6" y="5" width="5" height="17" rx="2.5" fill="#c9a962"></rect>
+        <rect x="25" y="0" width="5" height="22" rx="2.5" fill="#c9a962"></rect>
+      </svg>
+      <span>trajectas</span>
+    </a>
+    <div style="display: flex; align-items: center; gap: 28px;">
+      <span class="tag"><i class="pin" aria-hidden="true"></i>Verified · j.hunt@example.com</span>
+      <a class="on-baize-link" href="#signin">Sign in</a>
+    </div>
+  </header>
+
+  <div style="position: absolute; left: 96px; top: 108px; width: 1248px;">
+    <h1 class="display" style="font-size: 44px; max-width: 24ch;">Pin up the role.</h1>
+  </div>
+
+  <!-- LEFT: the role -->
+  <section style="position: absolute; left: 96px; top: 190px; width: 568px;" aria-labelledby="b-role">
+    <p id="b-role" class="label label-paper" style="margin-bottom: 14px;">The role</p>
+    <div class="card" style="padding: 28px 32px 26px; display: flex; flex-direction: column; gap: 16px;">
+      <i class="pin" aria-hidden="true"></i>
+      <div>
+        <label for="job-title" class="field-label">Job title</label>
+        <input id="job-title" class="strip" type="text" value="Senior Product Manager, Payments">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px;">
+          <label for="pd-b" class="field-label" style="margin: 0;">Position description</label>
+          <button type="button" class="btn btn-paper" style="min-height: 34px; padding: 0 12px; font-size: 11px;">Upload PDF or Word</button>
+        </div>
+        <textarea id="pd-b" class="sheet-text strip" rows="10" style="font-size: 15px; line-height: 1.55; padding: 12px 14px; resize: none;" placeholder="Paste the position description here.">Reports to the Head of Product. Owns the roadmap for the merchant payments platform and is accountable for its gross margin and transaction growth across three markets. Breaks down ambiguous merchant problems into root causes before committing engineering time. Makes the call on trade-offs between compliance obligations and merchant experience when the data is incomplete. Decides which of many competing requests the squad takes on each quarter, and which it declines. Writes the case for those decisions for the executive team and the board. Negotiates scope and sequencing with Risk, Finance and two external processors.</textarea>
+        <p class="body-soft" style="font-size: 13px;">Up to 20,000 characters. Nothing is stored until you create the assessment.</p>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 4px;">
+        <a class="btn btn-primary" href="Build-working.dc.html">Build the assessment</a>
+        <span class="measure">Takes about 20 seconds</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: how much of the role -->
+  <section style="position: absolute; left: 776px; top: 190px; width: 568px;" aria-labelledby="b-size">
+    <p id="b-size" class="label label-paper" style="margin-bottom: 14px;">How much of the role to measure</p>
+    <fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px;">
+      <legend class="body" style="color: #dbeadf; font-size: 14.5px; margin-bottom: 14px; max-width: 52ch;">More capabilities gives a broader read of the person and more to interpret. The time stays short either way.</legend>
+      <label class="card" for="tier-ess" style="display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 14px; padding: 18px 20px; cursor: pointer; box-shadow: none; border: 1px solid rgba(251,250,246,0.35); background: rgba(251,250,246,0.94);">
+        <input id="tier-ess" type="radio" name="tier" style="width: 18px; height: 18px; margin: 0; accent-color: #8a6d2c;">
+        <span style="display: flex; flex-direction: column; gap: 4px;"><span class="title" style="font-size: 17px; font-weight: 400;">Essentials</span><span class="body-soft" style="font-size: 13.5px;">The few that decide this role.</span></span>
+        <span class="measure">4 capabilities · ~5 min</span>
+      </label>
+      <label class="card lift" for="tier-core" style="display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 14px; padding: 18px 20px; cursor: pointer; border: 1px solid var(--gold);">
+        <i class="pin" aria-hidden="true"></i>
+        <input id="tier-core" type="radio" name="tier" checked style="width: 18px; height: 18px; margin: 0; accent-color: #8a6d2c;">
+        <span style="display: flex; flex-direction: column; gap: 4px;"><span class="title" style="font-size: 17px;">Core</span><span class="body-soft" style="font-size: 13.5px;">Enough to compare people with confidence.</span></span>
+        <span class="measure">6 capabilities · ~7 min</span>
+      </label>
+      <label class="card" for="tier-full" style="display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 14px; padding: 18px 20px; cursor: pointer; box-shadow: none; border: 1px solid rgba(251,250,246,0.35); background: rgba(251,250,246,0.94);">
+        <input id="tier-full" type="radio" name="tier" style="width: 18px; height: 18px; margin: 0; accent-color: #8a6d2c;">
+        <span style="display: flex; flex-direction: column; gap: 4px;"><span class="title" style="font-size: 17px; font-weight: 400;">Full picture</span><span class="body-soft" style="font-size: 13.5px;">The role, and what helps someone grow into it.</span></span>
+        <span class="measure">8 capabilities · ~10 min</span>
+      </label>
+    </fieldset>
+    <div class="card" style="margin-top: 28px; padding: 20px 22px; display: flex; flex-direction: column; gap: 8px;">
+      <i class="pin pin-left" aria-hidden="true"></i>
+      <p class="label label-ink">What happens next</p>
+      <p class="body-soft">It reads the role, weighs the library's 25 match-ready capabilities against it, and pins the ones it turns on. Then you adjust. Nothing is created until you say so.</p>
+    </div>
+  </section>
+
+  <p class="label label-paper" style="position: absolute; left: 96px; top: 856px; opacity: 0.7;">Free · one taker · your report by email</p>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

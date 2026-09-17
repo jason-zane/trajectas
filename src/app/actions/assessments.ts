@@ -8,6 +8,7 @@ import {
   AuthorizationError,
   canManageAssessment,
   canManageAssessmentLibrary,
+  canManageClient,
   getAccessibleCampaignIds,
   getAccessiblePartnerIds,
   getPreferredPartnerIdForAssessmentCreation,
@@ -16,6 +17,7 @@ import {
   requireAssessmentAccess,
   resolveAuthorizedScope,
   resolveTenantClientFilter,
+  type AuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
@@ -30,6 +32,7 @@ import {
   persistSections,
 } from '@/lib/dal/assessment-sections'
 import { seedAssessmentPreview } from '@/lib/sample-data/seed-preview'
+import { EXCLUDE_PUBLIC_BUILDS_CLIENT_FILTER } from '@/lib/public-builds/constants'
 import type { Assessment, ItemOrdering, ScoringProfile } from '@/types/database'
 import type { ForcedChoiceBlockDraft } from '@/lib/forced-choice-generator'
 
@@ -246,6 +249,7 @@ export async function getAssessments(): Promise<AssessmentWithMeta[]> {
     .from('assessments')
     .select('*, assessment_factors(count)')
     .is('deleted_at', null)
+    .or(EXCLUDE_PUBLIC_BUILDS_CLIENT_FILTER)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -838,14 +842,34 @@ export async function getConstructsForBuilder(): Promise<BuilderConstruct[]> {
   }))
 }
 
-export async function createAssessment(payload: Record<string, unknown>) {
-  let scope = null as Awaited<ReturnType<typeof requireAssessmentBuilderScope>> | null
+/**
+ * `opts.systemScope` lets a non-interactive, cookie-gated caller (the public
+ * Role Builder — see docs/superpowers/specs/2026-09-17-public-role-builder-design.md)
+ * create an assessment without an admin session. It must only ever be the
+ * fixed PUBLIC_BUILDS_SYSTEM_SCOPE constant, never derived from request
+ * input: the scope still runs through canManageAssessmentLibrary below, so
+ * this is dependency injection of an already-legitimate authorization scope,
+ * not a bypass.
+ */
+export async function createAssessment(
+  payload: Record<string, unknown>,
+  opts: { systemScope?: AuthorizedScope } = {},
+) {
+  let scope: AuthorizedScope | null = null
   let partnerId: string | null = null
   try {
-    scope = await requireAssessmentBuilderScope()
-    partnerId = scope.isPlatformAdmin
-      ? null
-      : getPreferredPartnerIdForAssessmentCreation(scope)
+    if (opts.systemScope) {
+      scope = opts.systemScope
+      if (!canManageAssessmentLibrary(scope)) {
+        throw new AuthorizationError('You do not have permission to manage assessments.')
+      }
+      partnerId = null
+    } else {
+      scope = await requireAssessmentBuilderScope()
+      partnerId = scope.isPlatformAdmin
+        ? null
+        : getPreferredPartnerIdForAssessmentCreation(scope)
+    }
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: { _form: [error.message] } }
@@ -862,9 +886,17 @@ export async function createAssessment(payload: Record<string, unknown>) {
     return { error: parsed.error.flatten().fieldErrors }
   }
 
+  // A system scope is confined to the clients it manages, exactly as
+  // createCampaign confines every caller — the constant scope must not be
+  // able to write an assessment under some other client.
+  if (opts.systemScope && (!parsed.data.clientId || !canManageClient(scope, parsed.data.clientId))) {
+    return { error: { clientId: ['You do not have permission to manage this client'] } }
+  }
+
   const db = createAdminClient()
   const { data: assessment, error } = await db.from('assessments').insert({
     partner_id: partnerId,
+    client_id: parsed.data.clientId || null,
     title: parsed.data.title,
     description: parsed.data.description ?? null,
     status: parsed.data.status,

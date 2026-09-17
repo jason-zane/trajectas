@@ -16,6 +16,8 @@ type SitemapEntry = {
  */
 export const MARKETING_ROUTES = [
   { path: "/", sitemap: { changeFrequency: "weekly", priority: 1 } },
+  // The public Role Builder — the page the site exists to send people to.
+  { path: "/build", sitemap: { changeFrequency: "weekly", priority: 0.9 } },
   {
     path: "/psychometric-assessment",
     sitemap: { changeFrequency: "monthly", priority: 0.8 },

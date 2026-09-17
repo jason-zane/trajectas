@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+  <link rel="stylesheet" href="wall.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Courier+Prime:wght@400;700&family=Plus+Jakarta+Sans:wght@800&display=swap">
+  <style>
+    body { margin: 0; background: #2d6a5a; }
+    a { color: #fbfaf6; } a:hover { color: #c9a962; }
+  </style>
+</helmet>
+<div class="wall" style="width: 1440px; height: 640px; position: relative;">
+  <svg class="thread-svg" width="1440" height="640" viewBox="0 0 1440 640" aria-hidden="true">
+    <path class="thread" d="M360,200 C380,200 380,168 400,168 L1040,168"></path>
+    <circle class="thread-dot" cx="360" cy="200" r="3.5"></circle>
+  </svg>
+
+  <header style="position: absolute; left: 96px; right: 96px; top: 0; height: 84px; display: flex; align-items: center; justify-content: space-between;">
+    <a class="mark" href="Main.dc.html" aria-label="Trajectas home">
+      <svg width="30" height="22" viewBox="0 0 30 22" aria-hidden="true">
+        <rect x="0" y="14" width="5" height="8" rx="2.5" fill="#c9a962"></rect>
+        <rect x="8.3" y="9.5" width="5" height="12.5" rx="2.5" fill="#c9a962"></rect>
+        <rect x="16.6" y="5" width="5" height="17" rx="2.5" fill="#c9a962"></rect>
+        <rect x="25" y="0" width="5" height="22" rx="2.5" fill="#c9a962"></rect>
+      </svg>
+      <span>trajectas</span>
+    </a>
+    <span class="tag"><i class="pin" aria-hidden="true"></i>Verified · j.hunt@example.com</span>
+  </header>
+
+  <section style="position: absolute; left: 96px; top: 140px; width: 264px;">
+    <div class="card" style="padding: 20px 22px; display: flex; flex-direction: column; gap: 8px;">
+      <i class="pin" aria-hidden="true"></i>
+      <p class="label label-ink">Now on the wall</p>
+      <p class="body" style="font-size: 14.5px;">Senior Product Manager, Payments</p>
+      <span class="measure">6 capabilities · 36 items</span>
+      <div class="rule"></div>
+      <p class="body-soft" style="font-size: 13px;">The assessment and its link exist. Nothing else happens until you take it.</p>
+    </div>
+  </section>
+
+  <section style="position: absolute; left: 400px; top: 168px; width: 640px;" aria-labelledby="s-title">
+    <div class="card lift" style="padding: 36px 40px 32px; display: flex; flex-direction: column; gap: 16px;">
+      <i class="pin pin-left" aria-hidden="true"></i>
+      <i class="pin pin-right" aria-hidden="true"></i>
+      <h1 id="s-title" class="title" style="font-family: var(--display); font-weight: 400; font-size: 34px; line-height: 1.1;">Sent to j.hunt@example.com.</h1>
+      <p class="body">Open the email and follow the link. The assessment takes about seven minutes. When you finish, your report comes back to the same address as a PDF, with a link to the page.</p>
+      <div class="rule"></div>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+        <span class="measure">Link lasts 7 days · one taker · free</span>
+        <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn btn-ink-outline" style="min-height: 42px; font-size: 11.5px;">Resend the email</button>
+          <a class="btn btn-paper" href="Build-brief.dc.html" style="min-height: 42px; font-size: 11.5px; box-shadow: none;">Build another role</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="position: absolute; left: 1080px; top: 168px; width: 264px;">
+    <div class="card" style="padding: 20px 22px; display: flex; flex-direction: column; gap: 8px;">
+      <i class="pin" aria-hidden="true"></i>
+      <p class="label label-ink">For a real programme</p>
+      <p class="body-soft" style="font-size: 13.5px;">Candidates, teams, partners and norms are the platform, not the wall.</p>
+      <a class="on-baize-link" href="mailto:hello@trajectas.com" style="color: var(--gold-ink); border-bottom-color: var(--gold-ink); font-size: 14px;">Talk to us</a>
+    </div>
+  </section>
+
+  <p class="label label-paper" style="position: absolute; left: 96px; top: 596px; opacity: 0.7;">Didn't get it? Check spam, or resend above.</p>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

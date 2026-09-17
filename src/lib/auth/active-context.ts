@@ -23,13 +23,18 @@ function signPayload(encodedPayload: string): string {
     .digest("base64url");
 }
 
-function encodeSignedContext<T extends object>(context: T): string {
+/**
+ * Generic signed-cookie codec — shared by every signed context cookie
+ * (tf_active_context, tf_preview_context, tf_public_build). Exported so a
+ * new cookie doesn't need its own HMAC implementation.
+ */
+export function encodeSignedContext<T extends object>(context: T): string {
   const payload = Buffer.from(JSON.stringify(context)).toString("base64url");
   const signature = signPayload(payload);
   return `${payload}.${signature}`;
 }
 
-function decodeSignedContext<T extends object>(
+export function decodeSignedContext<T extends object>(
   signedContext: string | null | undefined
 ): T | null {
   if (!signedContext) return null;

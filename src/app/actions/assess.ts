@@ -1,6 +1,7 @@
 'use server'
 
 import { finalizeCompletedSessionProcessing, getExistingCompletedSessionOutcome } from '@/lib/dal/session-processing'
+import { markPublicBuildStarted } from '@/lib/dal/public-builds'
 import { createAssessSessionProof } from '@/lib/assess/session-proof'
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -221,7 +222,11 @@ async function markCampaignParticipantStarted(
 
   if (error) {
     logActionError('startSession.participantStatus', error)
+    return
   }
+  // No-op for every non-public-build participant (WHERE matches nothing) —
+  // see docs/superpowers/specs/2026-09-17-public-role-builder-design.md.
+  await markPublicBuildStarted(db, campaignParticipantId)
 }
 
 // ---------------------------------------------------------------------------

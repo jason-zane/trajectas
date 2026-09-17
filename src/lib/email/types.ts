@@ -21,6 +21,8 @@ export const EMAIL_TYPES = [
   'report_ready',
   'welcome',
   'admin_notification',
+  'public_build_code',
+  'public_build_report',
 ] as const
 
 export type EmailType = (typeof EMAIL_TYPES)[number]
@@ -45,6 +47,8 @@ export const EMAIL_TYPE_LABELS: Record<EmailType, string> = {
   report_ready: 'Report Ready',
   welcome: 'Welcome',
   admin_notification: 'Admin Notification',
+  public_build_code: 'Public Role Builder — Verification Code',
+  public_build_report: 'Public Role Builder — Report Ready',
 }
 
 // ---------------------------------------------------------------------------
@@ -55,6 +59,7 @@ export const EMAIL_TYPE_CATEGORIES: Record<string, EmailType[]> = {
   Authentication: ['magic_link', 'welcome'],
   Campaigns: ['assessment_invite', 'assessment_reminder', 'rater_invite', 'rater_reminder', 'report_ready'],
   Platform: ['staff_invite', 'admin_notification'],
+  'Public Role Builder': ['public_build_code', 'public_build_report'],
 }
 
 // ---------------------------------------------------------------------------
@@ -89,6 +94,8 @@ export const MERGE_VARIABLES: Record<EmailType, readonly string[]> = {
   report_ready: ['recipientName', 'campaignTitle', 'reportUrl', 'brandName'],
   welcome: ['userName', 'brandName', 'loginUrl'],
   admin_notification: ['subject', 'message', 'actionUrl', 'actionLabel'],
+  public_build_code: ['code', 'brandName'],
+  public_build_report: ['roleTitle', 'reportUrl', 'brandName'],
 }
 
 // ---------------------------------------------------------------------------
@@ -150,5 +157,14 @@ export const SAMPLE_VARIABLES: Record<EmailType, Record<string, string | number>
       'Acme Corp has submitted a new integration request and requires your review.',
     actionUrl: 'https://admin.trajectas.com/integration-requests/sample-id',
     actionLabel: 'Review Request',
+  },
+  public_build_code: {
+    code: '384291',
+    brandName: 'Trajectas',
+  },
+  public_build_report: {
+    roleTitle: 'Senior Product Manager',
+    reportUrl: 'https://trajectas.com/assess/sample-token-jkl012/report',
+    brandName: 'Trajectas',
   },
 }

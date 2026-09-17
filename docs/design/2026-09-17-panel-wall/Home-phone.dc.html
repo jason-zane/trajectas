@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+  <link rel="stylesheet" href="wall.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Courier+Prime:wght@400;700&family=Plus+Jakarta+Sans:wght@800&display=swap">
+  <style>
+    body { margin: 0; background: #2d6a5a; }
+    a { color: #fbfaf6; } a:hover { color: #c9a962; }
+  </style>
+</helmet>
+<div class="wall" style="width: 390px; height: 2480px; position: relative; padding: 0 20px 40px;">
+  <svg class="thread-svg" width="390" height="2480" viewBox="0 0 390 2480" aria-hidden="true">
+    <path class="thread" d="M9,400 L9,2180"></path>
+    <circle class="thread-dot" cx="9" cy="400" r="3"></circle>
+    <circle class="thread-dot" cx="9" cy="800" r="3"></circle>
+    <circle class="thread-dot" cx="9" cy="1230" r="3"></circle>
+    <circle class="thread-dot" cx="9" cy="1720" r="3"></circle>
+    <circle class="thread-dot" cx="9" cy="2180" r="3"></circle>
+  </svg>
+
+  <header style="height: 68px; display: flex; align-items: center; justify-content: space-between;">
+    <a class="mark" href="#top" aria-label="Trajectas home">
+      <svg width="26" height="19" viewBox="0 0 30 22" aria-hidden="true">
+        <rect x="0" y="14" width="5" height="8" rx="2.5" fill="#c9a962"></rect>
+        <rect x="8.3" y="9.5" width="5" height="12.5" rx="2.5" fill="#c9a962"></rect>
+        <rect x="16.6" y="5" width="5" height="17" rx="2.5" fill="#c9a962"></rect>
+        <rect x="25" y="0" width="5" height="22" rx="2.5" fill="#c9a962"></rect>
+      </svg>
+      <span style="font-size: 19px;">trajectas</span>
+    </a>
+    <a class="tag" href="mailto:hello@trajectas.com" style="padding: 9px 12px 8px;"><i class="pin" aria-hidden="true"></i>Talk to us</a>
+  </header>
+
+  <div style="display: flex; flex-direction: column; gap: 40px; padding-top: 28px;">
+    <section style="display: flex; flex-direction: column; gap: 16px;">
+      <h1 class="display" style="font-size: 42px;">Paste the role. We'll find the capabilities it turns on.</h1>
+      <p class="lede" style="font-size: 17px;">A short, role-specific assessment built from a position description: the few capabilities that matter for this job, in about ten minutes.</p>
+    </section>
+
+    <section aria-labelledby="m-role" style="display: flex; flex-direction: column; gap: 12px;">
+      <p id="m-role" class="label label-paper">The role</p>
+      <div class="card" style="padding: 24px 20px 20px; display: flex; flex-direction: column; gap: 14px;">
+        <i class="pin" aria-hidden="true"></i>
+        <p class="title" style="font-size: 18px;">Senior Product Manager, Payments</p>
+        <span class="measure">Example · replace with yours</span>
+        <div class="rule"></div>
+        <label for="pd-m" class="field-label" style="margin: 0;">Position description</label>
+        <textarea id="pd-m" class="sheet-text" rows="8" style="font-size: 15px;">Reports to the Head of Product. Owns the roadmap for the merchant payments platform and is accountable for its gross margin and transaction growth across three markets. Makes the call on trade-offs between compliance obligations and merchant experience when the data is incomplete. Decides which competing requests the squad takes on each quarter. Negotiates scope with Risk, Finance and two external processors.</textarea>
+        <a class="btn btn-primary" href="Build-brief.dc.html" style="width: 100%;">Build the assessment</a>
+        <span class="measure" style="text-align: center;">Free · one taker · about 7 min</span>
+      </div>
+    </section>
+
+    <section aria-labelledby="m-lib" style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap;">
+        <p id="m-lib" class="label label-paper">The library</p>
+        <p class="label label-paper" style="color: #c9a962;">29 capabilities · 360 items</p>
+      </div>
+      <ul style="list-style: none; margin: 0; padding: 4px 0 0; display: flex; flex-wrap: wrap; gap: 10px 8px;">
+        <li class="cap pinned" style="min-height: 40px; padding: 10px 12px;"><i class="pin" aria-hidden="true"></i>Commercial Acumen</li>
+        <li class="cap pinned" style="min-height: 40px; padding: 10px 12px;"><i class="pin" aria-hidden="true"></i>Critical Analysis</li>
+        <li class="cap pinned" style="min-height: 40px; padding: 10px 12px;"><i class="pin" aria-hidden="true"></i>Judgement</li>
+        <li class="cap pinned" style="min-height: 40px; padding: 10px 12px;"><i class="pin" aria-hidden="true"></i>Decision Prioritisation</li>
+        <li class="cap pinned" style="min-height: 40px; padding: 10px 12px;"><i class="pin" aria-hidden="true"></i>Communication</li>
+        <li class="cap pinned" style="min-height: 40px; padding: 10px 12px;"><i class="pin" aria-hidden="true"></i>Influence</li>
+        <li class="cap dim" style="min-height: 40px; padding: 10px 12px;">Analytical Thinking</li>
+        <li class="cap dim" style="min-height: 40px; padding: 10px 12px;">Strategic Vision</li>
+        <li class="cap dim" style="min-height: 40px; padding: 10px 12px;">Collaboration</li>
+        <li class="cap dim" style="min-height: 40px; padding: 10px 12px;">Resilience</li>
+        <li class="cap dim" style="min-height: 40px; padding: 10px 12px;">Learning Agility</li>
+        <li class="cap dim" style="min-height: 40px; padding: 10px 12px;">Organisation</li>
+        <li class="cap dim" style="min-height: 40px; padding: 10px 12px;">Flexibility</li>
+        <li class="cap dim" style="min-height: 40px; padding: 10px 12px;">and 16 more</li>
+      </ul>
+      <p class="body" style="color: #dbeadf; font-size: 14.5px; margin-top: 8px;">The six pinned here are what this role turned on. On a larger screen, thread shows the line of the description each one came from.</p>
+    </section>
+
+    <section aria-labelledby="m-asmt" style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="card" style="padding: 24px 20px 20px; display: flex; flex-direction: column; gap: 12px;">
+        <i class="pin" aria-hidden="true"></i>
+        <h2 id="m-asmt" class="title" style="font-size: 22px; font-family: var(--display); font-weight: 400;">The assessment for this role</h2>
+        <span class="measure">6 capabilities · 36 items · about 7 min</span>
+        <div class="rule"></div>
+        <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column;">
+          <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--paper-edge);"><span class="title" style="font-size: 15px;">Commercial Acumen</span></li>
+          <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--paper-edge);"><span class="title" style="font-size: 15px;">Critical Analysis</span></li>
+          <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--paper-edge);"><span class="title" style="font-size: 15px;">Judgement</span></li>
+          <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--paper-edge);"><span class="title" style="font-size: 15px;">Decision Prioritisation</span></li>
+          <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--paper-edge);"><span class="title" style="font-size: 15px;">Communication</span></li>
+          <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 0;"><span class="title" style="font-size: 15px;">Influence</span></li>
+        </ol>
+        <p class="label label-ink" style="margin-top: 8px;">How much of the role to measure</p>
+        <div style="display: flex; flex-direction: column; gap: 10px; position: relative;">
+          <div class="card" style="padding: 12px 14px; display: flex; justify-content: space-between; box-shadow: none; border: 1px solid var(--paper-edge);"><span class="body" style="font-size: 15px;">Essentials</span><span class="measure">4 · ~5 min</span></div>
+          <div class="card lift" style="padding: 12px 14px; display: flex; justify-content: space-between; border: 1px solid var(--gold);"><span class="title" style="font-size: 15px;">Core</span><span class="measure">6 · ~7 min</span><span class="stamp" style="right: -6px; top: -20px; font-size: 10px;">Recommended</span></div>
+          <div class="card" style="padding: 12px 14px; display: flex; justify-content: space-between; box-shadow: none; border: 1px solid var(--paper-edge);"><span class="body" style="font-size: 15px;">Full picture</span><span class="measure">8 · ~10 min</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="m-how" style="display: flex; flex-direction: column; gap: 16px;">
+      <h2 id="m-how" class="headline" style="font-size: 30px;">Three passes over the role, then the choice is yours.</h2>
+      <div class="card" style="padding: 22px 20px 20px; display: flex; flex-direction: column; gap: 8px;"><i class="pin" aria-hidden="true"></i><p class="label label-ink">First</p><p class="title">It reads the role.</p><p class="body-soft">Title, level, function, the decisions the job owns. What it understood is shown back to you.</p></div>
+      <div class="card" style="padding: 22px 20px 20px; display: flex; flex-direction: column; gap: 8px;"><i class="pin" aria-hidden="true"></i><p class="label label-ink">Then</p><p class="title">It weighs every capability against it.</p><p class="body-soft">Each definition in the library is scored for how much this role turns on it.</p></div>
+      <div class="card" style="padding: 22px 20px 20px; display: flex; flex-direction: column; gap: 8px;"><i class="pin" aria-hidden="true"></i><p class="label label-ink">Last</p><p class="title">It pins the few that matter. You can move them.</p><p class="body-soft">Swap one in or out and watch the length change. One click creates the assessment and sends you the link.</p></div>
+    </section>
+
+    <section aria-labelledby="m-report" style="display: flex; flex-direction: column; gap: 16px;">
+      <h2 id="m-report" class="headline" style="font-size: 30px;">A report about the person, not a percentile.</h2>
+      <div class="card" style="padding: 22px 20px 20px; display: flex; flex-direction: column; gap: 12px;">
+        <i class="pin" aria-hidden="true"></i>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px;"><p class="title" style="font-size: 16px;">Capability profile</p><span class="measure" style="font-size: 10.5px;">Synthetic</span></div>
+        <div class="rule"></div>
+        <div class="report-row" style="grid-template-columns: 120px 1fr 40px; gap: 10px;"><span class="body" style="font-size: 13.5px;">Commercial Acumen</span><div class="band"><i style="width: 78%;"></i><b style="left: 78%;"></b></div><span class="measure" style="text-align: right;">High</span></div>
+        <div class="report-row" style="grid-template-columns: 120px 1fr 40px; gap: 10px;"><span class="body" style="font-size: 13.5px;">Critical Analysis</span><div class="band"><i style="width: 64%;"></i><b style="left: 64%;"></b></div><span class="measure" style="text-align: right;">Mid</span></div>
+        <div class="report-row" style="grid-template-columns: 120px 1fr 40px; gap: 10px;"><span class="body" style="font-size: 13.5px;">Judgement</span><div class="band"><i style="width: 71%;"></i><b style="left: 71%;"></b></div><span class="measure" style="text-align: right;">High</span></div>
+        <div class="report-row" style="grid-template-columns: 120px 1fr 40px; gap: 10px;"><span class="body" style="font-size: 13.5px;">Influence</span><div class="band"><i style="width: 33%;"></i><b style="left: 33%;"></b></div><span class="measure" style="text-align: right;">Low</span></div>
+      </div>
+      <p class="lede" style="font-size: 16px;">Each band comes with what it looks like at that level, the overuse risk, and what to ask at interview. PDF and page.</p>
+    </section>
+
+    <footer style="display: flex; flex-direction: column; gap: 16px; padding-top: 8px;">
+      <h2 class="headline" style="font-size: 30px;">If this is your kind of problem, we should talk.</h2>
+      <a class="btn btn-primary" href="mailto:hello@trajectas.com" style="width: 100%;">Talk to us</a>
+      <a class="btn btn-ghost" href="#signin" style="width: 100%;">Sign in</a>
+      <p class="label label-paper" style="opacity: 0.7; margin-top: 12px;">© 2026 Trajectas</p>
+    </footer>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":390,"height":2480}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

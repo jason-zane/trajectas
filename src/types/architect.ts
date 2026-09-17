@@ -24,6 +24,11 @@ export type ArchitectPick = WithCategory & {
   /** Parent dimension (legacy grouping); null if unassigned. */
   dimensionId: string | null
   dimensionName: string | null
+  /** Prose definition — populated for the public Role Builder's detail card. */
+  definition?: string | null
+  indicatorsLow?: string | null
+  indicatorsMid?: string | null
+  indicatorsHigh?: string | null
 }
 
 /** A factor in the eligible pool — for the "add factor" control in the picks UI. */
@@ -33,6 +38,10 @@ export type ArchitectEligibleFactor = WithCategory & {
   availableItems: number
   dimensionId: string | null
   dimensionName: string | null
+  definition?: string | null
+  indicatorsLow?: string | null
+  indicatorsMid?: string | null
+  indicatorsHigh?: string | null
 }
 
 export type ArchitectMatchResult = {
