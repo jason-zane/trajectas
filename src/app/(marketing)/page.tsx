@@ -172,6 +172,10 @@ export default async function HomePage() {
           >
             <line className="thread-dim" x1="1" y1="0" x2="1" y2="100%" />
           </svg>
+          {/* Stacked: the seam becomes one thread in the left gutter keeping the pins connected. */}
+          <svg className="thread-svg lg:hidden" aria-hidden="true" style={{ left: -14, width: 2 }}>
+            <line className="thread-dim" x1="1" y1="0" x2="1" y2="100%" />
+          </svg>
           <section aria-labelledby="role-label" className="min-w-0">
             <p id="role-label" className="label label-paper mb-3.5">
               The role
@@ -187,7 +191,7 @@ export default async function HomePage() {
               <p id="lib-label" className="label label-paper">
                 The library
               </p>
-              <p className="label label-paper" style={{ color: "var(--gold)" }}>
+              <p className="label label-paper">
                 {capabilityCount} capabilities &middot; {itemCount} items &middot; live
               </p>
             </div>

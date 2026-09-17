@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PUBLIC_BUILDS_MAX_PD_CHARS } from "@/lib/public-builds/shared";
 import { PD_HANDOFF_KEY } from "./build/pd-handoff";
 
 const EXAMPLE_PD = `Reports to the Head of Product. Owns the roadmap for the merchant payments platform and is accountable for its gross margin and transaction growth across three markets. Breaks down ambiguous merchant problems into root causes before committing engineering time. Makes the call on trade-offs between compliance obligations and merchant experience when the data is incomplete. Decides which of many competing requests the squad takes on each quarter, and which it declines. Writes the case for those decisions for the executive team and the board. Negotiates scope and sequencing with Risk, Finance and two external processors.`;
@@ -18,7 +19,8 @@ export function HomePasteBox() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const value = isExample ? "" : text.trim();
+    // Same cap /build enforces; anything longer is cut before it is stored.
+    const value = (isExample ? "" : text.trim()).slice(0, PUBLIC_BUILDS_MAX_PD_CHARS);
     try {
       if (value) window.sessionStorage.setItem(PD_HANDOFF_KEY, value);
     } catch {
@@ -43,6 +45,7 @@ export function HomePasteBox() {
         id="home-pd"
         className="sheet-text"
         rows={12}
+        maxLength={PUBLIC_BUILDS_MAX_PD_CHARS}
         value={text}
         onFocus={() => {
           if (isExample) {

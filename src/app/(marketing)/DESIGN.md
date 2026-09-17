@@ -119,7 +119,7 @@ the seam sits on the centre gutter. The two-stream composition runs role (left
 sheet. Cards snap to the grid; only stamps rotate. Vertical rhythm is 8px;
 more space above a heading than below it.
 
-Below 900px the streams stack: role, then library (as a wrapped index of
+Below 1024px (Tailwind's `lg`) the streams stack: role, then library (as a wrapped index of
 names), then the merged sheet. Threads are dropped, not shrunk; a single
 vertical thread in the left margin keeps the pins connected. Type does not
 shrink below the body size; the display drops to 2.75rem.
