@@ -48,11 +48,16 @@ function isClientPath(pathname: string) {
   return pathname === "/client" || pathname.startsWith("/client/");
 }
 
+function isBuildPath(pathname: string) {
+  return pathname === "/build" || pathname.startsWith("/build/");
+}
+
 function isPublicHostedPath(pathname: string) {
   return (
     publicHostedExactPaths.has(pathname) ||
     pathname === "/auth" ||
-    pathname.startsWith("/auth/")
+    pathname.startsWith("/auth/") ||
+    isBuildPath(pathname)
   );
 }
 

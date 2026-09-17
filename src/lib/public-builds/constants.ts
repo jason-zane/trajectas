@@ -2,6 +2,14 @@ import "server-only";
 
 import type { AuthorizedScope } from "@/lib/auth/authorization";
 
+export {
+  PUBLIC_BUILDS_ITEMS_PER_FACTOR,
+  PUBLIC_BUILDS_TIERS,
+  PUBLIC_BUILDS_TIER_ORDER,
+  PUBLIC_BUILDS_MAX_PD_CHARS,
+  type PublicBuildTier,
+} from "./shared";
+
 /**
  * Fixed-UUID system client that owns every assessment/campaign the public
  * Role Builder (/build) creates. Guaranteed to exist by
@@ -38,19 +46,7 @@ export const PUBLIC_BUILDS_SYSTEM_SCOPE: AuthorizedScope = {
   supportSession: null,
 };
 
-/** Fixed items per capability for every public build, bypassing item_selection_rules bands. */
-export const PUBLIC_BUILDS_ITEMS_PER_FACTOR = 6;
-
-export type PublicBuildTier = "essentials" | "core" | "full";
-
-export const PUBLIC_BUILDS_TIERS: Record<PublicBuildTier, { capabilities: number; label: string }> = {
-  essentials: { capabilities: 4, label: "Essentials" },
-  core: { capabilities: 6, label: "Core" },
-  full: { capabilities: 8, label: "Full picture" },
-};
-
 /** Input caps — half the internal Architect's limits (40k chars / 10 MB). */
-export const PUBLIC_BUILDS_MAX_PD_CHARS = 20_000;
 export const PUBLIC_BUILDS_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 export const PUBLIC_BUILDS_CODE_EXPIRY_MS = 10 * 60 * 1000;

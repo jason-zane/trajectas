@@ -23,6 +23,7 @@ import { createAssessment } from '@/app/actions/assessments'
 import { createCampaign, addAssessmentToCampaign, sendParticipantInviteEmail } from '@/app/actions/campaigns'
 import { getFormatBreakdownForScope, buildDefaultSectionDrafts } from '@/lib/dal/assessment-sections'
 import { runBriefExtraction } from '@/lib/ai/brief-extraction'
+import { extractTextFromUpload } from '@/lib/ai/role-text-extraction'
 import { runArchitectMatchPipeline } from '@/lib/ai/architect-match'
 import { runArchitectOverview } from '@/lib/ai/architect-overview'
 import {
@@ -43,6 +44,7 @@ import {
   PUBLIC_BUILDS_SYSTEM_SCOPE,
   PUBLIC_BUILDS_ITEMS_PER_FACTOR,
   PUBLIC_BUILDS_MAX_PD_CHARS,
+  PUBLIC_BUILDS_MAX_UPLOAD_BYTES,
   PUBLIC_BUILDS_CODE_EXPIRY_MS,
   PUBLIC_BUILDS_CODE_MAX_ATTEMPTS,
   PUBLIC_BUILDS_MAX_BUILDS_PER_EMAIL_PER_DAY,
@@ -86,6 +88,22 @@ async function getVerifiedEmail(): Promise<string | null> {
   const store = await cookies()
   const decoded = decodePublicBuildCookie(store.get(PUBLIC_BUILD_COOKIE)?.value)
   return decoded?.email ?? null
+}
+
+/**
+ * Tagged result, not a plain union with `{ error: string }` — PublicBuildDTO
+ * itself has an `error` field (the build's own failure reason), so `'error'
+ * in result` would match a perfectly good build row too.
+ */
+type OwnedBuildResult = { ok: true; build: PublicBuildDTO } | { ok: false; error: string }
+
+async function loadOwnedBuild(buildId: string, email: string): Promise<OwnedBuildResult> {
+  const db = createAdminClient()
+  const build = await getPublicBuildById(db, buildId)
+  if (!build || build.email !== email) {
+    return { ok: false, error: 'Build not found.' }
+  }
+  return { ok: true, build }
 }
 
 function startOfUtcDayIso(): string {
@@ -309,24 +327,31 @@ export async function startBuild(input: {
 }
 
 // ---------------------------------------------------------------------------
-// rankBuild
+// extractRoleTextUpload — PDF/DOCX/TXT -> text for the brief step's upload
+// control. Not one of the six core actions in the spec, but required by the
+// spec's own UI section ("paste or upload PDF/DOCX/TXT"); pure parsing, no
+// DB access, so the only gates that make sense are mode + verification +
+// size, not admin scope.
 // ---------------------------------------------------------------------------
 
-/**
- * Tagged result, not a plain union with `{ error: string }` — PublicBuildDTO
- * itself has an `error` field (the build's own failure reason), so `'error'
- * in result` would match a perfectly good build row too.
- */
-type OwnedBuildResult = { ok: true; build: PublicBuildDTO } | { ok: false; error: string }
-
-async function loadOwnedBuild(buildId: string, email: string): Promise<OwnedBuildResult> {
-  const db = createAdminClient()
-  const build = await getPublicBuildById(db, buildId)
-  if (!build || build.email !== email) {
-    return { ok: false, error: 'Build not found.' }
+export async function extractRoleTextUpload(
+  formData: FormData,
+): Promise<ActionResult<{ text: string }>> {
+  if (getPublicBuildsMode() === 'off') {
+    return { error: 'The Role Builder is not available right now.' }
   }
-  return { ok: true, build }
+  const email = await getVerifiedEmail()
+  if (!email) return { error: 'Verify your email first.' }
+
+  const file = formData.get('file')
+  if (!(file instanceof File) || file.size === 0) return { error: 'No file provided.' }
+  if (file.size > PUBLIC_BUILDS_MAX_UPLOAD_BYTES) return { error: 'File too large (max 5 MB).' }
+  return extractTextFromUpload(file)
 }
+
+// ---------------------------------------------------------------------------
+// rankBuild
+// ---------------------------------------------------------------------------
 
 export async function rankBuild(buildId: string): Promise<ActionResult<ArchitectMatchResult>> {
   if (getPublicBuildsMode() === 'off') {

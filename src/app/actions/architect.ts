@@ -19,6 +19,7 @@ import { throwActionError, logActionError } from '@/lib/security/action-errors'
 import { runBriefExtraction } from '@/lib/ai/brief-extraction'
 import { runArchitectOverview } from '@/lib/ai/architect-overview'
 import { runArchitectMatchPipeline } from '@/lib/ai/architect-match'
+import { extractTextFromUpload } from '@/lib/ai/role-text-extraction'
 import { createAssessment, getFormatBreakdown } from '@/app/actions/assessments'
 import type { SectionDraft } from '@/app/actions/assessments'
 import { buildDefaultSectionDrafts } from '@/lib/dal/assessment-sections'
@@ -40,30 +41,7 @@ export async function extractRoleText(
   const file = formData.get('file')
   if (!(file instanceof File) || file.size === 0) return { error: 'No file provided.' }
   if (file.size > MAX_UPLOAD_BYTES) return { error: 'File too large (max 10 MB).' }
-
-  const buffer = Buffer.from(await file.arrayBuffer())
-  const name = file.name.toLowerCase()
-
-  try {
-    if (name.endsWith('.pdf') || file.type === 'application/pdf') {
-      const { extractText, getDocumentProxy } = await import('unpdf')
-      const pdf = await getDocumentProxy(new Uint8Array(buffer))
-      const { text } = await extractText(pdf, { mergePages: true })
-      const joined = Array.isArray(text) ? text.join('\n') : text
-      return { text: joined.trim() }
-    }
-    if (name.endsWith('.docx') || file.type.includes('wordprocessingml')) {
-      const mammoth = await import('mammoth')
-      const { value } = await mammoth.extractRawText({ buffer })
-      return { text: value.trim() }
-    }
-    if (name.endsWith('.txt') || file.type.startsWith('text/')) {
-      return { text: buffer.toString('utf8').trim() }
-    }
-    return { error: 'Unsupported file. Upload a PDF, DOCX, or TXT — or paste the text.' }
-  } catch {
-    return { error: 'Could not read that file. Try pasting the text instead.' }
-  }
+  return extractTextFromUpload(file)
 }
 
 // ---------------------------------------------------------------------------

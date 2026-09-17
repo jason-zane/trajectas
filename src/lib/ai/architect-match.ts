@@ -47,7 +47,7 @@ export async function runArchitectMatchPipeline(
   // Eligible factor pool: match-eligible, active, not deleted.
   const { data: factorRows, error } = await db
     .from('factors')
-    .select('id, name, definition, description, applicable_outcomes, applicable_levels, applicable_functions, dimension_id, dimensions(name), primary_category_id')
+    .select('id, name, definition, description, indicators_low, indicators_mid, indicators_high, applicable_outcomes, applicable_levels, applicable_functions, dimension_id, dimensions(name), primary_category_id')
     .eq('is_active', true)
     .eq('is_match_eligible', true)
     .is('deleted_at', null)
@@ -129,6 +129,10 @@ export async function runArchitectMatchPipeline(
       availableItems: itemCountByFactor.get(r.factorId) ?? 0,
       dimensionId: (f?.dimension_id as string | null) ?? null,
       dimensionName: f ? dimNameOf(f) : null,
+      definition: ((f?.definition as string) || (f?.description as string)) ?? null,
+      indicatorsLow: (f?.indicators_low as string | null) ?? null,
+      indicatorsMid: (f?.indicators_mid as string | null) ?? null,
+      indicatorsHigh: (f?.indicators_high as string | null) ?? null,
       ...catOf(f),
     }
   })
@@ -139,6 +143,10 @@ export async function runArchitectMatchPipeline(
     availableItems: itemCountByFactor.get(f.id as string) ?? 0,
     dimensionId: (f.dimension_id as string | null) ?? null,
     dimensionName: dimNameOf(f as Record<string, unknown>),
+    definition: ((f.definition as string) || (f.description as string)) ?? null,
+    indicatorsLow: (f.indicators_low as string | null) ?? null,
+    indicatorsMid: (f.indicators_mid as string | null) ?? null,
+    indicatorsHigh: (f.indicators_high as string | null) ?? null,
     ...catOf(f as Record<string, unknown>),
   }))
 
