@@ -4,6 +4,7 @@ import { notifyConsultantsForSnapshot } from '@/lib/notifications/consultant-not
 import { withReportPdfBrowser } from '@/lib/reports/pdf-browser'
 import { createReportPdfToken } from '@/lib/reports/pdf-token'
 import { requireAppUrl } from '@/lib/hosts'
+import { maybeSendPublicBuildReportEmail } from '@/lib/public-builds/report-email'
 import type { ReportPdfStatus, ReportSnapshotStatus } from '@/types/database'
 
 const REPORTS_BUCKET = 'reports'
@@ -292,6 +293,35 @@ export async function generateAndStoreReportPdf(
           context: { snapshotId, phase: 'post-pdf' },
         })
       }
+    }
+
+    try {
+      const { data: snapshotRow } = await storage
+        .from('report_snapshots')
+        .select('participant_session_id')
+        .eq('id', snapshotId)
+        .maybeSingle()
+      const sessionId = snapshotRow?.participant_session_id
+      if (sessionId) {
+        const { data: session } = await storage
+          .from('participant_sessions')
+          .select('campaign_participant_id')
+          .eq('id', sessionId)
+          .maybeSingle()
+        if (session?.campaign_participant_id) {
+          await maybeSendPublicBuildReportEmail(storage, {
+            participantId: session.campaign_participant_id,
+            pdfBuffer: body,
+          })
+        }
+      }
+    } catch (hookError) {
+      await reportError(hookError, {
+        source: 'public-builds.report-email',
+        severity: 'warning',
+        alert: false,
+        context: { snapshotId, phase: 'post-pdf' },
+      })
     }
 
     return {
