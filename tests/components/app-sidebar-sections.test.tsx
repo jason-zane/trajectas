@@ -52,6 +52,7 @@ describe("AppSidebar structure", () => {
     expect(links.map((l) => l.textContent?.trim())).toEqual([
       "Dimensions",
       "Factors",
+      "Core Model",
       "Constructs",
       "Items",
       "Item Formats",

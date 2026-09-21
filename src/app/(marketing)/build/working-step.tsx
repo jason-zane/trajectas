@@ -1,121 +1,27 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Check, FileText, ListChecks, LoaderCircle } from "lucide-react";
 import type { Brief } from "@/types/ai";
-import type { ArchitectPick } from "@/types/architect";
-import { WallPage } from "./wall-page";
+import { BuilderHeading } from "./builder-frame";
 
-export type WorkingStage = "reading" | "weighing" | "pinning";
+export type WorkingStage = "reading" | "matching" | "creating";
 
-export function WorkingStep({
-  email,
-  brief,
-  stage,
-  consideredCount,
-  revealed,
-  target,
-}: {
-  email: string;
-  brief: Brief | null;
-  stage: WorkingStage;
-  consideredCount: number | null;
-  revealed: ArchitectPick[];
-  target: number;
-}) {
-  const faceDown = Math.max(target - revealed.length, 0);
-
-  return (
-    <WallPage email={email}>
-        <h1 className="display mb-10" style={{ fontSize: "clamp(2.25rem, 5vw, 2.75rem)" }}>
-          Reading the role.
-        </h1>
-
-        <div className="grid gap-10 lg:grid-cols-2">
-          <section aria-labelledby="w-role">
-            <p id="w-role" className="label label-paper mb-3">
-              The role
-            </p>
-            <div className="card relative flex min-h-[320px] flex-col gap-3.5 p-7">
-              <i className="pin" aria-hidden="true" />
-              <p className="title" style={{ fontSize: 20 }}>
-                {brief?.roleTitle || "…"}
-              </p>
-              <div className="rule" />
-              {brief ? (
-                <>
-                  <div className="grid grid-cols-[100px_1fr] gap-2 gap-x-4 text-sm">
-                    <span className="label label-ink" style={{ paddingTop: 3 }}>
-                      Read as
-                    </span>
-                    <span className="body" style={{ fontSize: 14.5 }}>
-                      {brief.roleTitle} &middot; {brief.function || "General"} &middot; {brief.level}
-                    </span>
-                    {brief.responsibilities.length > 0 && (
-                      <>
-                        <span className="label label-ink" style={{ paddingTop: 3 }}>
-                          Owns
-                        </span>
-                        <span className="body" style={{ fontSize: 14.5 }}>
-                          {brief.responsibilities.slice(0, 3).join("; ")}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <p className="body-soft">Reading the position description&hellip;</p>
-              )}
-            </div>
-          </section>
-
-          <section aria-labelledby="w-pins" aria-live="polite">
-            <div className="mb-3.5 flex items-baseline justify-between">
-              <p id="w-pins" className="label label-paper">
-                Pinned for this role
-              </p>
-              <p className="label label-paper" style={{ color: "var(--gold)" }}>
-                {revealed.length} of {target}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3">
-              {revealed.map((pick) => (
-                <div key={pick.factorId} className="cap-card" style={{ minHeight: 150 }}>
-                  <i className="pin" aria-hidden="true" />
-                  <p className="title" style={{ fontSize: 16 }}>
-                    {pick.factorName}
-                  </p>
-                  <p className="body-soft" style={{ fontSize: 13 }}>
-                    {pick.definition?.slice(0, 90) || "—"}
-                  </p>
-                </div>
-              ))}
-              {Array.from({ length: faceDown }).map((_, i) => (
-                <div key={i} className="card face-down" style={{ minHeight: 150 }} />
-              ))}
-            </div>
-
-            <div className="narrate mt-8 flex flex-col gap-1.5">
-              <p className={stage !== "reading" ? "done" : ""} style={{ margin: 0 }}>
-                Read the role
-                {brief ? ` — ${brief.roleTitle} · ${brief.function || "General"} · ${brief.level}` : ""}
-                {stage === "reading" && <span className="caret" aria-hidden="true" />}
-              </p>
-              {stage !== "reading" && (
-                <p className={stage !== "weighing" ? "done" : ""} style={{ margin: 0 }}>
-                  Weighed {consideredCount ?? "…"} capabilities against it
-                  {stage === "weighing" && <span className="caret" aria-hidden="true" />}
-                </p>
-              )}
-              {stage === "pinning" && (
-                <p style={{ margin: 0 }}>
-                  Pinning the ones it turns on &mdash; {revealed.length} of {target}
-                  <span className="caret" aria-hidden="true" />
-                </p>
-              )}
-            </div>
-          </section>
-        </div>
-
-        <p className="label label-paper mt-10" style={{ opacity: 0.7 }}>
-          About 20 seconds &middot; nothing is created yet
-        </p>
-    </WallPage>
-  );
+export function WorkingStep({ roleTitle, brief, stage }: { roleTitle: string; brief: Brief | null; stage: WorkingStage }) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => { const timer = setInterval(() => setSeconds(s => s + 1), 1000); return () => clearInterval(timer); }, []);
+  const creating = stage === "creating";
+  const active = stage === "reading" ? 0 : stage === "matching" ? 1 : 2;
+  const stages = [
+    ["Read the role", "Identify the responsibilities, level and working context."],
+    ["Match relevant capabilities", "Compare the role with the eligible assessment library."],
+    ["Create your assessment", "Prepare the questions, your personal link and invitation email."],
+  ];
+  return <div className="px-enter"><BuilderHeading title={creating ? "Preparing your assessment." : "Finding what matters for this role."}>{creating ? "Your selection is confirmed. We’re creating the assessment so you can take it next." : "We’re working from your position description. You’ll be able to review and adjust the recommendations."}</BuilderHeading>
+    <div className="rb-status-grid"><div><ol className="rb-stages" aria-label="Build progress">{stages.slice(0, creating ? 3 : 2).map(([title, description], index) => <li key={title} data-state={index < active ? "done" : index === active ? "active" : "pending"}><span className="rb-stage-icon">{index < active ? <Check size={22} aria-hidden /> : index === active ? <LoaderCircle className="rb-spinner" size={24} aria-hidden /> : index === 0 ? <FileText size={23} aria-hidden /> : <ListChecks size={23} aria-hidden />}</span><div><h2>{title}</h2><p>{description}</p>{index === active && <div className="rb-live-line" aria-hidden />}</div></li>)}</ol>
+      <p role="status" className="rb-help" style={{ marginTop: 20 }}>{stages[active][0]}{stage === "matching" && brief ? ` — role read as ${brief.roleTitle}.` : "…"}</p>
+      <p className="rb-elapsed">{seconds}s elapsed{seconds < 30 ? " · This can take a little time." : " · Still working. You don’t need to submit again."}</p>
+      {seconds >= 90 && <p className="rb-note" style={{ marginTop: 16 }}>This is taking longer than usual. Keep this page open while the request finishes. If you lose your connection, return here to check your progress.</p>}
+    </div><aside className="rb-readout" aria-label="Role details"><span className="px-label">Your role</span><h2>{brief?.roleTitle || roleTitle}</h2>{brief ? <div className="px-enter"><p className="rb-help">{[brief.function, brief.level.replaceAll("_", " ")].filter(Boolean).join(" · ")}</p><ul>{brief.responsibilities.slice(0, 4).map((item, index) => <li key={index}>{item}</li>)}</ul></div> : <p>The responsibilities we identify will appear here once the description has been read.</p>}</aside></div>
+  </div>;
 }

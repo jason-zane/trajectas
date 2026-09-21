@@ -509,3 +509,37 @@ export async function listPublicBuilds(
   if (error) throw new Error(`listPublicBuilds: ${error.message}`);
   return (data ?? []).map(mapPublicBuildRow);
 }
+
+/** Recover only an email-verified visitor's own work. Live builds take precedence over drafts. */
+export async function getResumablePublicBuild(db: DB, email: string) {
+  const { data: live, error: liveError } = await db.from("public_builds")
+    .select("*").eq("email", email).in("status", ["creating", "created", "started"])
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (liveError) throw liveError;
+  let row = live;
+  if (!row) {
+    const { data, error } = await db.from("public_builds")
+      .select("*").eq("email", email).eq("status", "ranked")
+      .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (error) throw error;
+    row = data;
+  }
+  if (!row) return null;
+  const build = mapPublicBuildRow(row);
+  let token: string | null = null;
+  if (build.participantId && build.campaignId && ["created", "started"].includes(build.status)) {
+    // Participant lookup is constrained by the owned build, its campaign and the verified email.
+    const { data, error } = await db.from("campaign_participants")
+      .select("access_token").eq("id", build.participantId)
+      .eq("campaign_id", build.campaignId).eq("email", email).maybeSingle();
+    if (error) throw error;
+    token = data?.access_token ?? null;
+  }
+  return {
+    id: build.id, roleTitle: build.roleTitle || build.brief?.roleTitle || "Your role",
+    pdText: typeof row.pd_text === "string" ? row.pd_text : "",
+    brief: build.brief, ranking: build.ranking, picks: build.picks,
+    status: build.status as "ranked" | "creating" | "created" | "started", token,
+  };
+}

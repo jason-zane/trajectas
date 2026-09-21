@@ -1,166 +1,49 @@
----
-name: Trajectas public surface
-description: The selection panel's wall — a position description and the capability library pinned on emerald baize, joined by thread.
----
+# Trajectas public experience
 
-<!-- SEED: established with the user before implementation; re-run /impeccable document once there's code to capture the actual tokens and components. -->
+Replacement direction confirmed 21 September 2026: modern, precise and product-led.
+Applies to the homepage and Role Builder only. PRODUCT.md remains the product-truth authority.
 
-# Design System: Trajectas public surface
+## Visual system
+Cool white and pale mineral-grey surfaces, charcoal text, emerald #2d6a5a primary actions and small gold #c9a962 brand accents. Retain the lowercase Trajectas wordmark and four ascending Span bars. Use a crisp sans-serif hierarchy, generous space and strong alignment. No felt, pinned paper, typewriter styling, film grain or decorative particle fields. Interface content is the visual evidence; no invented testimonials, validation statistics or client logos.
 
-Governs the public site (`src/app/(marketing)`) and the public Role Builder.
-The admin, partner and client portals keep `docs/ui-standards.md`; the
-assessment runner keeps its own brand cascade. This file does not reach them.
+## Composition
+Homepage explains position description → relevant capabilities → real assessment and report. The builder shares its header, typography, action hierarchy and controls. Use the selected mechanism-led homepage and a guided builder workspace. Use illustrative examples clearly labelled as examples.
 
-## Overview
+## Interaction
+Design for open access, retaining the existing invitation gate until launch. Explain the gate before entry while active. Let visitors understand the task and expected output before verification; keep email verification before AI work. Use a legible step sequence, persistent role context, clear selection feedback, visible time/item estimates and recoverable errors. Preserve server authorization and quotas.
 
-**Creative North Star: "The Panel's Wall"**
+## Responsive and accessibility
+Stack document and capability views on narrow screens. All controls remain touch-friendly and keyboard operable. Focus indicators, labels, contrast and reduced-motion support are mandatory. Core controls and text remain semantic HTML. Implemented tokens are recorded below.
 
-The public surface is the wall of a selection panel's room. The role is pinned
-up as a document; the capability library is pinned beside it as an index of
-cards; gold thread runs from the lines of the role to the few capabilities it
-turns on; and the assessment that results is a single sheet further down the
-wall. Everything the visitor reads is an object on that wall. The wall itself
-is emerald baize, drenched: the brand colour is the material, not an accent.
+## Implemented decisions
 
-The composition is two streams meeting. The role and the library run as two
-columns split by one seam of thread; they exchange material across the seam;
-downstream they merge into one measure. That is the product's mechanism drawn
-literally, and it replaces both the page this category always ships (dark SaaS
-hero, product screenshot, three feature cards) and its opposite (cream
-broadsheet, italic serif, tracked mono eyebrows), which is what the previous
-home page was.
+The user selected the first generated concept, preserved at `docs/design/2026-09-21-public-experience/approved-direction.png`. This is visual direction, not authority for the generated image's invented copy or unsupported sharing flow.
 
-Order, not clutter. A panel's wall is tidy: cards sit on a strict grid, threads
-are few and deliberate, pins are small, nothing is scattered or tilted except a
-stamp. The world is skeuomorphic in grammar (cards, pins, thread, stamps,
-sheets) and flat in rendering (no photographic textures, no drop-shadow
-theatre).
+- White base, `#f4f7f5` working surface, `#192522` primary text, `#586560` secondary text, `#dce3df` rules. Primary action `#2d6a5a`, hover `#214e42`, gold `#c9a962` used only as a short rule/accent.
+- Use the already-vendored Plus Jakarta Sans to preserve the approved first concept's geometric sans voice and continuity with Trajectas. 400–700 text, 650–700 headings, display 38–66px with -0.035em tracking. Sans body, no decorative mono.
+- Content maximum 1280px. 24–72px responsive gutters. Primary controls 50px high, 6px corners. Working containers 12px corners; separators rather than nested cards.
+- Use the real TrajectasLogo and existing Lucide outline icons. No new raster assets are needed: the central evidence is semantic, interactive role/capability content.
+- Homepage demonstration is explicitly illustrative. No proof claims, fake confidence percentages, invented clients or unsubstantiated norms.
+- Production sequence: verify email/invitation, describe role, actual extraction and matching, review capabilities and length, confirm creation, open assessment. Verification stays first because uploaded document extraction and AI are gated. Length is chosen once, in context, on review.
+- Animation reflects actual requests. Reading completes only when extraction returns. Matching starts then, with extracted responsibilities visible. Creation has its own pending state. No synthetic percentages, timed card reveal or extra summary-generation call.
+- Reduced motion disables movement while retaining clear stage text. New-screen focus is managed without browser-induced scroll jumps. Inline details preserve context and keyboard affordances.
+- Cookie-gated recovery retrieves only the verified email's builds. Role drafts and adjustments are optionally retained in that browser tab, scoped to email/build, never used as authorization.
+- Public surfaces deliberately keep this light system even if an admin previously selected dark mode. It is independent of portal theme settings.
 
-**Key Characteristics:**
-- Emerald baize as the ground of every public page; reading happens on paper
-  cards laid on it.
-- One seam, a few threads: the visible relationship between role and
-  capability is the signature.
-- Cards on a grid, pins as punctuation, one stamp per page at most.
-- Serif with authority for reading, monospace only for typed labels and
-  measurements.
+- Mobile review retains a sticky count/time summary link. Length controls preserve manual choices; shortening keeps the earliest selections. Recovery restores the owned position description, with a newer tab draft taking precedence.
 
-## Colors
+## Homepage refinement after user review
 
-Drenched: the ground is the brand emerald; paper, ink and gold are the only
-other materials.
+The user liked the restrained structure but found the homepage too uniform and plain. Keep the builder unchanged. The homepage now uses a warm paper base (#faf9f5), green emphasis in the headline, pale sage capability destinations, a deep-green assessment summary, and a forest-green process section with warm gold sequence numbers. A muted gold closing panel creates a final point of emphasis. These are semantic section and outcome distinctions, not decorative effects. Existing copy, interactions, branding and gate remain intact.
 
-### Primary
-- **Baize** (`#2d6a5a`, the brand emerald): the wall. Fills the whole ground of
-  every public page. Never used as text.
-- **Baize shadow** (`#224d41`): bars, footers and the backs of face-down cards;
-  the same felt in shade.
+## Complete public site and capability depth
 
-### Secondary
-- **Thread gold** (`#c9a962`, the brand gold): thread, pins, the primary
-  button's fill, the active tier. Decorative and structural, never body text.
-- **Gold ink** (`#8a6d2c`): gold when it must be read on paper — stamps,
-  measurement labels on cards. Meets 4.5:1 on paper.
+Public navigation now connects Home, How it works, For teams and Contact. Older topic pages and /classic redirect to the corresponding current pages and are removed from the sitemap, while remaining allowed on the public host. Contact uses the existing submitContact action, preserving the enquiry storage/notification behaviour. No invented calendar booking or response-time guarantee.
 
-### Neutral
-- **Paper** (`#fbfaf6`): cards, sheets, and display type set directly on the
-  baize.
-- **Paper edge** (`#e9e5db`): hairline rules inside a card; the shaded edge of
-  a stack.
-- **Ink** (`#1a1a1a`, the brand ink): all reading text on paper.
-- **Ink soft** (`#4a4a45`): secondary text on paper.
-- **Mint** (`#dbeadf`): secondary text set on the baize. Tinted from the hue,
-  never grey.
+The homepage example uses a native selector with three illustrative roles and six responsibility/capability connections each. The public builder distinguishes role interpretation, the initially recommended set and other ranked capabilities. Reasons are visible in context; expandable detail shows existing library definitions and low/mid/high behavioural indicators, with honest absence states. Same-category/dimension links help comparison without claiming semantic equivalence. Selection counts, preserved manual choices, limits, search and the final selected-name summary support deliberate assessment design. No new AI call or fabricated role-specific rationale is introduced.
 
-### Named Rules
-**The Paper Rule.** Prose is read on paper. Nothing longer than a lede is set
-directly on the baize.
+## Whole-role matching and model exploration
 
-**The One Stamp Rule.** A page carries at most one stamp, and it says
-something true about this role ("Recommended for this role"). A stamp is
-never decoration.
+Follow-up direction: replace one-to-one homepage responsibility/capability arrows with a whole-role narrative leading to a set. Align builder cream/sage/forest colour hierarchy with the homepage. Keep selection rows compact and use a native modal dialog for the full definition, role reasoning and available behavioural indicators; retain add/remove action within the dialog. The dialog traps Tab, supports Escape, restores trigger focus, locks background scrolling and resets reading position when exploring related content. Role interpretation exposes function, seniority, responsibilities, context signals and technical requirements, without inventing missing evidence.
 
-**The Gold Is Not Text Rule.** Thread gold appears as line, dot, fill and
-outline. When gold must be read, it is gold ink.
-
-## Typography
-
-**Display Font:** Libre Caslon Display (fallback: Georgia, serif)
-**Body Font:** Libre Caslon Text (fallback: Georgia, serif)
-**Label/Mono Font:** Courier Prime (fallback: "Courier New", monospace) — a typewriter face, because a label on a card is typed, not coded. Bold (700) for labels and stamped buttons, regular (400) for measurements.
-**Wordmark only:** Plus Jakarta Sans 800, lowercase, per `docs/brand-identity.md`. Not used anywhere else on the public surface.
-
-**Character:** Caslon is the face of the formal brief and the bound report — a
-selection panel's reading material. The mono is the typed label on a card and
-the measurement beside it, never a costume for "technical".
-
-### Hierarchy (provisional sizes)
-- **Display** (400, `clamp(2.75rem, 5vw, 4.5rem)`, 1.02, tracking -0.01em):
-  one per page, set in paper on the baize.
-- **Headline** (400, 2.5rem, 1.1): section heads, paper on baize, sentence
-  case. No eyebrows above them.
-- **Title** (700 Caslon Text, 1.125–1.25rem, 1.25): card titles, capability
-  names.
-- **Body** (400 Caslon Text, 0.9375–1.0625rem, 1.55): sheet and card prose,
-  ink on paper, measure 60–70ch.
-- **Label** (500 Geist Mono, 0.6875rem, tracking 0.12em, uppercase): typed
-  card labels ("The role", "The library") and measurements ("6 items · 72 s").
-  Used on cards and tags, not as section eyebrows.
-
-### Named Rules
-**The Typed Label Rule.** Monospace marks something typed onto a card or
-measured: a label, a count, a duration, a code. It never introduces a section.
-
-## Layout
-
-A 12-column grid on a 1440 canvas with 96px outer margins and 24px gutters;
-the seam sits on the centre gutter. The two-stream composition runs role (left
-5 columns) | seam | library (right 5 columns), then merges into a full-width
-sheet. Cards snap to the grid; only stamps rotate. Vertical rhythm is 8px;
-more space above a heading than below it.
-
-Below 1024px (Tailwind's `lg`) the streams stack: role, then library (as a wrapped index of
-names), then the merged sheet. Threads are dropped, not shrunk; a single
-vertical thread in the left margin keeps the pins connected. Type does not
-shrink below the body size; the display drops to 2.75rem.
-
-## Elevation & Depth
-
-Objects on a wall. A card sits proud of the baize by a hairline edge and a
-short, soft, offset shadow (`0 1px 0 rgba(0,0,0,.18), 0 6px 14px -8px
-rgba(0,0,0,.45)`); a pinned card lifts by 2px and its shadow lengthens.
-Face-down cards show baize shadow with a gold edge. No glass, no blur, no
-glow, no halos. Depth otherwise comes from the baize weave (a 2–3% woven
-texture drawn in CSS) sitting behind everything.
-
-### Named Rules
-**The Pin Rule.** Anything attached to the wall has a pin: a 10px gold dot
-with a 1px offset shadow, placed on the card's top edge. Nothing floats.
-
-## Shapes
-
-Paper corners: 2px radius on cards and sheets, none on the wall. Buttons are
-stamped tags: 2px radius, gold fill, ink mono caps. Thread is a 1.5px gold
-line, curved between its two pins, never a straight connector with arrows.
-Stamps are a 1.5px gold-ink outline, rotated 4–6°, multiplied onto the paper.
-Face-down cards are the same rectangle in baize shadow with a 1px gold edge.
-
-## Do's and Don'ts
-
-### Do:
-- **Do** fill the ground with baize; the emerald is the surface, not a stripe.
-- **Do** put every paragraph on paper, and give the paper a pin.
-- **Do** draw the role-to-capability relationship as thread whenever both are
-  on screen; it is the product's argument.
-- **Do** show live library counts as typed measurements on a tag.
-- **Do** keep controls in the wall's vocabulary: stamped tags for buttons,
-  paper strips for inputs, pinned cards for options.
-
-### Don't:
-- **Don't** tilt, scatter or overlap cards; the wall is a panel's, not a
-  detective's. Only a stamp rotates.
-- **Don't** use grain, gradients, glass or glow. Depth is edge and shadow.
-- **Don't** put a mono eyebrow over section headings, or number sections.
-- **Don't** set gold as text on paper; use gold ink.
-- **Don't** invent evidence for the wall: no client names, quotes or
-  statistics beyond the live library counts (see PRODUCT.md).
+New /capability-model reads active non-deleted platform reference content dynamically through a narrow DAL projection. No question bank, answer keys, tenant records or hardcoded capability inventory is exposed. Categories, names and descriptions come from the library so future revisions flow through. Search/group filtering and the same shared detail dialog support exploration. The local model demonstration uses a labelled read-only library snapshot; it is not a shipped fallback.

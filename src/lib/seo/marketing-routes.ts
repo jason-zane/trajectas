@@ -16,23 +16,25 @@ type SitemapEntry = {
  */
 export const MARKETING_ROUTES = [
   { path: "/", sitemap: { changeFrequency: "weekly", priority: 1 } },
+  { path: "/how-it-works", sitemap: { changeFrequency: "monthly", priority: 0.8 } },
+  { path: "/for-teams", sitemap: { changeFrequency: "monthly", priority: 0.8 } },
+  { path: "/contact", sitemap: { changeFrequency: "monthly", priority: 0.7 } },
+  { path: "/capability-model", sitemap: { changeFrequency: "weekly", priority: 0.8 } },
   // The public Role Builder — the page the site exists to send people to.
   { path: "/build", sitemap: { changeFrequency: "weekly", priority: 0.9 } },
   {
     path: "/psychometric-assessment",
-    sitemap: { changeFrequency: "monthly", priority: 0.8 },
+    sitemap: null,
   },
   {
     path: "/capability-assessment",
-    sitemap: { changeFrequency: "monthly", priority: 0.8 },
+    sitemap: null,
   },
   {
     path: "/performance-and-outcomes",
-    sitemap: { changeFrequency: "monthly", priority: 0.75 },
+    sitemap: null,
   },
-  // The archived cinematic home. It is noindex, not private: its canonical
-  // and Open Graph URLs point at the public host, and its Cal.com embed needs
-  // the public-surface CSP.
+  // Retired URLs stay allowed on the public host so their redirects resolve.
   { path: "/classic", sitemap: null },
 ] as const satisfies ReadonlyArray<{
   path: `/${string}`;
