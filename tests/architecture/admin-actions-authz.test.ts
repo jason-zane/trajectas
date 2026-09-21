@@ -95,6 +95,10 @@ const MUTATION_ALLOWLIST = new Map<string, string>([
 // Every entry is a conscious decision — keep reasons concrete.
 const READ_ALLOWLIST = new Map<string, string>([
   [
+    "src/app/actions/public-builds-session.ts#getPublicBuildSession",
+    "Public Role Builder recovery: validates the signed, unexpired tf_public_build cookie; DAL scopes builds to that email and participant token lookup to the owned build's participant, campaign and email. No caller-supplied identity. Covered by public-build-session.test.ts.",
+  ],
+  [
     "src/app/actions/assess.ts#getAssessmentItemCount",
     "Returns only an aggregate item count (no item content); used by the participant intro before a session exists.",
   ],

@@ -20,6 +20,8 @@ import { canRun, createAdminClient, createTestUser } from './_helpers/rls-fixtur
 import { PUBLIC_BUILDS_CLIENT_ID } from '@/lib/public-builds/constants'
 import {
   insertPublicBuild,
+  revisePublicBuild,
+  updatePublicBuildRanking,
   findCachedRankedBuild,
   hasLiveBuildForEmail,
   claimPublicBuildForCreation,
@@ -65,6 +67,21 @@ describe.skipIf(!canRun)('public Role Builder backend', () => {
         // best-effort cleanup
       }
     }
+  })
+
+  it('reuses a draft without adding quota rows and rejects stale edits or ranking', async () => {
+    const email = testEmail('revision')
+    const original = await insertPublicBuild(admin,{email,ipHash:null,roleTitle:'Original',pdHash:'old',pdText:'Old text',brief:sampleBrief,tier:'core'})
+    const revision = {roleTitle:'Revised',pdText:'New text',pdHash:'new',brief:sampleBrief,tier:'core' as const,ranking:null}
+    expect(await revisePublicBuild(admin,original.id,'other@test.local','old',revision)).toBe(false)
+    expect(await revisePublicBuild(admin,original.id,email,'old',revision)).toBe(true)
+    expect(await revisePublicBuild(admin,original.id,email,'old',revision)).toBe(false)
+    const {count} = await admin.from('public_builds').select('id',{count:'exact',head:true}).eq('email',email)
+    expect(count).toBe(1)
+    expect(await updatePublicBuildRanking(admin,original.id,{pdHash:'old',ranking:{} as never,usage:{}})).toBe(false)
+    expect(await claimPublicBuildForCreation(admin,original.id)).toBe(true)
+    expect(await revisePublicBuild(admin,original.id,email,'new',revision)).toBe(false)
+    await admin.from('public_builds').delete().eq('id',original.id)
   })
 
   it('applied the PUBLIC_BUILDS_CLIENT_ID client row and both tables', async () => {

@@ -85,6 +85,8 @@ const adminDb = vi.hoisted(() => {
   return { seed, opsFor, client: { from, rpc } }
 })
 
+vi.mock('@/lib/dal/model-management', () => ({ assessmentSelectionIssue: async () => null }))
+
 vi.mock('@/lib/dal/assessment-content', () => dal)
 
 vi.mock('@/lib/dal/assessment-sections', () => sectionsDal)

@@ -283,16 +283,13 @@ export async function findCachedRankedBuild(
 export async function updatePublicBuildRanking(
   db: DB,
   id: string,
-  input: {
-    ranking: ArchitectMatchResult;
-    usage: Record<string, PublicBuildUsage>;
-  },
-): Promise<void> {
-  const { error } = await db
-    .from("public_builds")
+  input: { ranking: ArchitectMatchResult; usage: Record<string, PublicBuildUsage>; pdHash: string | null },
+): Promise<boolean> {
+  const { data, error } = await db.from("public_builds")
     .update({ ranking: input.ranking, usage: input.usage, status: "ranked" })
-    .eq("id", id);
+    .eq("id", id).in("status", ["ranked", "failed"]).filter("pd_hash", input.pdHash === null ? "is" : "eq", input.pdHash).select("id");
   if (error) throw new Error(`updatePublicBuildRanking: ${error.message}`);
+  return data?.length === 1;
 }
 
 /**
@@ -508,4 +505,52 @@ export async function listPublicBuilds(
     );
   if (error) throw new Error(`listPublicBuilds: ${error.message}`);
   return (data ?? []).map(mapPublicBuildRow);
+}
+
+/** Recover only an email-verified visitor's own work. Live builds take precedence over drafts. */
+export async function getResumablePublicBuild(db: DB, email: string) {
+  const { data: live, error: liveError } = await db.from("public_builds")
+    .select("*").eq("email", email).in("status", ["creating", "created", "started"])
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (liveError) throw liveError;
+  let row = live;
+  if (!row) {
+    const { data, error } = await db.from("public_builds")
+      .select("*").eq("email", email).eq("status", "ranked")
+      .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (error) throw error;
+    row = data;
+  }
+  if (!row) return null;
+  const build = mapPublicBuildRow(row);
+  let token: string | null = null;
+  if (build.participantId && build.campaignId && ["created", "started"].includes(build.status)) {
+    // Participant lookup is constrained by the owned build, its campaign and the verified email.
+    const { data, error } = await db.from("campaign_participants")
+      .select("access_token").eq("id", build.participantId)
+      .eq("campaign_id", build.campaignId).eq("email", email).maybeSingle();
+    if (error) throw error;
+    token = data?.access_token ?? null;
+  }
+  return {
+    id: build.id, roleTitle: build.roleTitle || build.brief?.roleTitle || "Your role",
+    pdText: typeof row.pd_text === "string" ? row.pd_text : "",
+    brief: build.brief, ranking: build.ranking, picks: build.picks,
+    status: build.status as "ranked" | "creating" | "created" | "started", token,
+  };
+}
+
+/** Revisions keep the same quota record, and may never overwrite a claimed build. */
+export async function revisePublicBuild(db: DB, id: string, email: string, previousPdHash: string | null, input: {
+  roleTitle: string; pdText: string; pdHash: string; tier: PublicBuildTier;
+  brief: Brief; ranking: ArchitectMatchResult | null; usage?: Record<string, PublicBuildUsage>;
+}): Promise<boolean> {
+  const { data, error } = await db.from('public_builds').update({
+    role_title: input.roleTitle, pd_text: input.pdText, pd_hash: input.pdHash,
+    tier: input.tier, brief: input.brief, ranking: input.ranking, usage: input.usage,
+    picks: null, error: null,
+  }).eq('id', id).eq('email', email).eq('status', 'ranked').filter('pd_hash', previousPdHash === null ? 'is' : 'eq', previousPdHash).select('id');
+  if (error) throw new Error('Unable to save the revised role. Please try again.');
+  return data?.length === 1;
 }

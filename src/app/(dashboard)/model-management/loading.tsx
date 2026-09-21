@@ -1,0 +1,1 @@
+export default function Loading() { return <div aria-label="Loading model controls" className="space-y-6"><div className="h-20 rounded-xl bg-muted animate-shimmer" /><div className="h-32 rounded-xl bg-muted animate-shimmer" /><div className="h-96 rounded-xl bg-muted animate-shimmer" /></div> }

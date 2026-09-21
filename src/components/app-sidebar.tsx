@@ -101,6 +101,7 @@ const adminNav: NavSection[] = [
     items: [
       { title: "Dimensions", href: "/dimensions", icon: LayoutGrid },
       { title: "Factors", href: "/factors", icon: Brain },
+      { title: "Core Model", href: "/model-management", icon: Settings2 },
       { title: "Constructs", href: "/constructs", icon: Dna },
       { title: "Items", href: "/items", icon: FileQuestion },
       { title: "Item Formats", href: "/response-formats", icon: Settings2 },

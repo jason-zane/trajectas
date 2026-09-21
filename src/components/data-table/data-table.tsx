@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   flexRender,
@@ -153,7 +153,8 @@ export function DataTable<TData, TValue>({
     setRowSelection({});
   }, [debouncedSearch, columnFilters]);
 
-  const searchedData =
+  // Keep the filtered array stable: TanStack resets pagination when data changes.
+  const searchedData = useMemo(() =>
     searchableColumns.length === 0 || debouncedSearch.length === 0
       ? data
       : data.filter((row) =>
@@ -162,7 +163,7 @@ export function DataTable<TData, TValue>({
               debouncedSearch
             )
           )
-        );
+        ), [data, searchableColumns, debouncedSearch]);
 
   const filterableIds = new Set(filterableColumns.map((filter) => filter.id));
   const resolvedColumns = columns.map((column) => {

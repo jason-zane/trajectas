@@ -1,5 +1,7 @@
 'use server'
 
+import { assessmentSelectionIssue } from '@/lib/dal/model-management'
+
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
@@ -733,6 +735,7 @@ export async function getFactorsForBuilder(): Promise<BuilderFactor[]> {
     .from('factors')
     .select('*, dimensions(name), factor_constructs(construct_id)')
     .eq('is_active', true)
+    .eq('is_assessment_eligible', true)
     .is('deleted_at', null)
     // Drafts haven't cleared the assessment-ready bar — keep them out of the builder.
     .neq('readiness', 'draft')
@@ -893,6 +896,9 @@ export async function createAssessment(
     return { error: { clientId: ['You do not have permission to manage this client'] } }
   }
 
+  const selectionIssue = opts.systemScope ? null : await assessmentSelectionIssue(parsed.data.factors.map(f => f.factorId))
+  if (selectionIssue) return { error: { _form: [selectionIssue] } }
+
   const db = createAdminClient()
   const { data: assessment, error } = await db.from('assessments').insert({
     partner_id: partnerId,
@@ -995,6 +1001,9 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
   }
+
+  const selectionIssue = await assessmentSelectionIssue(parsed.data.factors.map(f => f.factorId), id)
+  if (selectionIssue) return { error: { _form: [selectionIssue] } }
 
   const db = createAdminClient()
 
@@ -1763,6 +1772,9 @@ export async function updateAssessmentComposition(
     throw error
   }
   if (!scope) return { error: 'Unable to resolve assessment scope.' }
+
+  const selectionIssue = await assessmentSelectionIssue(payload.factors.map(f => f.factorId), assessmentId)
+  if (selectionIssue) return { error: selectionIssue }
 
   const db = createAdminClient()
   const responseCheck = await assertNoParticipantResponses(db, assessmentId)

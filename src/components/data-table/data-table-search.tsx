@@ -22,6 +22,7 @@ export function DataTableSearch({
         value={value}
         onChange={(event) => onValueChange(event.target.value)}
         placeholder={placeholder}
+        aria-label={placeholder}
         className="pl-9"
       />
     </div>
