@@ -15,6 +15,15 @@ const rankedSession: PublicBuildSession = { email: "test@example.com", build: { 
 
 beforeEach(() => { HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); }; HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); }; vi.clearAllMocks(); sessionStorage.clear(); vi.stubGlobal("scrollTo", vi.fn()); });
 describe("public role builder", () => {
+  it("reuses the current draft when the visitor edits the role", async () => {
+    actions.startBuild.mockResolvedValue({buildId:"build-1",brief,cached:false});
+    actions.rankBuild.mockResolvedValue(ranking);
+    render(<RoleBuilder inviteRequired initialSession={rankedSession} />);
+    fireEvent.click(screen.getByRole("button", {name: /Edit role/i}));
+    fireEvent.change(screen.getByLabelText("Position description"), {target:{value:"An updated role description."}});
+    fireEvent.click(screen.getByRole("button", {name:/Find relevant capabilities/}));
+    await waitFor(() => expect(actions.startBuild).toHaveBeenCalledWith(expect.objectContaining({buildId:"build-1",pdText:"An updated role description."})));
+  });
   it("makes the invite requirement explicit and hides it for open access", () => {
     const { rerender } = render(<RoleBuilder inviteRequired initialSession={{ email: null, build: null }} />);
     expect(screen.getByLabelText("Invitation code")).toBeRequired();

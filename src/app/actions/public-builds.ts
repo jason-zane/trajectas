@@ -61,6 +61,7 @@ import {
   reserveNextPublicBuildCodeAttempt,
   consumePublicBuildCode,
   insertPublicBuild,
+  revisePublicBuild,
   getPublicBuildById,
   findCachedRankedBuild,
   updatePublicBuildRanking,
@@ -71,6 +72,7 @@ import {
   countBuildsForEmailSince,
   hasLiveBuildForEmail,
   type PublicBuildDTO,
+  type PublicBuildUsage,
 } from '@/lib/dal/public-builds'
 import type { Brief } from '@/types/ai'
 import type { ArchitectMatchResult } from '@/types/architect'
@@ -243,12 +245,14 @@ export async function verifyCode(input: {
 // ---------------------------------------------------------------------------
 
 const startBuildSchema = z.object({
+  buildId: z.string().uuid().optional(),
   roleTitle: z.string().trim().min(1).max(300),
   pdText: z.string().trim().min(1).max(PUBLIC_BUILDS_MAX_PD_CHARS),
   tier: z.enum(['essentials', 'core', 'full']),
 })
 
 export async function startBuild(input: {
+  buildId?: string
   roleTitle: string
   pdText: string
   tier: PublicBuildTier
@@ -269,6 +273,15 @@ export async function startBuild(input: {
 
   const db = createAdminClient()
 
+  const previous = parsed.data.buildId ? await getPublicBuildById(db, parsed.data.buildId) : null
+  if (parsed.data.buildId && (!previous || previous.email !== email || previous.status !== 'ranked')) {
+    return { error: 'This draft can no longer be edited. Check your existing progress.' }
+  }
+  if (previous) {
+    const revisionLimit = await checkKeyedRateLimit(`public-build-revision:${email}`, 10, 60 * 60 * 1000, false)
+    if (revisionLimit && !revisionLimit.allowed) return { error: 'Too many role revisions. Please try again later.' }
+  }
+
   const dailyCap = getPublicBuildsDailyCap()
   const sinceUtc = startOfUtcDayIso()
   const [globalCount, emailCount, hasLive] = await Promise.all([
@@ -277,10 +290,10 @@ export async function startBuild(input: {
     hasLiveBuildForEmail(db, email),
   ])
 
-  if (globalCount >= dailyCap) {
+  if (!previous && globalCount >= dailyCap) {
     return { error: 'We have reached today’s limit for new builds. Please try again tomorrow, or contact us.' }
   }
-  if (emailCount >= PUBLIC_BUILDS_MAX_BUILDS_PER_EMAIL_PER_DAY) {
+  if (!previous && emailCount >= PUBLIC_BUILDS_MAX_BUILDS_PER_EMAIL_PER_DAY) {
     return { error: 'You have reached the daily limit for new builds. Try again tomorrow.' }
   }
   if (hasLive) {
@@ -292,19 +305,19 @@ export async function startBuild(input: {
   const ipHash = ip ? hashIp(ip) : null
   const pdHash = hashPdText(pdText)
 
+  // Save into the owned ranked draft; the DAL refuses a concurrent creation/edit.
+  const persist = async (brief: Brief, ranking: ArchitectMatchResult | null, usage: Record<string, PublicBuildUsage> | undefined) => {
+    if (previous) {
+      const saved = await revisePublicBuild(db, previous.id, email, previous.pdHash, { roleTitle, pdText, pdHash, tier, brief, ranking, usage })
+      if (!saved) throw new Error('This draft changed in another window. Check your progress before editing again.')
+      return { id: previous.id }
+    }
+    return insertPublicBuild(db, { email, ipHash, roleTitle, pdHash, pdText, brief, tier, ranking: ranking ?? undefined, usage })
+  }
+
   const cached = await findCachedRankedBuild(db, email, pdHash)
   if (cached && cached.brief && cached.ranking) {
-    const { id } = await insertPublicBuild(db, {
-      email,
-      ipHash,
-      roleTitle,
-      pdHash,
-      pdText,
-      brief: cached.brief,
-      tier,
-      ranking: cached.ranking,
-      usage: cached.usage ?? undefined,
-    })
+    const { id } = await persist(cached.brief, cached.ranking, cached.usage ?? undefined)
     return { buildId: id, brief: cached.brief, cached: true }
   }
 
@@ -317,16 +330,7 @@ export async function startBuild(input: {
   }
 
   const { usage, ...brief } = extracted
-  const { id } = await insertPublicBuild(db, {
-    email,
-    ipHash,
-    roleTitle,
-    pdHash,
-    pdText,
-    brief,
-    tier,
-    usage: { extract: usage },
-  })
+  const { id } = await persist(brief, null, { extract: usage })
 
   return { buildId: id, brief, cached: false }
 }
@@ -383,10 +387,12 @@ export async function rankBuild(buildId: string): Promise<ActionResult<Architect
       itemsPerFactor: PUBLIC_BUILDS_ITEMS_PER_FACTOR,
     })
     const { usage, ...ranking } = result
-    await updatePublicBuildRanking(db, buildId, {
+    const saved = await updatePublicBuildRanking(db, buildId, {
+      pdHash: build.pdHash,
       ranking,
       usage: { ...(build.usage ?? {}), match: usage },
     })
+    if (!saved) return { error: 'This role changed while matching. Check your latest progress.' }
     return ranking
   } catch (error) {
     logActionError('publicBuilds.rankBuild', error)

@@ -135,9 +135,9 @@ export function RoleBuilder({ inviteRequired, initialSession, initialError }: { 
 
   async function submitRole() {
     if (busy.current || !draft.roleTitle.trim() || !draft.pdText.trim()) return;
-    busy.current = true; setError(null); setBrief(null); setBuildId(null); setRanking(null); setStep("working"); setWorkingStage("reading");
+    busy.current = true; setError(null); setBrief(null); setRanking(null); setStep("working"); setWorkingStage("reading");
     try {
-      const started = await startBuild({ roleTitle: draft.roleTitle.trim(), pdText: draft.pdText.trim(), tier: "core" });
+      const started = await startBuild({ buildId: buildId ?? undefined, roleTitle: draft.roleTitle.trim(), pdText: draft.pdText.trim(), tier: "core" });
       if ("error" in started) { setError(started.error); setStep(started.error === "Verify your email first." ? "verify" : "brief"); return; }
       setBuildId(started.buildId); setBrief(started.brief);
       await match(started.buildId);

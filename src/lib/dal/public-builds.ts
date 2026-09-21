@@ -283,16 +283,13 @@ export async function findCachedRankedBuild(
 export async function updatePublicBuildRanking(
   db: DB,
   id: string,
-  input: {
-    ranking: ArchitectMatchResult;
-    usage: Record<string, PublicBuildUsage>;
-  },
-): Promise<void> {
-  const { error } = await db
-    .from("public_builds")
+  input: { ranking: ArchitectMatchResult; usage: Record<string, PublicBuildUsage>; pdHash: string | null },
+): Promise<boolean> {
+  const { data, error } = await db.from("public_builds")
     .update({ ranking: input.ranking, usage: input.usage, status: "ranked" })
-    .eq("id", id);
+    .eq("id", id).in("status", ["ranked", "failed"]).filter("pd_hash", input.pdHash === null ? "is" : "eq", input.pdHash).select("id");
   if (error) throw new Error(`updatePublicBuildRanking: ${error.message}`);
+  return data?.length === 1;
 }
 
 /**
@@ -542,4 +539,18 @@ export async function getResumablePublicBuild(db: DB, email: string) {
     brief: build.brief, ranking: build.ranking, picks: build.picks,
     status: build.status as "ranked" | "creating" | "created" | "started", token,
   };
+}
+
+/** Revisions keep the same quota record, and may never overwrite a claimed build. */
+export async function revisePublicBuild(db: DB, id: string, email: string, previousPdHash: string | null, input: {
+  roleTitle: string; pdText: string; pdHash: string; tier: PublicBuildTier;
+  brief: Brief; ranking: ArchitectMatchResult | null; usage?: Record<string, PublicBuildUsage>;
+}): Promise<boolean> {
+  const { data, error } = await db.from('public_builds').update({
+    role_title: input.roleTitle, pd_text: input.pdText, pd_hash: input.pdHash,
+    tier: input.tier, brief: input.brief, ranking: input.ranking, usage: input.usage,
+    picks: null, error: null,
+  }).eq('id', id).eq('email', email).eq('status', 'ranked').filter('pd_hash', previousPdHash === null ? 'is' : 'eq', previousPdHash).select('id');
+  if (error) throw new Error('Unable to save the revised role. Please try again.');
+  return data?.length === 1;
 }
