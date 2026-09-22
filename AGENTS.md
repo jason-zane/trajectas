@@ -1,14 +1,41 @@
-# Next.js — Read Before Writing Code
-This version has breaking changes — APIs, conventions, and file structure
-may differ from your training data. Read the relevant guide in
-`node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+# Agent instructions — Trajectas
+
+This is the single instruction file for every coding agent in this repo.
+Codex reads it directly. Claude Code reads it through `CLAUDE.md`, which holds
+nothing but an `@AGENTS.md` import. **Add or change rules here, never in
+`CLAUDE.md`**, or the two tools stop following the same rules.
+
+Codex stops loading instructions at 32 KiB (`project_doc_max_bytes`) and drops
+the rest without warning. Keep this file under 30 KB: put long background in
+`docs/` and link to it. `tests/architecture/agent-instructions.test.ts` enforces
+both rules. The block between the `nextjs-agent-rules` markers at the end is
+maintained by `next dev` (Next.js here differs from your training data — read
+`node_modules/next/dist/docs/` before writing Next.js code); don't edit inside it.
+
+## Working style
+- If uncertain or several interpretations exist, surface it — don't pick silently.
+- If a simpler approach exists, push back. Jason prefers one clear
+  recommendation he can argue with over a menu of equal options.
+- Search before reading: locate the relevant lines, start with the most likely
+  file, read only the context an edit needs, and don't re-read a file already
+  in context.
+- Answer first; explain only if non-obvious. No trailing summaries — the diff
+  speaks for itself.
+- Claude Code only: a hook on Jason's Mac (`~/.claude/hooks/headroom-rtk-rewrite.sh`)
+  routes shell commands through `rtk`, which reformats `grep`/`find`/`ls`/`git`
+  output and rejects some flags. In shell pipelines, call `/usr/bin/grep`,
+  `/usr/bin/find` and `/usr/bin/git` directly. Codex, and code that spawns
+  processes itself, are unaffected — don't hardcode those paths in code.
+- If `git push` hangs, the macOS keychain credential helper is waiting on a
+  prompt nobody can see. Push with `git -c credential.helper= -c
+  'credential.helper=!gh auth git-credential' push …` instead.
 
 ## Workspace isolation — ALWAYS use a git worktree
 
-The repo is regularly worked on in parallel (Jason's terminal, other Claude
-sessions, scheduled agents). A git checkout has one HEAD across the whole
-working tree, so a `git checkout` or `git switch` from any of those processes
-silently rewrites the files under your feet. We have lost work to this twice.
+The repo is regularly worked on in parallel (Jason's terminal, other agent
+sessions in Claude Code or Codex, scheduled agents). A git checkout has one
+HEAD across the whole working tree, so a `git checkout` or `git switch` from
+any of those processes silently rewrites the files under your feet. We have lost work to this twice.
 
 **Rule:** any time you create a new branch — feature, fix, refactor, chore —
 do it in a worktree under `.claude/worktrees/<branch-slug>/`, NOT in the
@@ -17,7 +44,7 @@ checkout is reserved for Jason's terminal.
 
 The one-liner is `scripts/agent-worktree.sh <branch-name>`. It creates the
 worktree off `origin/main`, prints the path, and `cd` into it is your first
-command. From there, every subsequent `Bash` / `Read` / `Edit` should use
+command. From there, every subsequent command, file read and edit should use
 the worktree path. See the script for details and the "Worktree hygiene"
 note under "Branch hygiene" below for cleanup after the PR merges.
 
@@ -25,8 +52,25 @@ Read-only work (grep, lookups, audits, answering questions) on existing
 checked-in code is fine in the primary checkout — but the moment you're
 about to `git checkout -b`, switch to a worktree.
 
+Three worktree traps that have each cost real time:
+
+- **Stale base.** A worktree does not move with `main`. Before treating a
+  failure as pre-existing, run `git fetch origin && git rev-list --count
+  HEAD..origin/main`. One worktree was 94 commits behind, and hours went on
+  bugs `main` had already fixed. Rebase first, re-diagnose second.
+- **Primary-checkout paths.** Search results and subagents may report paths
+  under `/Users/jasonhunt/Developer/trajectas/…`. Rewrite them under your
+  worktree before editing, or the edit lands on Jason's `main`.
+- **Escaped route paths.** Never backslash-escape `(`, `)`, `[` or `]` in a
+  path you write: `src/app/(dashboard)/…` needs no escaping. The pre-commit
+  hook blocks such files. To delete one use `rm`, not `git rm`, which
+  unescapes the pattern and deletes the real file too. Every worktree runs the
+  primary checkout's `.husky/pre-commit`, so hook changes apply only once they
+  are merged and pulled there.
+
 ## UI/UX Standards
-Read `docs/ui-standards.md` before building any UI component or page.
+Read `docs/ui-standards.md` before building any UI component or page. Entity
+list pages default to a table; card grids are for taxonomy entities only.
 
 ## Data Access Layer
 
@@ -105,6 +149,15 @@ stops meaning anything, and each hand-rolled copy silently dropped the
 per-distractor error labels, so reviewers saw four indistinguishable wrong
 answers and no later run could backfill them.
 
+## AI provider
+
+Every AI call, production included, goes through OpenRouter
+(`OpenRouter_API_KEY`, mixed case); the Anthropic and OpenAI keys are empty.
+Models are chosen per purpose in `ai_model_configs` and prompts in
+`ai_system_prompts`, not in code. The account is a prepaid pool shared with
+other projects, so HTTP 402 means the credit ran out. Check the balance before
+debugging an AI failure as a code bug.
+
 ## Competency matching engines
 
 Which engine ranks competencies for a role brief is selected by the
@@ -135,10 +188,6 @@ Rollback for a bad Jev rollout is the same lever as enabling it: flip
 
 Details: `docs/superpowers/specs/2026-09-22-jev-competency-matching-design.md`
 and `docs/evals/2026-09-22-jev-pipeline-redesign.md`.
-
-## Behavioral Rules
-- If uncertain or if multiple interpretations exist, surface it — don't pick silently
-- If a simpler approach exists, push back
 
 ## Auth model — passwordless / OTP only
 
@@ -282,18 +331,18 @@ The project uses a PR-then-merge model with CI gating on each PR. The order of o
 1. **Branch from `origin/main`.** Never push to `main` directly. Main requires the `security`, `quality`, and `e2e-smoke` checks, an up-to-date branch, resolved review conversations, and linear history; these protections also apply to administrators. Vercel deploys from main. Use a descriptive branch name (`feat/X`, `fix/Y`, `refactor/Z`).
 2. **Apply schema changes locally first.** Use the local Supabase stack via `supabase db reset` (or `db push` for incremental) and verify via `npm run test:integration:local`.
 3. **Once the migration is green locally**, apply it to the live Supabase project via the Supabase MCP (`apply_migration`). The migration file in `supabase/migrations/` is the source of truth, but the MCP write keeps the live project in sync without waiting for a deploy.
-4. **Run `mcp__claude_ai_Supabase__get_advisors` after every DDL change.** New `SECURITY DEFINER` functions that aren't intended for direct RPC need a follow-up migration revoking `EXECUTE` from `anon` and `authenticated`. See `20260512150000_trajectory_revoke_trigger_fn_exec.sql` for the pattern.
+4. **Run the Supabase MCP `get_advisors` tool after every DDL change.** New `SECURITY DEFINER` functions that aren't intended for direct RPC need a follow-up migration revoking `EXECUTE` from `anon` and `authenticated`. See `20260512150000_trajectory_revoke_trigger_fn_exec.sql` for the pattern.
 5. **Commit the migration file** so source matches live.
 6. **Open a PR** with `gh pr create` and watch CI with `gh pr checks <num> --watch`.
 7. **CI must be green to merge.** The four jobs are `security` (gates the rest), then `quality` and `integration` (parallel), then `e2e-smoke` (gates on `quality`).
 8. **If `security` fails on `npm audit`**, that's almost always a pre-existing dependency issue, not the PR's fault. `npm audit fix` and commit the lockfile bump as a separate `chore(deps)` commit on the same branch — do NOT mix dep bumps with feature work in the same commit.
-9. **Merge via `gh pr merge --squash --delete-branch`** once CI is green and any review feedback is addressed.
-10. **Prune the local branch.** `--delete-branch` only removes the *remote* branch; the local one still points at the pre-squash commit and will not show up in `git branch --merged`. Run:
+9. **Merge via `gh pr merge --squash --delete-branch`** once CI is green and any review feedback is addressed. From a worktree the command merges on GitHub, then fails locally with "'main' is already used by worktree" and skips deleting the remote branch — check with `git ls-remote --heads origin <branch>` and delete it with `git push origin --delete <branch>`.
+10. **Prune the local branch.** The local branch still points at the pre-squash commit and will not show up in `git branch --merged`. A worktree pins its branch, so remove the worktree first:
     ```sh
-    git checkout main && git pull --ff-only
+    git worktree remove <worktree-path>
     git branch -D <branch-just-merged>
     ```
-    Or use the `pr-ship` helper (see "Branch hygiene" below). Skipping this step is why local branch lists accumulate dozens of dead refs.
+    Skipping this step is why local branch lists accumulate dozens of dead refs.
 
 ### Branch hygiene
 
@@ -337,51 +386,41 @@ comparison and the current known gaps are in
 Before assuming a production failure is a code bug, check whether the object
 you are relying on actually exists in the live database.
 
+Other production facts:
+- The production project ref is `rwpfwfcaxoevnvtkdmkx` (Postgres 17).
+- Production's migration history uses MCP-assigned versions unrelated to the
+  local filenames, so editing or renaming an already-applied migration file
+  changes local and CI replay only, never production.
+- The Supabase MCP `execute_sql` commits statement by statement, not as one
+  transaction, so a mid-batch failure partially applies. Wrap each chunk in
+  `BEGIN`/`COMMIT`, make inserts idempotent, and verify counts after every
+  chunk rather than trusting the applier's report.
+
 ### Pre-existing CI debt — `npm audit`
 
 The `security → Audit production dependencies` step runs
 `scripts/audit-production-deps.mjs`, which wraps
 `npm audit --omit=dev --audit-level=high`. **The threshold has not moved** — the
-wrapper exists because `npm audit` exits 1 both when it finds a high-severity
-advisory and when it cannot reach the registry, and those two need different
-responses.
+wrapper exists because `npm audit` exits 1 both for a real advisory and for an
+unreachable registry, and those need different responses.
 
-**A genuine advisory.** Next.js publishes high-severity advisories frequently,
-so a red step is usually upstream of the PR's diff. Treat it as repo
-maintenance, not feature work:
+**A genuine advisory.** Next.js publishes high-severity advisories often, so a
+red step is usually upstream of the PR's diff. Treat it as repo maintenance:
 
 ```sh
-npm audit fix       # may bump minor versions
+npm audit fix       # locally: npm exec --yes --package=npm@11.19.1 -- npm audit fix
 npm run test:unit   # sanity check
 npm run build       # sanity check
 git add package-lock.json
 git commit -m "chore(deps): npm audit fix — bump <pkg> to <version>"
 ```
 
-If `npm audit fix` doesn't resolve the advisory (e.g. no patched version exists
+The local npm 11.3.0 crashes in `audit fix`, hence the pinned version in the
+comment. If `npm audit fix` doesn't resolve the advisory (no patched version
 yet), surface it to the user — don't paper over it or relax `--audit-level`.
 
-**A registry failure.** On 2026-09-04 the step went red three times in one day
-without a single advisory involved: a `400 Bad Request` from
-`/-/npm/v1/security/audits/quick` carrying `Invalid package tree, run npm
-install to rebuild your package-lock.json`, and two `503`s. Each was "fixed" by
-re-running the job, which is how people learn to ignore a security gate. Two
-things were actually going on, both verified against npm's sources and a fake
-registry:
-
-- **npm 10 falls back to a retired endpoint.** It asks
-  `/-/npm/v1/security/advisories/bulk` first and, on *any* failure, silently
-  retries against `/-/npm/v1/security/audits/quick`, which npm has retired and
-  which answers 400. So the "Invalid package tree" message was a symptom of the
-  bulk request failing, not a lockfile problem — the lockfile was fine. npm 11
-  removed the fallback, so CI pins `npm@11.19.1` for the audit step.
-- **npm does not retry the audit request.** The body is gzipped into a stream
-  and `make-fetch-happen` will not replay a stream body, so the response comes
-  back with `x-fetch-attempts: 1` even under `--fetch-retries=3`. The retry has
-  to live outside npm.
-
-The wrapper reads `npm audit --json` and routes on the payload shape, not the
-exit code:
+**A registry failure.** The wrapper routes on the `npm audit --json` payload,
+not the exit code:
 
 | What came back | What happens |
 | --- | --- |
@@ -390,14 +429,10 @@ exit code:
 | 5xx/408/429, a network error, a request that hangs past 150s, or anything from the retired quick endpoint | retried 4× with backoff; if it never lands, a `::warning::` annotation and exit 0 |
 | 4xx from the bulk endpoint, a local npm error, unparseable output | **exit 1** — fail closed, that is not a blip |
 
-So a give-up is visible in the Actions summary as *"npm audit skipped — nothing
-was verified"*, never as a green tick that implies a clean bill of health.
-`tests/unit/audit-production-deps.test.ts` pins the classification.
-
-The timeout is not decoration: on this wrapper's own first CI run the endpoint
-blew a 90s ceiling twice and then answered in 82s. The registry is capable of
-being slow rather than dead, which is why the ceiling is 150s and the job gets
-20 minutes — a tighter ceiling throws away attempts that were about to land.
+A give-up shows in the Actions summary as *"npm audit skipped — nothing was
+verified"*, never as a green tick. `tests/unit/audit-production-deps.test.ts`
+pins the classification. Why CI pins `npm@11.19.1`, why npm cannot retry the
+request itself, and why the ceiling is 150s: `docs/ci-npm-audit.md`.
 
 If you find yourself wanting to add `|| true` or drop `--audit-level` to
 `critical`, don't — the wrapper already absorbs the failure mode that tempts

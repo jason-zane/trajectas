@@ -45,6 +45,10 @@ Follow [the approved Trajectas identity](brand-identity.md): lowercase wordmark 
 - **EmptyState**: every "no data" surface uses `<EmptyState>` with an optional `eyebrow`, `title`, `description`, and action. Size variants `default` / `sm`.
 - **Error boundaries**: every route tree with user-visible errors has an `error.tsx` rendering `<BrandedError>`. Don't ship routes where a thrown exception hits the Next.js default red card.
 
+## List Pages
+- Entity list pages (campaigns, assessments, clients, partners, report templates, participants, users) default to a table built on `<DataTable>` — tables are scannable, sortable and scale as the list grows
+- Card grids are reserved for taxonomy entities (dimensions, factors, constructs), where the visual layout helps show the structure
+
 ## Data Tables
 - Always use the shared `<DataTable>` from `@/components/data-table` — inherit zebra, hover, typography, and row selection automatically
 - If a table has destructive or status-changing actions (delete, archive, etc.) it MUST support multi-select + `bulkActions`. The vocabulary across the app is: Archive, Delete, Remove, Export — use these words, consistently.
