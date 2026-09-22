@@ -94,13 +94,21 @@ describe("public role builder", () => {
     await act(async () => { finishMatch(ranking); });
     expect(screen.getByRole("heading", { name: "A focused assessment for your role." })).toBeVisible();
   });
-  it("offers direct access even when delivery fails and removes the conflicting build-another action", async () => {
+  it("offers direct access even when delivery fails and lets the verified visitor start another role", async () => {
     actions.createBuild.mockResolvedValue({ token: "private-token", emailSent: false });
     render(<RoleBuilder inviteRequired initialSession={rankedSession} />);
     fireEvent.click(screen.getByRole("button", { name: /Create my assessment/ }));
     await waitFor(() => expect(screen.getByRole("link", { name: /Take my assessment/ })).toHaveAttribute("href", "/assess/private-token"));
     expect(screen.getByRole("status")).toHaveTextContent("couldn’t deliver the email");
-    expect(screen.queryByRole("button", { name: /Build another/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Build another role/ }));
+    expect(screen.getByLabelText("Role title")).toHaveValue("");
+    expect(screen.getByLabelText("Position description")).toHaveValue("");
+    expect(screen.queryByLabelText("Invitation code")).not.toBeInTheDocument();
+    actions.startBuild.mockResolvedValue({ error: "Test stops before AI work." });
+    fireEvent.change(screen.getByLabelText("Role title"), { target: { value: "Another role" } });
+    fireEvent.change(screen.getByLabelText("Position description"), { target: { value: "Different responsibilities." } });
+    fireEvent.click(screen.getByRole("button", { name: /Find relevant capabilities/ }));
+    await waitFor(() => expect(actions.startBuild).toHaveBeenCalledWith(expect.objectContaining({ buildId: undefined, roleTitle: "Another role" })));
   });
   it("recovers a created assessment after an uncertain response instead of creating twice", async () => {
     actions.createBuild.mockRejectedValue(new Error("offline"));

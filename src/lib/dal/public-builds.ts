@@ -372,7 +372,7 @@ export async function markPublicBuildCompleted(
     .from("public_builds")
     .update({ status: "completed", completed_at: new Date().toISOString() })
     .eq("participant_id", participantId)
-    .in("status", ["created", "started"]);
+    .eq("status", "creating");
 }
 
 /**
@@ -458,15 +458,8 @@ export async function countBuildsForEmailSince(
   return count ?? 0;
 }
 
-/**
- * True when this email has an uncompleted build in flight (one live build
- * per email) — "created" or "started" only. A merely "ranked" build (not
- * yet turned into a real assessment) doesn't count as live: the visitor is
- * still on the result screen deciding, and createBuild itself is what a
- * ranked build is for. Pass `excludeId` when checking from within the flow
- * for the build being acted on.
- */
-export async function hasLiveBuildForEmail(
+/** Only active creation blocks a new trial; unfinished assessments remain usable. */
+export async function hasCreatingBuildForEmail(
   db: DB,
   email: string,
   excludeId?: string,
@@ -475,10 +468,10 @@ export async function hasLiveBuildForEmail(
     .from("public_builds")
     .select("id", { count: "exact", head: true })
     .eq("email", email)
-    .in("status", ["created", "started"]);
+    .eq("status", "creating");
   if (excludeId) query = query.neq("id", excludeId);
   const { count, error } = await query;
-  if (error) throw new Error(`hasLiveBuildForEmail: ${error.message}`);
+  if (error) throw new Error(`hasCreatingBuildForEmail: ${error.message}`);
   return (count ?? 0) > 0;
 }
 
@@ -507,21 +500,23 @@ export async function listPublicBuilds(
   return (data ?? []).map(mapPublicBuildRow);
 }
 
-/** Recover only an email-verified visitor's own work. Live builds take precedence over drafts. */
+/** Recover the latest work for the verified email, including a newer repeat-trial draft. */
 export async function getResumablePublicBuild(db: DB, email: string) {
-  const { data: live, error: liveError } = await db.from("public_builds")
-    .select("*").eq("email", email).in("status", ["creating", "created", "started"])
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
-  if (liveError) throw liveError;
-  let row = live;
-  if (!row) {
-    const { data, error } = await db.from("public_builds")
-      .select("*").eq("email", email).eq("status", "ranked")
+  const [liveResult, draftResult] = await Promise.all([
+    db.from("public_builds").select("*").eq("email", email)
+      .in("status", ["creating", "created", "started"])
+      .order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    db.from("public_builds").select("*").eq("email", email).eq("status", "ranked")
       .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-      .order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (error) throw error;
-    row = data;
-  }
+      .order("created_at", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  if (liveResult.error) throw liveResult.error;
+  if (draftResult.error) throw draftResult.error;
+  const live = liveResult.data;
+  const draft = draftResult.data;
+  // An uncertain creation must be recovered before offering any new creation.
+  const row = live?.status === "creating" ? live
+    : draft && (!live || Date.parse(draft.created_at) > Date.parse(live.created_at)) ? draft : live;
   if (!row) return null;
   const build = mapPublicBuildRow(row);
   let token: string | null = null;
