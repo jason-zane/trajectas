@@ -1,0 +1,573 @@
+{
+  "A": {
+    "model": "typesafe/jev-1.13-20260917",
+    "answers": {
+      "analytical_thinking": {
+        "type": "score",
+        "score": 3.52,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0,
+          "2": 0,
+          "3": 0.48,
+          "4": 0.52
+        },
+        "confidence": 0.6
+      },
+      "critical_analysis_evaluation_": {
+        "type": "score",
+        "score": 2.77,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0.03,
+          "2": 0.19,
+          "3": 0.74,
+          "4": 0.04
+        },
+        "confidence": 0.75
+      },
+      "ingenuity": {
+        "type": "score",
+        "score": 0.76,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.74,
+          "2": 0.01,
+          "3": 0,
+          "4": 0
+        },
+        "confidence": 0.78
+      },
+      "judgement": {
+        "type": "score",
+        "score": 2.7,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0.05,
+          "2": 0.23,
+          "3": 0.7,
+          "4": 0.02
+        },
+        "confidence": 0.71
+      },
+      "decision_prioritisation": {
+        "type": "score",
+        "score": 2.62,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0.05,
+          "2": 0.28,
+          "3": 0.66,
+          "4": 0.01
+        },
+        "confidence": 0.67
+      },
+      "execution_implementation_": {
+        "type": "score",
+        "score": 3.27,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0,
+          "2": 0.01,
+          "3": 0.71,
+          "4": 0.28
+        },
+        "confidence": 0.75
+      },
+      "organisation": {
+        "type": "score",
+        "score": 2.58,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0.08,
+          "2": 0.28,
+          "3": 0.62,
+          "4": 0.02
+        },
+        "confidence": 0.62
+      },
+      "performance_tenacity": {
+        "type": "score",
+        "score": 1.71,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.4,
+          "2": 0.46,
+          "3": 0.13,
+          "4": 0
+        },
+        "confidence": 0.54
+      },
+      "process_discipline": {
+        "type": "score",
+        "score": 3.74,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0,
+          "2": 0,
+          "3": 0.25,
+          "4": 0.75
+        },
+        "confidence": 0.79
+      },
+      "building_relationships": {
+        "type": "score",
+        "score": 2.29,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0.1,
+          "2": 0.52,
+          "3": 0.38,
+          "4": 0
+        },
+        "confidence": 0.6
+      },
+      "collaboration_teamwork_": {
+        "type": "score",
+        "score": 2.67,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0.02,
+          "2": 0.29,
+          "3": 0.69,
+          "4": 0
+        },
+        "confidence": 0.72
+      },
+      "communication": {
+        "type": "score",
+        "score": 2.92,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0,
+          "2": 0.09,
+          "3": 0.89,
+          "4": 0.02
+        },
+        "confidence": 0.9
+      },
+      "influence_negotiation_": {
+        "type": "score",
+        "score": 0.96,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0.12,
+          "1": 0.8,
+          "2": 0.08,
+          "3": 0,
+          "4": 0
+        },
+        "confidence": 0.83
+      },
+      "interpersonal_sensitivity": {
+        "type": "score",
+        "score": 1.5,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.51,
+          "2": 0.44,
+          "3": 0.04,
+          "4": 0
+        },
+        "confidence": 0.57
+      },
+      "achievement_drive": {
+        "type": "score",
+        "score": 1.46,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.55,
+          "2": 0.39,
+          "3": 0.04,
+          "4": 0
+        },
+        "confidence": 0.59
+      },
+      "emotional_regulation": {
+        "type": "score",
+        "score": 1.78,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0.35,
+          "2": 0.52,
+          "3": 0.13,
+          "4": 0
+        },
+        "confidence": 0.6
+      },
+      "flexibility": {
+        "type": "score",
+        "score": 2.48,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0.06,
+          "2": 0.4,
+          "3": 0.54,
+          "4": 0
+        },
+        "confidence": 0.56
+      },
+      "learning_agility": {
+        "type": "score",
+        "score": 1.94,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0.27,
+          "2": 0.52,
+          "3": 0.21,
+          "4": 0
+        },
+        "confidence": 0.59
+      },
+      "resilience": {
+        "type": "score",
+        "score": 2.4,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0.08,
+          "2": 0.43,
+          "3": 0.49,
+          "4": 0
+        },
+        "confidence": 0.5
+      },
+      "self_insight": {
+        "type": "score",
+        "score": 1.81,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0.32,
+          "2": 0.54,
+          "3": 0.14,
+          "4": 0
+        },
+        "confidence": 0.61
+      },
+      "visible_self_development": {
+        "type": "score",
+        "score": 1.26,
+        "legend": {
+          "0": "Not relevant: measuring this would tell us little about success in this role",
+          "1": "Marginal: occasionally useful but not a differentiator",
+          "2": "Useful: contributes to performance in this role",
+          "3": "Important: a clear driver of success in this role",
+          "4": "Critical: among the few things that most separate strong from weak performers in this role"
+        },
+        "probabilities": {
+          "0": 0.06,
+          "1": 0.64,
+          "2": 0.28,
+          "3": 0.02,
+          "4": 0
+        },
+        "confidence": 0.68
+      }
+    },
+    "usage": {
+      "input_tokens": 5068,
+      "output_tokens": 351,
+      "cost": 0.000212856
+    },
+    "id": "gen-dec-1790050417-CiPfbaiFguKxRmiWf9H1",
+    "provider": "TypeSafe"
+  },
+  "B": {
+    "model": "typesafe/jev-1.13-20260917",
+    "answers": {
+      "analytical_thinking": {
+        "type": "noul",
+        "noul": 0.83
+      },
+      "critical_analysis_evaluation_": {
+        "type": "noul",
+        "noul": 0.63
+      },
+      "ingenuity": {
+        "type": "noul",
+        "noul": 0.15
+      },
+      "judgement": {
+        "type": "noul",
+        "noul": 0.6
+      },
+      "decision_prioritisation": {
+        "type": "noul",
+        "noul": 0.44
+      },
+      "execution_implementation_": {
+        "type": "noul",
+        "noul": 0.76
+      },
+      "organisation": {
+        "type": "noul",
+        "noul": 0.5
+      },
+      "performance_tenacity": {
+        "type": "noul",
+        "noul": 0.28
+      },
+      "process_discipline": {
+        "type": "noul",
+        "noul": 0.83
+      },
+      "building_relationships": {
+        "type": "noul",
+        "noul": 0.39
+      },
+      "collaboration_teamwork_": {
+        "type": "noul",
+        "noul": 0.58
+      },
+      "communication": {
+        "type": "noul",
+        "noul": 0.74
+      },
+      "influence_negotiation_": {
+        "type": "noul",
+        "noul": 0.2
+      },
+      "interpersonal_sensitivity": {
+        "type": "noul",
+        "noul": 0.29
+      },
+      "achievement_drive": {
+        "type": "noul",
+        "noul": 0.25
+      },
+      "emotional_regulation": {
+        "type": "noul",
+        "noul": 0.29
+      },
+      "flexibility": {
+        "type": "noul",
+        "noul": 0.59
+      },
+      "learning_agility": {
+        "type": "noul",
+        "noul": 0.35
+      },
+      "resilience": {
+        "type": "noul",
+        "noul": 0.51
+      },
+      "self_insight": {
+        "type": "noul",
+        "noul": 0.3
+      },
+      "visible_self_development": {
+        "type": "noul",
+        "noul": 0.21
+      }
+    },
+    "usage": {
+      "input_tokens": 4039,
+      "output_tokens": 414,
+      "cost": 0.000169638
+    },
+    "id": "gen-dec-1790050417-Ca12pNLexoKXKsjgfQIX",
+    "provider": "TypeSafe"
+  },
+  "C": {
+    "model": "typesafe/jev-1.13-20260917",
+    "answers": {
+      "most_relevant": {
+        "type": "choice",
+        "choice": "process_discipline",
+        "probabilities": {
+          "self_insight": 0,
+          "resilience": 0,
+          "flexibility": 0,
+          "critical_analysis_evaluation_": 0,
+          "emotional_regulation": 0,
+          "achievement_drive": 0,
+          "visible_self_development": 0,
+          "communication": 0,
+          "execution_implementation_": 0.01,
+          "building_relationships": 0,
+          "influence_negotiation_": 0,
+          "process_discipline": 0.87,
+          "analytical_thinking": 0.12,
+          "performance_tenacity": 0,
+          "learning_agility": 0,
+          "ingenuity": 0,
+          "judgement": 0,
+          "decision_prioritisation": 0,
+          "organisation": 0,
+          "collaboration_teamwork_": 0,
+          "interpersonal_sensitivity": 0
+        },
+        "confidence": 0.87
+      }
+    },
+    "usage": {
+      "input_tokens": 2440,
+      "output_tokens": 240,
+      "cost": 0.00010248
+    },
+    "id": "gen-dec-1790050417-yr8gxprkGHyN0pcjtB4R",
+    "provider": "TypeSafe"
+  },
+  "lvl": {
+    "model": "typesafe/jev-1.13-20260917",
+    "answers": {
+      "level": {
+        "type": "choice",
+        "choice": "ic",
+        "probabilities": {
+          "mid_manager": 0,
+          "first_line_manager": 0,
+          "executive": 0,
+          "senior_leader": 0,
+          "ic": 1
+        },
+        "confidence": 1
+      }
+    },
+    "usage": {
+      "input_tokens": 737,
+      "output_tokens": 60,
+      "cost": 0.000030954
+    },
+    "id": "gen-dec-1790050417-Bn96Hx25W1Wv7IMHgYWU",
+    "provider": "TypeSafe"
+  }
+}
