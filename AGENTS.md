@@ -21,9 +21,11 @@ maintained by `next dev` (Next.js here differs from your training data — read
   in context.
 - Answer first; explain only if non-obvious. No trailing summaries — the diff
   speaks for itself.
-- Jason's zsh wraps `grep`, `find`, `ls` and some `git` commands with `rtk`,
-  which reformats output and rejects some flags. In scripts and pipelines call
-  `/usr/bin/grep`, `/usr/bin/find` and `/usr/bin/git` directly.
+- Claude Code only: a hook on Jason's Mac (`~/.claude/hooks/headroom-rtk-rewrite.sh`)
+  routes shell commands through `rtk`, which reformats `grep`/`find`/`ls`/`git`
+  output and rejects some flags. In shell pipelines, call `/usr/bin/grep`,
+  `/usr/bin/find` and `/usr/bin/git` directly. Codex, and code that spawns
+  processes itself, are unaffected — don't hardcode those paths in code.
 - If `git push` hangs, the macOS keychain credential helper is waiting on a
   prompt nobody can see. Push with `git -c credential.helper= -c
   'credential.helper=!gh auth git-credential' push …` instead.
