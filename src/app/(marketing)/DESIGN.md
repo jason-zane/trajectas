@@ -1,13 +1,13 @@
 # Trajectas public experience
 
 Replacement direction confirmed 21 September 2026: modern, precise and product-led.
-Applies to the homepage and Role Builder only. PRODUCT.md remains the product-truth authority.
+Applies to the public website and Role Builder. PRODUCT.md remains the product-truth authority.
 
 ## Visual system
 Cool white and pale mineral-grey surfaces, charcoal text, emerald #2d6a5a primary actions and small gold #c9a962 brand accents. Retain the lowercase Trajectas wordmark and four ascending Span bars. Use a crisp sans-serif hierarchy, generous space and strong alignment. No felt, pinned paper, typewriter styling, film grain or decorative particle fields. Interface content is the visual evidence; no invented testimonials, validation statistics or client logos.
 
 ## Composition
-Homepage explains position description → relevant capabilities → real assessment and report. The builder shares its header, typography, action hierarchy and controls. Use the selected mechanism-led homepage and a guided builder workspace. Use illustrative examples clearly labelled as examples.
+The homepage introduces the broader capability-assessment platform. The dedicated `/role-builder` page explains position description → relevant capabilities → real assessment and report. The builder shares its header, typography, action hierarchy and controls. Use the selected mechanism-led homepage and a guided builder workspace. Use illustrative examples clearly labelled as examples.
 
 ## Interaction
 Design for open access, retaining the existing invitation gate until launch. Explain the gate before entry while active. Let visitors understand the task and expected output before verification; keep email verification before AI work. Use a legible step sequence, persistent role context, clear selection feedback, visible time/item estimates and recoverable errors. Preserve server authorization and quotas.
@@ -47,3 +47,9 @@ The homepage example uses a native selector with three illustrative roles and si
 Follow-up direction: replace one-to-one homepage responsibility/capability arrows with a whole-role narrative leading to a set. Align builder cream/sage/forest colour hierarchy with the homepage. Keep selection rows compact and use a native modal dialog for the full definition, role reasoning and available behavioural indicators; retain add/remove action within the dialog. The dialog traps Tab, supports Escape, restores trigger focus, locks background scrolling and resets reading position when exploring related content. Role interpretation exposes function, seniority, responsibilities, context signals and technical requirements, without inventing missing evidence.
 
 New /capability-model reads active non-deleted platform reference content dynamically through a narrow DAL projection. No question bank, answer keys, tenant records or hardcoded capability inventory is exposed. Categories, names and descriptions come from the library so future revisions flow through. Search/group filtering and the same shared detail dialog support exploration. The local model demonstration uses a labelled read-only library snapshot; it is not a shipped fallback.
+
+## Platform homepage expansion — 21 September 2026
+
+The user approved the public visual system and asked for a conventional platform homepage with a strong route into the existing role-focused page. Keep the approved palette, logo, fonts and restrained product-led treatment. The new `/` introduces the wider assessment platform: selection, development and growth, with organisations and partners represented. `/role-builder` preserves the previous homepage as the dedicated experience landing page; `/build` remains the gated workflow. `/how-it-works` now explains the broader context → capability → assessment → interpretation approach. Shared navigation and footers link to the dedicated Role Builder destination.
+
+The homepage uses a split introduction with an illustrative, user-controlled decision example. No score data, testimonials or performance claims are invented. The supporting sequence is a sage audience strip, open three-column method, a substantial forest-green Role Builder invitation, two audience passages and a contact close. The mode is Persuade; the primary action is Explore Role Builder, with Talk to us secondary. The existing image direction remains the visual authority; this is an extension of that world, not a new identity proposal.

@@ -119,8 +119,9 @@ JetBrains Mono).
 
 ## Product Principles
 
-1. **Prove by doing.** The public tool is the pitch; the page's job is to get
-   a position description pasted, not to describe psychometrics.
+1. **Introduce the platform, then prove by doing.** The homepage explains the broader
+   value of capability assessment. A strong call to action leads to the dedicated
+   Role Builder page, where visitors can explore and try the approach (updated 2026-09-21).
 2. **Small and relevant beats broad and generic.** A few capabilities that
    matter for this role, measured well, over a battery that measures
    everything.

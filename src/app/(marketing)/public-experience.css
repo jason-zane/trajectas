@@ -400,3 +400,9 @@
  .rb-pick-compact { gap: 10px; padding-inline: 8px; }
  .px-builder .rb-role-context { padding: 20px; }
 }
+
+/* Shared wayfinding: platform information and the role experience are distinct. */
+.px-header nav { gap: 24px; }
+.px-header .px-nav-try { background: var(--px-green); color: #fff; padding: 10px 16px; border-radius: 6px; font-weight: 600; }
+.px-header .px-nav-try:hover { background: var(--px-green-hover); color: #fff; }
+@media (max-width: 760px) { .px-header nav { gap: 12px 18px; } .px-header .px-nav-try { padding: 9px 13px; } }

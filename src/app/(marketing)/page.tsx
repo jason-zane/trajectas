@@ -2,16 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { PUBLIC_SITE_NAME, buildPublicUrl } from "@/lib/seo/public-site";
-import { getPublicBuildsMode } from "@/lib/public-builds/constants";
 import { PublicHeader, PublicFooter } from "./components/public-header";
-import { RoleExample } from "./components/role-example";
+import { PlatformExample } from "./components/platform-example";
 import "./public-experience.css";
+import "./platform-home.css";
 
-/* THESIS: Make role-to-capability matching understandable before asking for effort.
-OWN-WORLD: White, mineral grey, emerald actions, restrained gold, precise sans typography.
-STORY: Understand the mechanism, review an example, try it with your own role.
-FIRST VIEWPORT: Left-aligned statement above a wide working example and assessment summary.
-FORM: User-selected first concept; semantic product evidence replaces decorative illustration. */
+/* THESIS: Introduce the wider capability-assessment platform, with Role Builder as
+an accessible first experience rather than the whole product story.
+OWN-WORLD: Approved warm paper, sage, emerald and gold; precise sans typography.
+STORY: Understand the platform, see its relevance, explore Role Builder or contact us.
+FIRST VIEWPORT: Broad platform statement and primary CTA left; a concrete, illustrative
+selection/development/growth example right. Context and evidence stay connected.
+FORM: The user-requested conventional platform landing page overrides a new identity
+exercise. Preserve the approved visual system and move the full role demo to its own route. */
 const title = `${PUBLIC_SITE_NAME} — Capabilities, contextualised`;
 const description =
   "Trajectas helps organisations understand the people they depend on. We build psychometric instruments around the capabilities your organisation actually needs, with measurement tied to the outcomes you're trying to move.";
@@ -69,34 +72,37 @@ const structuredData = [
 ];
 
 
-const steps = [
-  ["Describe the role", "Paste a position description or upload a document. Include the responsibilities and context that matter."],
-  ["Review the capabilities", "See what the role calls for and why. Adjust the recommendations and the length of the assessment."],
-  ["Experience the assessment", "Take it yourself, then receive your report. See how the experience could work for your organisation."],
-];
-
 export default function HomePage() {
-  const mode = getPublicBuildsMode();
-  return <div className="px-surface px-home" data-surface="public-experience">
+  return <div className="px-surface px-home ph-home" data-surface="public-experience">
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
     <PublicHeader />
     <main id="main-content">
-      <section className="px-container px-hero">
-        <p className="px-kicker">Capabilities, contextualised.</p>
-        <div className="px-hero-heading"><h1>Every role is different.<br /><span>Measure what matters.</span></h1><p className="px-hero-aside">A clearer understanding of people starts with the work they need to do.</p></div>
-        <p className="px-hero-lede">Turn a position description into a focused capability assessment.</p>
-        <div className="px-actions"><Link href="/build" className="px-button">Build a role assessment <ArrowRight size={18} aria-hidden /></Link><a href="#how-it-works" className="px-link">See how it works <ArrowRight size={17} aria-hidden /></a></div>
-        <p className="px-hero-note">Free to try · One person · Your report by email{mode === "closed" ? " · Invitation required during preview" : mode === "off" ? " · Preview currently paused" : ""}</p>
-        <RoleExample />
+      <section className="px-container ph-hero">
+        <div className="ph-hero-copy">
+          <p className="px-kicker">The capability assessment platform</p>
+          <h1>Understanding people<br /><span>is the real work.</span></h1>
+          <p className="ph-lede">Bring a clearer picture of capability to your people decisions.</p>
+          <p className="ph-hero-body">Trajectas connects assessment with the work people do — helping organisations and partners shape selection, development and growth.</p>
+          <div className="px-actions"><Link href="/role-builder" className="px-button">Explore Role Builder <ArrowRight size={18} aria-hidden /></Link><Link href="/contact" className="px-link">Talk to us <ArrowUpRight size={17} aria-hidden /></Link></div>
+          <p className="ph-hero-note">See the approach in action with a role you know.</p>
+        </div>
+        <PlatformExample />
       </section>
-      <section id="how-it-works" className="px-process"><div className="px-container"><div className="px-section-heading"><p className="px-label">From role to report</p><h2>Relevant from the start.<br />Clear at every step.</h2></div><ol className="px-process-list">{steps.map(([heading, body], i) => <li key={heading}><span className="px-step-number">0{i + 1}</span><h3>{heading}</h3><p>{body}</p></li>)}</ol></div></section>
-      <section id="for-teams" className="px-container px-teams"><div><p className="px-label">For organisations and partners</p><h2>Start with a role.<br />Build a wider picture.</h2><p>The Role Builder lets you experience Trajectas for yourself. For work across your organisation or your clients, we help you connect capability, business outcomes and growth over time.</p><a href="/contact" className="px-link">Talk about your organisation <ArrowUpRight size={18} aria-hidden /></a></div><div className="px-audience-list"><article><h3>HR and talent teams</h3><p>Bring role context to selection, development and succession decisions.</p></article><article><h3>Consultancies and search firms</h3><p>Run assessment programmes for your clients through a dedicated partner workspace.</p></article><a href="/for-teams" className="px-link">Explore Trajectas for teams <ArrowRight size={17} aria-hidden /></a></div></section>
-      <section className="px-container px-questions" aria-labelledby="questions-title"><h2 id="questions-title">Before you try it</h2><div>
-        <details><summary>What can I do with the free assessment?</summary><p>Build an assessment for one role, take it yourself and receive a report by email. It is a way to experience the process. For assessments with your team or participants, get in touch.</p></details>
-        <details><summary>How long will it take?</summary><p>You can choose 4–8 capabilities, with six questions each: roughly 5–10 minutes to complete. You will see the exact question count and estimated time before creating your assessment.</p></details>
-        <details><summary>What do I need to get started?</summary><p>A role title and a position description, as text, PDF or Word document. We verify your email before processing the role.{mode === "closed" && <> During preview, you also need an invitation code. <a href="/contact">Ask us for one.</a></>}</p></details>
+      <section className="ph-context-strip" aria-label="Who Trajectas is for"><div className="px-container"><p>Built for the people<br /><strong>behind people decisions.</strong></p><span>HR &amp; talent teams</span><span>Consultancies &amp; advisers</span><span>Search &amp; selection firms</span></div></section>
+      <section className="px-container ph-platform" id="platform">
+        <div className="ph-section-intro"><div><p className="px-kicker">A connected approach</p><h2>From the work that matters<br />to the people doing it.</h2></div><p>An assessment becomes more useful when the capabilities, the context and the decision belong together.</p></div>
+        <div className="ph-method">
+          <article><span className="ph-method-label">Context</span><h3>Start with the work.</h3><p>Understand what a role calls for: its responsibilities, challenges and the outcomes you want to support.</p><Link className="px-link" href="/how-it-works">See the approach <ArrowRight size={16} aria-hidden /></Link></article>
+          <article><span className="ph-method-label">Capability</span><h3>Make assessment relevant.</h3><p>Bring together capabilities from a shared library, with clear definitions and behavioural indicators.</p><Link className="px-link" href="/capability-model">Explore the model <ArrowRight size={16} aria-hidden /></Link></article>
+          <article><span className="ph-method-label">Understanding</span><h3>Put evidence to work.</h3><p>Use assessment reports alongside role context and other evidence to guide decisions and development conversations.</p><Link className="px-link" href="/for-teams">Explore it for your team <ArrowRight size={16} aria-hidden /></Link></article>
+        </div>
+      </section>
+      <section className="ph-try" aria-labelledby="try-title"><div className="px-container ph-try-inner">
+        <div><p className="px-kicker">Experience the approach</p><h2 id="try-title">Start with a role.<br />See the difference<br />context makes.</h2><p>Role Builder is a hands-on introduction to Trajectas. Bring a position description, explore the relevant capabilities and try an assessment for yourself.</p><Link href="/role-builder" className="px-button">Discover Role Builder <ArrowRight size={18} aria-hidden /></Link><span className="ph-try-note">A one-person experience. A starting point for a bigger conversation.</span></div>
+        <div className="ph-try-preview"><div className="ph-preview-heading"><span>Role Builder</span><span>Illustrative example</span></div><h3>Operations Manager</h3><p>Coordinate teams. Improve delivery.<br />Make decisions under pressure.</p><div className="ph-preview-capabilities"><span>Judgement</span><span>Organisation</span><span>Collaboration</span></div><div className="ph-preview-flow"><span>Your role</span><ArrowRight size={16} aria-hidden /><span>Capabilities</span><ArrowRight size={16} aria-hidden /><span>Assessment</span></div><p className="ph-preview-note">A few capabilities a role might draw on. Review the fuller example in Role Builder.</p></div>
       </div></section>
-      <section className="px-container px-close"><h2>Bring a role.<br />See what it calls for.</h2><Link href="/build" className="px-button">Build a role assessment <ArrowRight size={18} aria-hidden /></Link></section>
+      <section className="px-container ph-audiences"><div className="ph-section-intro"><h2>For your organisation.<br />For the clients you support.</h2><p>Bring the same capability language to different programmes, roles and working relationships.</p></div><div className="ph-audience-columns"><article><p className="ph-audience-label">Organisations</p><h3>Make the next people decision<br />a more informed one.</h3><p>Connect assessment with selection, development and succession. Start with the decisions your team needs to make and build the programme around them.</p><Link className="px-link" href="/for-teams">Trajectas for teams <ArrowUpRight size={17} aria-hidden /></Link></article><article><p className="ph-audience-label">Partners</p><h3>Bring a clearer capability picture<br />to your client work.</h3><p>Run assessment programmes through a dedicated partner workspace, with client context, participant delivery and reporting kept together.</p><Link className="px-link" href="/contact?topic=partner">Talk about a partnership <ArrowUpRight size={17} aria-hidden /></Link></article></div></section>
+      <section className="px-container px-close ph-close"><div><h2>What would a clearer picture<br />help you do?</h2><p>Tell us about your roles, your people and the decisions ahead.</p></div><Link className="px-button" href="/contact">Let’s talk <ArrowRight size={18} aria-hidden /></Link></section>
     </main><PublicFooter />
   </div>;
 }

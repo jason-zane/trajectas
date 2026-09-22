@@ -2,13 +2,12 @@
 version: 1
 slug: "src-app-marketing-page-tsx"
 primary_target: "src/app/(marketing)/page.tsx"
-related_targets: []
+related_targets: ["src/app/(marketing)/role-builder/page.tsx","src/app/(marketing)/how-it-works/page.tsx"]
 ---
 
-Scope: the public home page `/` and the public Role Builder `/build` (route placeholder). Mode: Persuade for `/`; the builder's screens are Operate inside the same world.
-
-Audience: HR/talent leaders and consultancies (buyers); hiring managers (triers). Job: decide whether a role-specific assessment is worth trying; action: paste a position description and build one. Proof: live library counts, the method shown as it runs, real capability names and definitions. Constraints: no clients, quotes, benchmarks or pricing; founder not featured; wordmark and brand colours fixed.
-
-Direction: The Panel's Wall (seed 2586b6f3, own candidate 7, staging: two streams merging). Role sheet left, library index right, gold thread across one seam, the assessment as one merged sheet below. Memorable moment: thread redrawing as a capability is pinned or unpinned.
-
-Unresolved: the tool's name and route; whether the example role stays as the permanent worked example; report template used for the demo excerpt.
+Scope: public platform homepage `/`, dedicated experience landing page `/role-builder`, shared public navigation, and `/how-it-works`. Persuade mode.
+Audience: HR/talent leaders, consultancies, search firms; hiring managers can explore Role Builder.
+Job: understand Trajectas as a wider capability-assessment platform and choose to explore the hands-on role experience or discuss a programme.
+Direction: extend the approved modern, precise, product-led public identity. The user's requested conventional landing-page structure is the commitment. The first viewport places the broad platform statement and Role Builder CTA beside user-controlled examples for selection, development and growth. Proof comes from the actual context/capability/assessment mechanism; all examples are labelled illustrative. No invented scores, validation claims, customers or quotes.
+Journey: platform introduction → connected approach → dedicated Role Builder invitation → organisation/partner relevance → contact.
+The previous homepage remains the dedicated `/role-builder` landing page; `/build` stays the gated workflow. The broader model itself is being refined in a separate task and must not be changed here.
