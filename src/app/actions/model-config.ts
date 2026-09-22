@@ -77,12 +77,14 @@ export async function getModelSelectionBootstrap(): Promise<{
   configuredModels: Partial<Record<AIPromptPurpose, string>>
   textModels: Awaited<ReturnType<typeof openRouterProvider.listModels>>
   embeddingModels: Awaited<ReturnType<typeof openRouterProvider.listModels>>
+  decisionModels: Awaited<ReturnType<typeof openRouterProvider.listModels>>
 }> {
   await requireAdminScope()
-  const [configs, textModels, embeddingModels] = await Promise.all([
+  const [configs, textModels, embeddingModels, decisionModels] = await Promise.all([
     getModelConfigs(),
     openRouterProvider.listModels('text'),
     openRouterProvider.listModels('embeddings'),
+    openRouterProvider.listModels('decisions'),
   ])
 
   return {
@@ -91,6 +93,7 @@ export async function getModelSelectionBootstrap(): Promise<{
     ) as Partial<Record<AIPromptPurpose, string>>,
     textModels,
     embeddingModels,
+    decisionModels,
   }
 }
 

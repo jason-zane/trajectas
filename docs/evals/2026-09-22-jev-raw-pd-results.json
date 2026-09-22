@@ -1,0 +1,1339 @@
+{
+  "real": {
+    "rawA": {
+      "ms": 841,
+      "cost": 0.000252294,
+      "tokens": 6007,
+      "order": [
+        "Analytical Thinking",
+        "Execution (Implementation)",
+        "Process Discipline",
+        "Critical Analysis (Evaluation)",
+        "Communication",
+        "Collaboration (Teamwork)",
+        "Organisation",
+        "Building Relationships",
+        "Flexibility",
+        "Learning Agility",
+        "Resilience",
+        "Judgement",
+        "Decision Prioritisation",
+        "Emotional Regulation",
+        "Achievement Drive",
+        "Self-Insight",
+        "Interpersonal Sensitivity",
+        "Performance Tenacity",
+        "Visible Self-Development",
+        "Influence (Negotiation)",
+        "Ingenuity"
+      ],
+      "scores": {
+        "Analytical Thinking": [
+          3.79,
+          0.82
+        ],
+        "Critical Analysis (Evaluation)": [
+          3.09,
+          0.85
+        ],
+        "Ingenuity": [
+          1.68,
+          0.63
+        ],
+        "Judgement": [
+          2.73,
+          0.74
+        ],
+        "Decision Prioritisation": [
+          2.72,
+          0.74
+        ],
+        "Execution (Implementation)": [
+          3.55,
+          0.62
+        ],
+        "Organisation": [
+          2.97,
+          0.85
+        ],
+        "Performance Tenacity": [
+          2.11,
+          0.59
+        ],
+        "Process Discipline": [
+          3.53,
+          0.61
+        ],
+        "Building Relationships": [
+          2.79,
+          0.82
+        ],
+        "Collaboration (Teamwork)": [
+          3,
+          0.94
+        ],
+        "Communication": [
+          3.05,
+          0.94
+        ],
+        "Influence (Negotiation)": [
+          1.73,
+          0.6
+        ],
+        "Interpersonal Sensitivity": [
+          2.24,
+          0.64
+        ],
+        "Achievement Drive": [
+          2.58,
+          0.65
+        ],
+        "Emotional Regulation": [
+          2.61,
+          0.67
+        ],
+        "Flexibility": [
+          2.79,
+          0.81
+        ],
+        "Learning Agility": [
+          2.79,
+          0.81
+        ],
+        "Resilience": [
+          2.78,
+          0.81
+        ],
+        "Self-Insight": [
+          2.41,
+          0.51
+        ],
+        "Visible Self-Development": [
+          2.04,
+          0.63
+        ]
+      },
+      "nImportant": 6
+    },
+    "briefRep": {
+      "ms": 833,
+      "cost": 0.000213192,
+      "tokens": 5076,
+      "order": [
+        "Process Discipline",
+        "Analytical Thinking",
+        "Execution (Implementation)",
+        "Communication",
+        "Critical Analysis (Evaluation)",
+        "Judgement",
+        "Collaboration (Teamwork)",
+        "Decision Prioritisation",
+        "Organisation",
+        "Flexibility",
+        "Resilience",
+        "Building Relationships",
+        "Learning Agility",
+        "Self-Insight",
+        "Emotional Regulation",
+        "Performance Tenacity",
+        "Interpersonal Sensitivity",
+        "Achievement Drive",
+        "Visible Self-Development",
+        "Influence (Negotiation)",
+        "Ingenuity"
+      ],
+      "scores": {
+        "Analytical Thinking": [
+          3.55,
+          0.63
+        ],
+        "Critical Analysis (Evaluation)": [
+          2.8,
+          0.76
+        ],
+        "Ingenuity": [
+          0.77,
+          0.79
+        ],
+        "Judgement": [
+          2.64,
+          0.67
+        ],
+        "Decision Prioritisation": [
+          2.6,
+          0.65
+        ],
+        "Execution (Implementation)": [
+          3.22,
+          0.79
+        ],
+        "Organisation": [
+          2.51,
+          0.56
+        ],
+        "Performance Tenacity": [
+          1.67,
+          0.52
+        ],
+        "Process Discipline": [
+          3.66,
+          0.72
+        ],
+        "Building Relationships": [
+          2.22,
+          0.61
+        ],
+        "Collaboration (Teamwork)": [
+          2.61,
+          0.67
+        ],
+        "Communication": [
+          2.92,
+          0.89
+        ],
+        "Influence (Negotiation)": [
+          0.97,
+          0.83
+        ],
+        "Interpersonal Sensitivity": [
+          1.46,
+          0.6
+        ],
+        "Achievement Drive": [
+          1.45,
+          0.59
+        ],
+        "Emotional Regulation": [
+          1.7,
+          0.59
+        ],
+        "Flexibility": [
+          2.39,
+          0.55
+        ],
+        "Learning Agility": [
+          1.91,
+          0.59
+        ],
+        "Resilience": [
+          2.38,
+          0.48
+        ],
+        "Self-Insight": [
+          1.72,
+          0.59
+        ],
+        "Visible Self-Development": [
+          1.35,
+          0.63
+        ]
+      },
+      "nImportant": 3
+    },
+    "level": {
+      "type": "choice",
+      "choice": "ic",
+      "probabilities": {
+        "ic": 1,
+        "first_line_manager": 0,
+        "senior_leader": 0,
+        "executive": 0,
+        "mid_manager": 0
+      },
+      "confidence": 1
+    },
+    "briefRepIdenticalToSmoke": false,
+    "briefSmokeOrder": [
+      "Process Discipline",
+      "Analytical Thinking",
+      "Execution (Implementation)",
+      "Communication",
+      "Critical Analysis (Evaluation)",
+      "Judgement",
+      "Collaboration (Teamwork)",
+      "Decision Prioritisation",
+      "Organisation",
+      "Flexibility",
+      "Resilience",
+      "Building Relationships",
+      "Learning Agility",
+      "Self-Insight",
+      "Emotional Regulation",
+      "Performance Tenacity",
+      "Interpersonal Sensitivity",
+      "Achievement Drive",
+      "Visible Self-Development",
+      "Influence (Negotiation)",
+      "Ingenuity"
+    ]
+  },
+  "roles": [
+    {
+      "role": "Regional Sales Director",
+      "expected": "senior_leader",
+      "level": {
+        "choice": "senior_leader",
+        "confidence": 0.42,
+        "probabilities": {
+          "mid_manager": 0.47,
+          "ic": 0,
+          "senior_leader": 0.53,
+          "first_line_manager": 0,
+          "executive": 0
+        }
+      },
+      "pool": 22,
+      "rawA": {
+        "ms": 406,
+        "cost": 0.000221676,
+        "tokens": 5278,
+        "order": [
+          "Decisive Leadership (Directing Action)",
+          "Commercial Acumen",
+          "People Development",
+          "Judgement",
+          "Communication",
+          "Achievement Drive",
+          "Influence (Negotiation)",
+          "Decision Prioritisation",
+          "Analytical Thinking",
+          "Building Relationships",
+          "Flexibility",
+          "Collaboration (Teamwork)",
+          "Critical Analysis (Evaluation)",
+          "Resilience",
+          "Performance Tenacity",
+          "Learning Agility",
+          "Strategic Vision",
+          "Emotional Regulation",
+          "Interpersonal Sensitivity",
+          "Self-Insight",
+          "Ingenuity",
+          "Visible Self-Development"
+        ],
+        "scores": {
+          "Analytical Thinking": [
+            3.49,
+            0.59
+          ],
+          "Commercial Acumen": [
+            3.75,
+            0.79
+          ],
+          "Critical Analysis (Evaluation)": [
+            3.25,
+            0.75
+          ],
+          "Ingenuity": [
+            2.41,
+            0.5
+          ],
+          "Judgement": [
+            3.64,
+            0.7
+          ],
+          "Strategic Vision": [
+            2.99,
+            0.8
+          ],
+          "Decision Prioritisation": [
+            3.5,
+            0.58
+          ],
+          "Performance Tenacity": [
+            3.17,
+            0.79
+          ],
+          "Building Relationships": [
+            3.48,
+            0.59
+          ],
+          "Collaboration (Teamwork)": [
+            3.33,
+            0.72
+          ],
+          "Communication": [
+            3.57,
+            0.64
+          ],
+          "Influence (Negotiation)": [
+            3.56,
+            0.63
+          ],
+          "Interpersonal Sensitivity": [
+            2.96,
+            0.87
+          ],
+          "Achievement Drive": [
+            3.57,
+            0.64
+          ],
+          "Emotional Regulation": [
+            2.99,
+            0.91
+          ],
+          "Flexibility": [
+            3.46,
+            0.62
+          ],
+          "Learning Agility": [
+            3.16,
+            0.84
+          ],
+          "Resilience": [
+            3.21,
+            0.81
+          ],
+          "Self-Insight": [
+            2.93,
+            0.83
+          ],
+          "Visible Self-Development": [
+            2,
+            0.55
+          ],
+          "Decisive Leadership (Directing Action)": [
+            3.83,
+            0.86
+          ],
+          "People Development": [
+            3.7,
+            0.75
+          ]
+        },
+        "nImportant": 16
+      },
+      "rep": {
+        "ms": 405,
+        "cost": 0.000221676,
+        "tokens": 5278,
+        "order": [
+          "Decisive Leadership (Directing Action)",
+          "Commercial Acumen",
+          "People Development",
+          "Judgement",
+          "Influence (Negotiation)",
+          "Communication",
+          "Achievement Drive",
+          "Decision Prioritisation",
+          "Building Relationships",
+          "Analytical Thinking",
+          "Flexibility",
+          "Collaboration (Teamwork)",
+          "Critical Analysis (Evaluation)",
+          "Resilience",
+          "Learning Agility",
+          "Performance Tenacity",
+          "Strategic Vision",
+          "Emotional Regulation",
+          "Interpersonal Sensitivity",
+          "Self-Insight",
+          "Ingenuity",
+          "Visible Self-Development"
+        ],
+        "scores": {
+          "Analytical Thinking": [
+            3.48,
+            0.6
+          ],
+          "Commercial Acumen": [
+            3.77,
+            0.81
+          ],
+          "Critical Analysis (Evaluation)": [
+            3.22,
+            0.77
+          ],
+          "Ingenuity": [
+            2.4,
+            0.49
+          ],
+          "Judgement": [
+            3.64,
+            0.7
+          ],
+          "Strategic Vision": [
+            3.03,
+            0.81
+          ],
+          "Decision Prioritisation": [
+            3.5,
+            0.59
+          ],
+          "Performance Tenacity": [
+            3.17,
+            0.81
+          ],
+          "Building Relationships": [
+            3.5,
+            0.58
+          ],
+          "Collaboration (Teamwork)": [
+            3.33,
+            0.72
+          ],
+          "Communication": [
+            3.58,
+            0.65
+          ],
+          "Influence (Negotiation)": [
+            3.62,
+            0.68
+          ],
+          "Interpersonal Sensitivity": [
+            2.96,
+            0.88
+          ],
+          "Achievement Drive": [
+            3.57,
+            0.64
+          ],
+          "Emotional Regulation": [
+            3,
+            0.9
+          ],
+          "Flexibility": [
+            3.48,
+            0.6
+          ],
+          "Learning Agility": [
+            3.18,
+            0.83
+          ],
+          "Resilience": [
+            3.22,
+            0.8
+          ],
+          "Self-Insight": [
+            2.96,
+            0.85
+          ],
+          "Visible Self-Development": [
+            2.07,
+            0.54
+          ],
+          "Decisive Leadership (Directing Action)": [
+            3.81,
+            0.84
+          ],
+          "People Development": [
+            3.65,
+            0.71
+          ]
+        },
+        "nImportant": 18
+      },
+      "rewording": {
+        "ms": 354,
+        "cost": 0.000228144,
+        "tokens": 5432,
+        "order": [
+          "Decisive Leadership (Directing Action)",
+          "Commercial Acumen",
+          "Achievement Drive",
+          "People Development",
+          "Communication",
+          "Influence (Negotiation)",
+          "Building Relationships",
+          "Judgement",
+          "Flexibility",
+          "Analytical Thinking",
+          "Collaboration (Teamwork)",
+          "Decision Prioritisation",
+          "Learning Agility",
+          "Critical Analysis (Evaluation)",
+          "Resilience",
+          "Performance Tenacity",
+          "Emotional Regulation",
+          "Strategic Vision",
+          "Interpersonal Sensitivity",
+          "Self-Insight",
+          "Ingenuity",
+          "Visible Self-Development"
+        ],
+        "scores": {
+          "Analytical Thinking": [
+            3.34,
+            0.71
+          ],
+          "Commercial Acumen": [
+            3.64,
+            0.7
+          ],
+          "Critical Analysis (Evaluation)": [
+            3.05,
+            0.87
+          ],
+          "Ingenuity": [
+            2.21,
+            0.61
+          ],
+          "Judgement": [
+            3.4,
+            0.66
+          ],
+          "Strategic Vision": [
+            2.88,
+            0.8
+          ],
+          "Decision Prioritisation": [
+            3.29,
+            0.75
+          ],
+          "Performance Tenacity": [
+            3.03,
+            0.86
+          ],
+          "Building Relationships": [
+            3.42,
+            0.64
+          ],
+          "Collaboration (Teamwork)": [
+            3.32,
+            0.72
+          ],
+          "Communication": [
+            3.44,
+            0.63
+          ],
+          "Influence (Negotiation)": [
+            3.43,
+            0.63
+          ],
+          "Interpersonal Sensitivity": [
+            2.83,
+            0.83
+          ],
+          "Achievement Drive": [
+            3.56,
+            0.63
+          ],
+          "Emotional Regulation": [
+            2.92,
+            0.92
+          ],
+          "Flexibility": [
+            3.38,
+            0.68
+          ],
+          "Learning Agility": [
+            3.06,
+            0.91
+          ],
+          "Resilience": [
+            3.05,
+            0.93
+          ],
+          "Self-Insight": [
+            2.82,
+            0.85
+          ],
+          "Visible Self-Development": [
+            1.93,
+            0.54
+          ],
+          "Decisive Leadership (Directing Action)": [
+            3.86,
+            0.88
+          ],
+          "People Development": [
+            3.49,
+            0.59
+          ]
+        },
+        "nImportant": 16
+      },
+      "repIdentical": false
+    },
+    {
+      "role": "Customer Service Team Leader",
+      "expected": "first_line_manager",
+      "level": {
+        "choice": "first_line_manager",
+        "confidence": 1,
+        "probabilities": {
+          "ic": 0,
+          "executive": 0,
+          "senior_leader": 0,
+          "first_line_manager": 1,
+          "mid_manager": 0
+        }
+      },
+      "pool": 23,
+      "rawA": {
+        "ms": 321,
+        "cost": 0.000229866,
+        "tokens": 5473,
+        "order": [
+          "People Development",
+          "Communication",
+          "Emotional Regulation",
+          "Decisive Leadership (Directing Action)",
+          "Decision Prioritisation",
+          "Interpersonal Sensitivity",
+          "Resilience",
+          "Collaboration (Teamwork)",
+          "Judgement",
+          "Execution (Implementation)",
+          "Process Discipline",
+          "Organisation",
+          "Flexibility",
+          "Building Relationships",
+          "Analytical Thinking",
+          "Self-Insight",
+          "Critical Analysis (Evaluation)",
+          "Influence (Negotiation)",
+          "Learning Agility",
+          "Performance Tenacity",
+          "Achievement Drive",
+          "Visible Self-Development",
+          "Ingenuity"
+        ],
+        "scores": {
+          "Analytical Thinking": [
+            3.03,
+            0.92
+          ],
+          "Critical Analysis (Evaluation)": [
+            2.99,
+            0.86
+          ],
+          "Ingenuity": [
+            1.26,
+            0.76
+          ],
+          "Judgement": [
+            3.39,
+            0.66
+          ],
+          "Decision Prioritisation": [
+            3.45,
+            0.62
+          ],
+          "Execution (Implementation)": [
+            3.39,
+            0.66
+          ],
+          "Organisation": [
+            3.17,
+            0.81
+          ],
+          "Performance Tenacity": [
+            2.47,
+            0.55
+          ],
+          "Process Discipline": [
+            3.34,
+            0.7
+          ],
+          "Building Relationships": [
+            3.05,
+            0.84
+          ],
+          "Collaboration (Teamwork)": [
+            3.41,
+            0.65
+          ],
+          "Communication": [
+            3.83,
+            0.86
+          ],
+          "Influence (Negotiation)": [
+            2.66,
+            0.68
+          ],
+          "Interpersonal Sensitivity": [
+            3.45,
+            0.62
+          ],
+          "Achievement Drive": [
+            2.41,
+            0.5
+          ],
+          "Emotional Regulation": [
+            3.75,
+            0.79
+          ],
+          "Flexibility": [
+            3.1,
+            0.88
+          ],
+          "Learning Agility": [
+            2.57,
+            0.64
+          ],
+          "Resilience": [
+            3.45,
+            0.62
+          ],
+          "Self-Insight": [
+            3,
+            0.85
+          ],
+          "Visible Self-Development": [
+            1.78,
+            0.55
+          ],
+          "Decisive Leadership (Directing Action)": [
+            3.69,
+            0.74
+          ],
+          "People Development": [
+            3.86,
+            0.88
+          ]
+        },
+        "nImportant": 16
+      }
+    },
+    {
+      "role": "Chief Financial Officer",
+      "expected": "executive",
+      "level": {
+        "choice": "executive",
+        "confidence": 1,
+        "probabilities": {
+          "mid_manager": 0,
+          "ic": 0,
+          "first_line_manager": 0,
+          "senior_leader": 0,
+          "executive": 1
+        }
+      },
+      "pool": 22,
+      "rawA": {
+        "ms": 408,
+        "cost": 0.000220668,
+        "tokens": 5254,
+        "order": [
+          "Judgement",
+          "Communication",
+          "Analytical Thinking",
+          "Commercial Acumen",
+          "Decisive Leadership (Directing Action)",
+          "Critical Analysis (Evaluation)",
+          "Strategic Vision",
+          "Decision Prioritisation",
+          "Building Relationships",
+          "Influence (Negotiation)",
+          "Resilience",
+          "Collaboration (Teamwork)",
+          "People Development",
+          "Emotional Regulation",
+          "Flexibility",
+          "Achievement Drive",
+          "Self-Insight",
+          "Performance Tenacity",
+          "Interpersonal Sensitivity",
+          "Learning Agility",
+          "Ingenuity",
+          "Visible Self-Development"
+        ],
+        "scores": {
+          "Analytical Thinking": [
+            3.77,
+            0.81
+          ],
+          "Commercial Acumen": [
+            3.72,
+            0.77
+          ],
+          "Critical Analysis (Evaluation)": [
+            3.62,
+            0.68
+          ],
+          "Ingenuity": [
+            1.97,
+            0.57
+          ],
+          "Judgement": [
+            3.92,
+            0.94
+          ],
+          "Strategic Vision": [
+            3.61,
+            0.68
+          ],
+          "Decision Prioritisation": [
+            3.53,
+            0.61
+          ],
+          "Performance Tenacity": [
+            2.79,
+            0.77
+          ],
+          "Building Relationships": [
+            3.4,
+            0.63
+          ],
+          "Collaboration (Teamwork)": [
+            3.21,
+            0.78
+          ],
+          "Communication": [
+            3.8,
+            0.83
+          ],
+          "Influence (Negotiation)": [
+            3.39,
+            0.66
+          ],
+          "Interpersonal Sensitivity": [
+            2.63,
+            0.66
+          ],
+          "Achievement Drive": [
+            3.03,
+            0.81
+          ],
+          "Emotional Regulation": [
+            3.11,
+            0.84
+          ],
+          "Flexibility": [
+            3.11,
+            0.85
+          ],
+          "Learning Agility": [
+            2.61,
+            0.63
+          ],
+          "Resilience": [
+            3.24,
+            0.78
+          ],
+          "Self-Insight": [
+            2.9,
+            0.78
+          ],
+          "Visible Self-Development": [
+            1.6,
+            0.46
+          ],
+          "Decisive Leadership (Directing Action)": [
+            3.72,
+            0.77
+          ],
+          "People Development": [
+            3.18,
+            0.83
+          ]
+        },
+        "nImportant": 16
+      }
+    },
+    {
+      "role": "Senior Software Engineer",
+      "expected": "ic",
+      "level": {
+        "choice": "ic",
+        "confidence": 1,
+        "probabilities": {
+          "mid_manager": 0,
+          "ic": 1,
+          "first_line_manager": 0,
+          "senior_leader": 0,
+          "executive": 0
+        }
+      },
+      "pool": 21,
+      "rawA": {
+        "ms": 290,
+        "cost": 0.000209328,
+        "tokens": 4984,
+        "order": [
+          "Judgement",
+          "Process Discipline",
+          "Critical Analysis (Evaluation)",
+          "Communication",
+          "Resilience",
+          "Execution (Implementation)",
+          "Collaboration (Teamwork)",
+          "Decision Prioritisation",
+          "Analytical Thinking",
+          "Organisation",
+          "Flexibility",
+          "Emotional Regulation",
+          "Learning Agility",
+          "Self-Insight",
+          "Building Relationships",
+          "Influence (Negotiation)",
+          "Achievement Drive",
+          "Performance Tenacity",
+          "Interpersonal Sensitivity",
+          "Visible Self-Development",
+          "Ingenuity"
+        ],
+        "scores": {
+          "Analytical Thinking": [
+            3.12,
+            0.81
+          ],
+          "Critical Analysis (Evaluation)": [
+            3.59,
+            0.66
+          ],
+          "Ingenuity": [
+            1.83,
+            0.59
+          ],
+          "Judgement": [
+            3.88,
+            0.9
+          ],
+          "Decision Prioritisation": [
+            3.15,
+            0.83
+          ],
+          "Execution (Implementation)": [
+            3.23,
+            0.77
+          ],
+          "Organisation": [
+            2.97,
+            0.87
+          ],
+          "Performance Tenacity": [
+            2.43,
+            0.52
+          ],
+          "Process Discipline": [
+            3.73,
+            0.78
+          ],
+          "Building Relationships": [
+            2.8,
+            0.8
+          ],
+          "Collaboration (Teamwork)": [
+            3.22,
+            0.81
+          ],
+          "Communication": [
+            3.46,
+            0.61
+          ],
+          "Influence (Negotiation)": [
+            2.75,
+            0.77
+          ],
+          "Interpersonal Sensitivity": [
+            2.27,
+            0.59
+          ],
+          "Achievement Drive": [
+            2.44,
+            0.53
+          ],
+          "Emotional Regulation": [
+            2.91,
+            0.88
+          ],
+          "Flexibility": [
+            2.93,
+            0.89
+          ],
+          "Learning Agility": [
+            2.91,
+            0.86
+          ],
+          "Resilience": [
+            3.26,
+            0.77
+          ],
+          "Self-Insight": [
+            2.82,
+            0.81
+          ],
+          "Visible Self-Development": [
+            2.03,
+            0.58
+          ]
+        },
+        "nImportant": 9
+      }
+    },
+    {
+      "role": "Nurse Unit Manager",
+      "expected": "mid_manager",
+      "level": {
+        "choice": "mid_manager",
+        "confidence": 0.87,
+        "probabilities": {
+          "executive": 0,
+          "mid_manager": 0.9,
+          "first_line_manager": 0.1,
+          "senior_leader": 0,
+          "ic": 0
+        }
+      },
+      "pool": 25,
+      "rawA": {
+        "ms": 461,
+        "cost": 0.000247758,
+        "tokens": 5899,
+        "order": [
+          "Decisive Leadership (Directing Action)",
+          "Judgement",
+          "People Development",
+          "Decision Prioritisation",
+          "Organisation",
+          "Communication",
+          "Collaboration (Teamwork)",
+          "Flexibility",
+          "Process Discipline",
+          "Critical Analysis (Evaluation)",
+          "Resilience",
+          "Execution (Implementation)",
+          "Building Relationships",
+          "Emotional Regulation",
+          "Analytical Thinking",
+          "Influence (Negotiation)",
+          "Interpersonal Sensitivity",
+          "Self-Insight",
+          "Performance Tenacity",
+          "Learning Agility",
+          "Achievement Drive",
+          "Commercial Acumen",
+          "Ingenuity",
+          "Visible Self-Development",
+          "Strategic Vision"
+        ],
+        "scores": {
+          "Analytical Thinking": [
+            3.28,
+            0.76
+          ],
+          "Commercial Acumen": [
+            2.81,
+            0.73
+          ],
+          "Critical Analysis (Evaluation)": [
+            3.45,
+            0.62
+          ],
+          "Ingenuity": [
+            2.26,
+            0.55
+          ],
+          "Judgement": [
+            3.8,
+            0.83
+          ],
+          "Strategic Vision": [
+            1.55,
+            0.52
+          ],
+          "Decision Prioritisation": [
+            3.76,
+            0.8
+          ],
+          "Execution (Implementation)": [
+            3.43,
+            0.63
+          ],
+          "Organisation": [
+            3.64,
+            0.7
+          ],
+          "Performance Tenacity": [
+            3,
+            0.86
+          ],
+          "Process Discipline": [
+            3.46,
+            0.61
+          ],
+          "Building Relationships": [
+            3.4,
+            0.65
+          ],
+          "Collaboration (Teamwork)": [
+            3.54,
+            0.62
+          ],
+          "Communication": [
+            3.61,
+            0.68
+          ],
+          "Influence (Negotiation)": [
+            3.26,
+            0.77
+          ],
+          "Interpersonal Sensitivity": [
+            3.14,
+            0.84
+          ],
+          "Achievement Drive": [
+            2.84,
+            0.79
+          ],
+          "Emotional Regulation": [
+            3.33,
+            0.72
+          ],
+          "Flexibility": [
+            3.47,
+            0.61
+          ],
+          "Learning Agility": [
+            2.99,
+            0.89
+          ],
+          "Resilience": [
+            3.44,
+            0.63
+          ],
+          "Self-Insight": [
+            3.01,
+            0.84
+          ],
+          "Visible Self-Development": [
+            2.04,
+            0.55
+          ],
+          "Decisive Leadership (Directing Action)": [
+            3.89,
+            0.91
+          ],
+          "People Development": [
+            3.77,
+            0.81
+          ]
+        },
+        "nImportant": 19
+      }
+    },
+    {
+      "role": "Graduate Policy Analyst",
+      "expected": "ic",
+      "level": {
+        "choice": "ic",
+        "confidence": 1,
+        "probabilities": {
+          "senior_leader": 0,
+          "mid_manager": 0,
+          "first_line_manager": 0,
+          "ic": 1,
+          "executive": 0
+        }
+      },
+      "pool": 21,
+      "rawA": {
+        "ms": 581,
+        "cost": 0.000209034,
+        "tokens": 4977,
+        "order": [
+          "Communication",
+          "Analytical Thinking",
+          "Critical Analysis (Evaluation)",
+          "Learning Agility",
+          "Flexibility",
+          "Judgement",
+          "Execution (Implementation)",
+          "Decision Prioritisation",
+          "Resilience",
+          "Collaboration (Teamwork)",
+          "Organisation",
+          "Emotional Regulation",
+          "Self-Insight",
+          "Building Relationships",
+          "Process Discipline",
+          "Achievement Drive",
+          "Visible Self-Development",
+          "Performance Tenacity",
+          "Interpersonal Sensitivity",
+          "Influence (Negotiation)",
+          "Ingenuity"
+        ],
+        "scores": {
+          "Analytical Thinking": [
+            3.66,
+            0.72
+          ],
+          "Critical Analysis (Evaluation)": [
+            3.61,
+            0.68
+          ],
+          "Ingenuity": [
+            1.57,
+            0.51
+          ],
+          "Judgement": [
+            3.27,
+            0.75
+          ],
+          "Decision Prioritisation": [
+            3.06,
+            0.87
+          ],
+          "Execution (Implementation)": [
+            3.17,
+            0.82
+          ],
+          "Organisation": [
+            2.9,
+            0.84
+          ],
+          "Performance Tenacity": [
+            2.14,
+            0.55
+          ],
+          "Process Discipline": [
+            2.54,
+            0.59
+          ],
+          "Building Relationships": [
+            2.6,
+            0.66
+          ],
+          "Collaboration (Teamwork)": [
+            2.92,
+            0.9
+          ],
+          "Communication": [
+            3.79,
+            0.82
+          ],
+          "Influence (Negotiation)": [
+            1.9,
+            0.63
+          ],
+          "Interpersonal Sensitivity": [
+            2.06,
+            0.63
+          ],
+          "Achievement Drive": [
+            2.5,
+            0.57
+          ],
+          "Emotional Regulation": [
+            2.74,
+            0.78
+          ],
+          "Flexibility": [
+            3.3,
+            0.74
+          ],
+          "Learning Agility": [
+            3.42,
+            0.65
+          ],
+          "Resilience": [
+            3.04,
+            0.93
+          ],
+          "Self-Insight": [
+            2.73,
+            0.75
+          ],
+          "Visible Self-Development": [
+            2.4,
+            0.49
+          ]
+        },
+        "nImportant": 9
+      }
+    }
+  ]
+}

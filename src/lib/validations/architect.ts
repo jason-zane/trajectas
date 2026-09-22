@@ -23,6 +23,10 @@ export const extractBriefSchema = z.object({
 
 export const runArchitectMatchSchema = z.object({
   brief: briefSchema,
+  // Raw position-description text, for the Jev matching engine's rawText
+  // option. The caller (runArchitectMatch) truncates to MAX_BRIEF_CHARS
+  // before validating, same as extractBrief.
+  rawText: z.string().max(60000).optional(),
 })
 
 const overviewFactorSchema = z.object({

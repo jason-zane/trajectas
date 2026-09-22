@@ -70,13 +70,15 @@ export async function extractBrief(input: {
 // Stage 2 — eligibility filter + rank
 // ---------------------------------------------------------------------------
 
-export async function runArchitectMatch(input: { brief: Brief }): Promise<ArchitectMatchResult> {
+export async function runArchitectMatch(input: { brief: Brief; rawText?: string }): Promise<ArchitectMatchResult> {
   await requireAdminScope()
-  const parsed = runArchitectMatchSchema.safeParse(input)
+  // Truncate over-long input the same way extractBrief does, before validating.
+  const rawText = input.rawText !== undefined ? input.rawText.slice(0, MAX_BRIEF_CHARS) : undefined
+  const parsed = runArchitectMatchSchema.safeParse({ brief: input.brief, rawText })
   if (!parsed.success) {
     throw new Error('Invalid brief.')
   }
-  return runArchitectMatchPipeline(parsed.data.brief as Brief)
+  return runArchitectMatchPipeline(parsed.data.brief as Brief, { rawText: parsed.data.rawText })
 }
 
 // ---------------------------------------------------------------------------

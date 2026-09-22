@@ -39,6 +39,8 @@ interface AiPurposeDetailProps {
   currentModelConfig: ModelConfigRow | null
   promptVersions: PromptVersionRow[]
   availableModels: OpenRouterModel[]
+  /** Decision models (Jev), only passed for the competency_matching purpose. */
+  decisionModels?: OpenRouterModel[]
 }
 
 // ---------------------------------------------------------------------------
@@ -50,11 +52,25 @@ export function AiPurposeDetail({
   currentModelConfig,
   promptVersions,
   availableModels,
+  decisionModels,
 }: AiPurposeDetailProps) {
   const router = useRouter()
   const purposeMeta = PURPOSE_META[purpose]
   const Icon = purposeMeta.icon
   const isEmbedding = purpose === "embedding"
+
+  // Decision models (Jev) are only a valid pick for competency_matching; list
+  // them first so the picker surfaces the engine switch, de-duped by id in
+  // case OpenRouter ever returns one in both lists.
+  const pickerModels =
+    purpose === "competency_matching" && decisionModels?.length
+      ? [
+          ...decisionModels,
+          ...availableModels.filter(
+            (m) => !decisionModels.some((d) => d.id === m.id),
+          ),
+        ]
+      : availableModels
 
   // ---- Model section state ----
   const [selectedModel, setSelectedModel] = useState(
@@ -150,7 +166,7 @@ export function AiPurposeDetail({
 
   // Find the display name for the currently configured model
   const currentModelDisplayName = currentModelConfig
-    ? availableModels.find((m) => m.id === currentModelConfig.modelId)?.name ??
+    ? pickerModels.find((m) => m.id === currentModelConfig.modelId)?.name ??
       currentModelConfig.modelId
     : null
 
@@ -205,7 +221,7 @@ export function AiPurposeDetail({
               <ModelPickerCombobox
                 value={selectedModel}
                 onChange={setSelectedModel}
-                models={availableModels}
+                models={pickerModels}
                 disabled={isModelPending}
               />
               <div className="flex items-center justify-between gap-2">

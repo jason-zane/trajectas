@@ -20,13 +20,17 @@ export default async function AiPurposeDetailPage({
 
   const typedPurpose = purpose as AIPromptPurpose
   const isEmbedding = typedPurpose === "embedding"
+  // Decision models (Jev) are only a valid pick for competency_matching —
+  // see docs/superpowers/specs/2026-09-22-jev-competency-matching-design.md.
+  const isCompetencyMatching = typedPurpose === "competency_matching"
 
-  const [configs, versions, models] = await Promise.all([
+  const [configs, versions, models, decisionModels] = await Promise.all([
     getModelConfigs(),
     isEmbedding ? Promise.resolve([]) : getPromptVersions(typedPurpose),
     isEmbedding
       ? openRouterProvider.listModels("embeddings")
       : openRouterProvider.listModels("text"),
+    isCompetencyMatching ? openRouterProvider.listModels("decisions") : Promise.resolve([]),
   ])
 
   const currentConfig = configs.find((c) => c.purpose === typedPurpose) ?? null
@@ -37,6 +41,7 @@ export default async function AiPurposeDetailPage({
       currentModelConfig={currentConfig}
       promptVersions={versions}
       availableModels={models}
+      decisionModels={decisionModels}
     />
   )
 }

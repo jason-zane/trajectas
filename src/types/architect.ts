@@ -5,6 +5,8 @@
  * functions — value/type exports live here so both server and client import.
  */
 
+import type { AssessmentLevel } from '@/types/ai'
+
 /** Primary high-level category fields shared by picks + eligible factors. */
 type WithCategory = {
   categoryId: string | null
@@ -54,4 +56,8 @@ export type ArchitectMatchResult = {
   eligibleFactors: ArchitectEligibleFactor[]
   /** All high-level categories (ordered) — so coverage can show uncovered ones too. */
   categories: { key: string; name: string }[]
+  /** Which matching engine produced the picks — diagnostics only. */
+  engine?: 'jev' | 'llm'
+  /** The seniority level the engine actually judged against — diagnostics only. */
+  resolvedLevel?: AssessmentLevel
 }
