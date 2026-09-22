@@ -1,11 +1,25 @@
 /**
- * Competency-matching engine.
+ * Competency-matching engine — routing, plus the original LLM pipeline.
  *
- * Orchestrates the full pipeline: resolve provider, build prompt,
- * call AI, parse response, return structured output.
+ * Two engines answer the same contract:
+ *
+ * - **Jev** (`typesafe/…` model id, brief sources only): a decision model
+ *   scores every outcome-eligible factor independently. The seniority level is
+ *   a soft penalty here, not a filter, so a factor the library did not tag for
+ *   this level can still be picked when the role genuinely calls for it.
+ * - **LLM** (everything else): one completion ranks a level-filtered pool.
+ *
+ * Which one runs is the `competency_matching` model id — no env var, no flag
+ * table. Any Jev failure falls through to the LLM engine with
+ * `fallback_model_id`, so the switch is safe to flip and safe to leave.
  */
 
-import type { AIProviderType, MatchingInput, MatchingOutput } from '@/types/ai'
+import type {
+  AIProviderType,
+  AssessmentLevel,
+  MatchingInput,
+  MatchingOutput,
+} from '@/types/ai'
 import { ResponseParseError } from '@/types/ai'
 import { getProvider, getDefaultProvider } from '@/lib/ai/providers'
 import { getActiveSystemPrompt } from '@/lib/ai/prompt-config'
@@ -14,7 +28,12 @@ import {
   isValidRankingsPayload,
   PROMPT_VERSION,
 } from '@/lib/ai/prompts/competency-matching'
-import { getModelForTask } from '@/lib/ai/model-config'
+import { getModelForTask, type TaskModelConfig } from '@/lib/ai/model-config'
+import { isJevModelId } from '@/lib/ai/model-ids'
+import { logActionError } from '@/lib/security/action-errors'
+import { runJevMatching } from './jev-engine'
+import { runRankingExplanation } from './ranking-explanation'
+import type { JevRankingConfig } from './jev-ranking'
 
 export interface MatchingOptions {
   /** Explicit provider type. Falls back to the first available provider. */
@@ -25,27 +44,108 @@ export interface MatchingOptions {
   promptVersion?: number
 }
 
+/** `MatchingOutput` plus the two diagnostics the Architect surfaces. */
+export type MatchingRunOutput = MatchingOutput & {
+  engine?: 'jev' | 'llm'
+  resolvedLevel?: AssessmentLevel
+}
+
+const DEFAULT_FALLBACK_MODEL_ID = 'anthropic/claude-sonnet-4-5'
+const DEFAULT_REASONS_COUNT = 8
+
 /**
  * Run the competency-matching pipeline end-to-end.
  */
 export async function runMatching(
   input: MatchingInput,
   options: MatchingOptions = {},
-): Promise<MatchingOutput> {
-  // 1. Resolve provider
+): Promise<MatchingRunOutput> {
+  const taskConfig = await getModelForTask('competency_matching')
+  const configuredModelId = options.modelId ?? taskConfig.modelId
+  const knobs = readJevKnobs(taskConfig.config)
+
+  if (isJevModelId(configuredModelId)) {
+    if (input.source.kind === 'brief') {
+      try {
+        return await runJevPath(input, input.source, configuredModelId, knobs)
+      } catch (error) {
+        logActionError('matching.jev', error)
+      }
+    }
+    // Diagnostic sources never reach Jev, and a Jev failure lands here too.
+    return runLlmMatching(input, options, knobs.fallbackModelId, taskConfig)
+  }
+
+  return runLlmMatching(input, options, configuredModelId, taskConfig)
+}
+
+/** Jev ranking, then the (non-fatal) LLM reasons stage merged on top. */
+async function runJevPath(
+  input: MatchingInput,
+  source: Extract<MatchingInput['source'], { kind: 'brief' }>,
+  modelId: string,
+  knobs: JevKnobs,
+): Promise<MatchingRunOutput> {
+  const output = await runJevMatching(
+    { source, availableFactors: input.availableFactors },
+    { modelId, config: knobs.ranking },
+  )
+
+  const definitionById = new Map(
+    input.availableFactors.map((f) => [f.id, f.definition]),
+  )
+  const picks = output.rankings.slice(0, knobs.reasonsCount).map((r) => ({
+    factorId: r.factorId,
+    factorName: r.factorName,
+    definition: definitionById.get(r.factorId) ?? '',
+    relevanceScore: r.relevanceScore,
+  }))
+
+  const explanation = await runRankingExplanation({ brief: source.brief, picks })
+
+  return {
+    ...output,
+    rankings: output.rankings.map((r) => ({
+      ...r,
+      reasoning: explanation.reasons[r.factorId] ?? r.reasoning,
+    })),
+    summary: explanation.summary ?? output.summary,
+    usage: {
+      inputTokens: (output.usage?.inputTokens ?? 0) + explanation.usage.inputTokens,
+      outputTokens: (output.usage?.outputTokens ?? 0) + explanation.usage.outputTokens,
+    },
+    engine: 'jev',
+  }
+}
+
+/** The original single-completion pipeline, over a hard level-filtered pool. */
+async function runLlmMatching(
+  input: MatchingInput,
+  options: MatchingOptions,
+  modelId: string,
+  taskConfig: TaskModelConfig,
+): Promise<MatchingRunOutput> {
+  const filtered = applyLevelFilter(input)
+
+  if (filtered.availableFactors.length === 0) {
+    return {
+      rankings: [],
+      summary: 'No eligible factors matched this brief.',
+      recommendedCount: { minimum: 0, optimal: 0, maximum: 0 },
+      usage: { inputTokens: 0, outputTokens: 0 },
+      modelUsed: modelId,
+      promptVersion: PROMPT_VERSION,
+      engine: 'llm',
+    }
+  }
+
   const provider = options.providerId
     ? getProvider(options.providerId)
     : await getDefaultProvider()
 
-  // 2. Resolve model and config from DB (or fallback defaults)
-  const taskConfig = await getModelForTask('competency_matching')
-  const modelId = options.modelId ?? taskConfig.modelId
-
-  // 3. Build prompt
   const prompt = await getActiveSystemPrompt('competency_matching')
-  const { user } = buildMatchingPrompt(input)
+  const { user } = buildMatchingPrompt(filtered)
 
-  // 4. Call provider
   const response = await provider.complete({
     prompt: user,
     systemPrompt: prompt.content,
@@ -55,7 +155,6 @@ export async function runMatching(
     responseFormat: 'json',
   })
 
-  // 5. Parse and validate
   const parsed = parseJsonResponse(response.content)
 
   if (!isValidRankingsPayload(parsed)) {
@@ -64,7 +163,6 @@ export async function runMatching(
     )
   }
 
-  // 6. Assemble output
   return {
     rankings: parsed.rankings.map((r, i) => ({
       ...r,
@@ -80,7 +178,66 @@ export async function runMatching(
     modelUsed: response.model,
     promptVersion: prompt.version ?? PROMPT_VERSION,
     usage: response.usage,
+    engine: 'llm',
   }
+}
+
+/**
+ * The LLM engine's hard level filter. An empty `applicableLevels` means the
+ * factor applies everywhere. Diagnostic sources have no level to filter on.
+ */
+function applyLevelFilter(input: MatchingInput): MatchingInput {
+  if (input.source.kind !== 'brief') return input
+  const level = input.source.brief.level
+  return {
+    ...input,
+    availableFactors: input.availableFactors.filter((f) => {
+      const levels = f.applicableLevels ?? []
+      return levels.length === 0 || levels.includes(level)
+    }),
+  }
+}
+
+interface JevKnobs {
+  ranking: Partial<JevRankingConfig>
+  reasonsCount: number
+  fallbackModelId: string
+}
+
+/**
+ * Read the optional Jev knobs off the model row's `config` JSON.
+ *
+ * The settings UI strips unknown keys, so these are set by SQL when set at
+ * all — everything is validated and anything unusable is ignored in favour of
+ * the code default.
+ */
+function readJevKnobs(config: TaskModelConfig['config']): JevKnobs {
+  const raw = (config ?? {}) as Record<string, unknown>
+  const ranking: Partial<JevRankingConfig> = {}
+
+  const gate = finiteNumber(raw.level_confidence_gate)
+  if (gate !== null && gate >= 0 && gate <= 1) ranking.levelConfidenceGate = gate
+
+  const penalty = finiteNumber(raw.level_penalty)
+  if (penalty !== null && penalty >= 0) ranking.levelPenalty = penalty
+
+  if (typeof raw.rerank === 'boolean') ranking.rerank = raw.rerank
+
+  const shortlist = finiteNumber(raw.shortlist_size)
+  if (shortlist !== null && shortlist >= 1) ranking.shortlistSize = Math.floor(shortlist)
+
+  const reasons = finiteNumber(raw.reasons_count)
+  const fallback = typeof raw.fallback_model_id === 'string' ? raw.fallback_model_id.trim() : ''
+
+  return {
+    ranking,
+    reasonsCount: reasons !== null && reasons >= 0 ? Math.floor(reasons) : DEFAULT_REASONS_COUNT,
+    fallbackModelId: fallback.length > 0 ? fallback : DEFAULT_FALLBACK_MODEL_ID,
+  }
+}
+
+function finiteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 /** Parse JSON from AI response, tolerating fences and prose/reasoning wrappers. */

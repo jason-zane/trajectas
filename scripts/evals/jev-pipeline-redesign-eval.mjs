@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars -- research harness: keeps the alternative prompt/question variants that were tried, for re-runs */
 import fs from 'node:fs'
 /**
  * Pipeline-redesign evaluation: how to use Jev better for competency matching.

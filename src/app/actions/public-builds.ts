@@ -397,6 +397,7 @@ export async function rankBuild(buildId: string): Promise<ActionResult<Architect
     const result = await runArchitectMatchPipeline(build.brief, {
       excludeCognitive: true,
       itemsPerFactor: PUBLIC_BUILDS_ITEMS_PER_FACTOR,
+      rawText: build.pdText ?? undefined,
     })
     const { usage, ...ranking } = result
     const saved = await updatePublicBuildRanking(db, buildId, {

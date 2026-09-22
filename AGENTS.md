@@ -105,6 +105,37 @@ stops meaning anything, and each hand-rolled copy silently dropped the
 per-distractor error labels, so reviewers saw four indistinguishable wrong
 answers and no later run could backfill them.
 
+## Competency matching engines
+
+Which engine ranks competencies for a role brief is selected by the
+`competency_matching` model id in `ai_model_configs`, not a feature flag: a
+`typesafe/` prefix (optionally `~typesafe/`) routes to the Jev decision-model
+engine, anything else routes to the existing LLM ranking engine, unchanged.
+Both the public Role Builder and the admin Architect share one pipeline, so
+the switch applies to both at once.
+
+Jev scores every outcome-eligible factor directly from the raw position
+description (when available) with a **soft** level penalty, not the LLM
+path's hard level filter — a factor for the "wrong" level can still surface
+if Jev judges it relevant enough to outweigh the penalty. Any Jev failure
+(timeout, malformed response, empty answers) falls back automatically to the
+LLM engine; this is non-fatal and logged via `logActionError('matching.jev',
+…)`, never surfaced as an error to the caller.
+
+Reasons (the per-competency "why this matters" text) come from a separate,
+non-fatal call under the `ranking_explanation` purpose (Haiku by default) —
+losing that call degrades to an empty explanation, it never fails the match.
+
+The Jev question wording is versioned in `src/lib/ai/matching/jev-criteria.ts`
+(`JEV_CRITERIA_VERSION`). It is tuned wording, not incidental copy — change it
+only alongside a harness re-run, per that file's own header.
+
+Rollback for a bad Jev rollout is the same lever as enabling it: flip
+`competency_matching.model_id` back to an LLM model id.
+
+Details: `docs/superpowers/specs/2026-09-22-jev-competency-matching-design.md`
+and `docs/evals/2026-09-22-jev-pipeline-redesign.md`.
+
 ## Behavioral Rules
 - If uncertain or if multiple interpretations exist, surface it — don't pick silently
 - If a simpler approach exists, push back

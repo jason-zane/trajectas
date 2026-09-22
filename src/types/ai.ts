@@ -159,6 +159,12 @@ export interface MatchingFactor {
   applicableLevels?: string[]
   /** Soft signal: job functions this factor suits. Informs ranking, not eligibility. */
   applicableFunctions?: string[]
+  /** Behavioural markers of a high scorer — sharpens the judge's read of the construct. */
+  indicatorsHigh?: string
+  /** Behavioural markers of a low scorer. */
+  indicatorsLow?: string
+  /** High-level library category name (e.g. "Thinking"). */
+  category?: string
 }
 
 /**
@@ -180,6 +186,13 @@ export type MatchingSource =
       kind: 'brief'
       /** Structured brief extracted from a role description. */
       brief: Brief
+      /**
+       * The raw position description the brief was extracted from, when the
+       * caller still holds it. The Jev engine judges from this in preference
+       * to the brief — the extraction step loses signal the decision model
+       * can use. The LLM engine ignores it.
+       */
+      rawText?: string
     }
 
 /**

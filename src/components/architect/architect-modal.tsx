@@ -255,7 +255,7 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
       setBusy(true);
       try {
         const [result, fetchedRules] = await Promise.all([
-          runArchitectMatch({ brief }),
+          runArchitectMatch({ brief, rawText: rawText.trim() }),
           getItemSelectionRulesForEstimate(),
         ]);
         setMatch(result);

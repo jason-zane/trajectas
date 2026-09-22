@@ -63,6 +63,8 @@ export default defineConfig({
         "src/lib/instrument/blueprint-draft.ts",
         "src/lib/dal/instrument-mappers.ts",
         "src/lib/instrument/item-generation.ts",
+        "src/lib/ai/matching/jev-ranking.ts",
+        "src/lib/ai/matching/jev-criteria.ts",
       ],
       thresholds: {
         perFile: true,

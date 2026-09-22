@@ -29,6 +29,8 @@ export interface PublicBuildDTO {
   email: string;
   roleTitle: string | null;
   pdHash: string | null;
+  /** Raw position-description text, for feeding the Jev matching engine's `rawText` option. */
+  pdText: string | null;
   brief: Brief | null;
   ranking: ArchitectMatchResult | null;
   tier: PublicBuildTier | null;
@@ -53,6 +55,7 @@ function mapPublicBuildRow(row: Record<string, any>): PublicBuildDTO {
     email: row.email,
     roleTitle: row.role_title ?? null,
     pdHash: row.pd_hash ?? null,
+    pdText: typeof row.pd_text === "string" ? row.pd_text : null,
     brief: row.brief ?? null,
     ranking: row.ranking ?? null,
     tier: row.tier ?? null,

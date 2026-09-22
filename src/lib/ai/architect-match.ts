@@ -26,7 +26,16 @@ export interface ArchitectMatchOptions {
   excludeCognitive?: boolean
   /** Cap `availableItems` at this count — public builds deliver a fixed count per factor regardless of true pool size. */
   itemsPerFactor?: number
+  /**
+   * The raw position description the brief came from, when the caller still
+   * holds it. The Jev engine judges from this in preference to the brief;
+   * the LLM engine ignores it.
+   */
+  rawText?: string
 }
+
+/** Same cap as `extractBrief` — a PD longer than this is padding, not signal. */
+const RAW_TEXT_LIMIT = 40_000
 
 export interface ArchitectMatchUsage {
   inputTokens: number
@@ -56,45 +65,20 @@ export async function runArchitectMatchPipeline(
     throwActionError('runArchitectMatchPipeline.factors', 'Unable to load the factor library.', error)
   }
 
-  const eligible = (factorRows ?? []).filter((f) => {
+  // Outcome eligibility is hard for both engines. LEVEL is not: the Jev engine
+  // treats it as a soft penalty, so the whole outcome-eligible pool is offered
+  // to the matcher and `runMatching` re-applies the hard level filter itself on
+  // the LLM path. `eligibleFactors`/`consideredCount` keep their old meaning
+  // (the outcome- AND level-filtered pool) because they drive the "add a
+  // factor" control — a pick promoted from outside that pool is still valid.
+  const outcomeEligible = (factorRows ?? []).filter((f) => {
     const outcomes = (f.applicable_outcomes ?? []) as string[]
-    const levels = (f.applicable_levels ?? []) as string[]
-    const outcomeOk = outcomes.length === 0 || outcomes.includes(brief.outcome)
-    const levelOk = levels.length === 0 || levels.includes(brief.level)
-    return outcomeOk && levelOk
+    return outcomes.length === 0 || outcomes.includes(brief.outcome)
   })
-
-  if (eligible.length === 0) {
-    return {
-      picks: [],
-      summary: 'No eligible factors matched this brief.',
-      recommendedCount: { minimum: 0, optimal: 0, maximum: 0 },
-      consideredCount: 0,
-      eligibleFactors: [],
-      categories: [],
-      usage: { inputTokens: 0, outputTokens: 0, reasoningTokens: 0 },
-    }
-  }
-
-  const availableFactors: MatchingFactor[] = eligible.map((f) => ({
-    id: f.id as string,
-    name: f.name as string,
-    definition: ((f.definition as string) || (f.description as string) || '').trim(),
-    applicableFunctions: (f.applicable_functions ?? []) as string[],
-  }))
-
-  const itemCountByFactor = await getItemCountsByFactor(
-    db,
-    availableFactors.map((f) => f.id),
-    options,
-  )
-
-  let output
-  try {
-    output = await runMatching({ source: { kind: 'brief', brief }, availableFactors })
-  } catch (matchError) {
-    throwActionError('runArchitectMatchPipeline.match', 'The matcher could not rank factors for this brief.', matchError)
-  }
+  const levelEligible = outcomeEligible.filter((f) => {
+    const levels = (f.applicable_levels ?? []) as string[]
+    return levels.length === 0 || levels.includes(brief.level)
+  })
 
   const dimNameOf = (row: Record<string, unknown>): string | null => {
     const d = row.dimensions
@@ -116,7 +100,48 @@ export async function runArchitectMatchPipeline(
     return { categoryId: id, categoryName: cat?.name ?? null, categoryKey: cat?.key ?? null }
   }
 
-  const eligibleById = new Map(eligible.map((f) => [f.id as string, f as Record<string, unknown>]))
+  if (outcomeEligible.length === 0) {
+    return {
+      picks: [],
+      summary: 'No eligible factors matched this brief.',
+      recommendedCount: { minimum: 0, optimal: 0, maximum: 0 },
+      consideredCount: 0,
+      eligibleFactors: [],
+      categories,
+      usage: { inputTokens: 0, outputTokens: 0, reasoningTokens: 0 },
+    }
+  }
+
+  const availableFactors: MatchingFactor[] = outcomeEligible.map((f) => ({
+    id: f.id as string,
+    name: f.name as string,
+    definition: ((f.definition as string) || (f.description as string) || '').trim(),
+    applicableFunctions: (f.applicable_functions ?? []) as string[],
+    applicableLevels: (f.applicable_levels ?? []) as string[],
+    applicableOutcomes: (f.applicable_outcomes ?? []) as string[],
+    indicatorsHigh: ((f.indicators_high as string | null) ?? undefined) || undefined,
+    indicatorsLow: ((f.indicators_low as string | null) ?? undefined) || undefined,
+    category: catOf(f as Record<string, unknown>).categoryName ?? undefined,
+  }))
+
+  const itemCountByFactor = await getItemCountsByFactor(
+    db,
+    availableFactors.map((f) => f.id),
+    options,
+  )
+
+  const rawText = options.rawText?.trim().slice(0, RAW_TEXT_LIMIT) || undefined
+
+  let output
+  try {
+    output = await runMatching({ source: { kind: 'brief', brief, rawText }, availableFactors })
+  } catch (matchError) {
+    throwActionError('runArchitectMatchPipeline.match', 'The matcher could not rank factors for this brief.', matchError)
+  }
+
+  const eligibleById = new Map(
+    outcomeEligible.map((f) => [f.id as string, f as Record<string, unknown>]),
+  )
 
   const picks: ArchitectPick[] = output.rankings.map((r) => {
     const f = eligibleById.get(r.factorId)
@@ -137,7 +162,7 @@ export async function runArchitectMatchPipeline(
     }
   })
 
-  const eligibleFactors = eligible.map((f) => ({
+  const eligibleFactors = levelEligible.map((f) => ({
     factorId: f.id as string,
     factorName: f.name as string,
     availableItems: itemCountByFactor.get(f.id as string) ?? 0,
@@ -154,10 +179,12 @@ export async function runArchitectMatchPipeline(
     picks,
     summary: output.summary,
     recommendedCount: output.recommendedCount,
-    consideredCount: eligible.length,
+    consideredCount: levelEligible.length,
     eligibleFactors,
     categories,
     usage: output.usage ?? { inputTokens: 0, outputTokens: 0, reasoningTokens: 0 },
+    ...(output.engine ? { engine: output.engine } : {}),
+    ...(output.resolvedLevel ? { resolvedLevel: output.resolvedLevel } : {}),
   }
 }
 

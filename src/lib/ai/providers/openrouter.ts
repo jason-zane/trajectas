@@ -116,10 +116,16 @@ export class OpenRouterProvider implements AIProvider {
   /**
    * Fetch models from the OpenRouter API.
    * @param outputModality - Optional filter: 'text' for chat/completion models,
-   *   'embeddings' for embedding models. Omit to fetch all models.
+   *   'embeddings' for embedding models, 'decisions' for TypeSafe decision
+   *   models (Jev). Omit to fetch all models.
    */
-  async listModels(outputModality?: 'text' | 'embeddings'): Promise<OpenRouterModel[]> {
-    const fallback = outputModality === 'embeddings' ? FALLBACK_EMBEDDING_MODELS : FALLBACK_MODELS
+  async listModels(outputModality?: 'text' | 'embeddings' | 'decisions'): Promise<OpenRouterModel[]> {
+    const fallback =
+      outputModality === 'embeddings'
+        ? FALLBACK_EMBEDDING_MODELS
+        : outputModality === 'decisions'
+          ? FALLBACK_DECISION_MODELS
+          : FALLBACK_MODELS
     try {
       const url = outputModality
         ? `${OPENROUTER_BASE_URL}/models?output_modalities=${outputModality}`
@@ -196,6 +202,11 @@ export const FALLBACK_EMBEDDING_MODELS: OpenRouterModel[] = [
     pricing: { prompt: '0.0000001', completion: '0' },
     context_length: 8191,
   },
+]
+
+/** Fallback decision-model list used when the OpenRouter API is unavailable. */
+export const FALLBACK_DECISION_MODELS: OpenRouterModel[] = [
+  { id: 'typesafe/jev-1.13', name: 'Jev 1.13 (TypeSafe decision model)' },
 ]
 
 export const openRouterProvider = new OpenRouterProvider()
