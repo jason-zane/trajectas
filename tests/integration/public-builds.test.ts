@@ -27,6 +27,8 @@ import {
   getResumablePublicBuild,
   claimPublicBuildForCreation,
   markPublicBuildCreated,
+  markPublicBuildStarted,
+  markPublicBuildCompleted,
 } from '@/lib/dal/public-builds'
 import { hashPdText } from '@/lib/public-builds/codes'
 import { encodePublicBuildCookie, decodePublicBuildCookie } from '@/lib/public-builds/cookie'
@@ -218,6 +220,11 @@ describe.skipIf(!canRun)('public Role Builder backend', () => {
       // Starting a repeat trial never changes the earlier private link.
       const { data: unchanged } = await admin.from('campaign_participants').select('access_token').eq('id', participant!.id).single()
       expect(unchanged?.access_token).toBe(existing?.token)
+      await markPublicBuildStarted(admin, participant!.id)
+      await markPublicBuildCompleted(admin, participant!.id)
+      const { data: completed } = await admin.from('public_builds').select('status, completed_at').eq('id', buildId).single()
+      expect(completed?.status).toBe('completed')
+      expect(completed?.completed_at).toBeTruthy()
     } finally {
       if (repeatId) await admin.from('public_builds').delete().eq('id', repeatId)
       await admin.from('public_builds').delete().eq('id', buildId)

@@ -372,7 +372,7 @@ export async function markPublicBuildCompleted(
     .from("public_builds")
     .update({ status: "completed", completed_at: new Date().toISOString() })
     .eq("participant_id", participantId)
-    .eq("status", "creating");
+    .in("status", ["created", "started"]);
 }
 
 /**
