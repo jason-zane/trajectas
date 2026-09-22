@@ -20,7 +20,8 @@ export const MARKETING_ROUTES = [
   { path: "/for-teams", sitemap: { changeFrequency: "monthly", priority: 0.8 } },
   { path: "/contact", sitemap: { changeFrequency: "monthly", priority: 0.7 } },
   { path: "/capability-model", sitemap: { changeFrequency: "weekly", priority: 0.8 } },
-  // The public Role Builder — the page the site exists to send people to.
+  { path: "/role-builder", sitemap: { changeFrequency: "monthly", priority: 0.9 } },
+  // The verified, invitation-gated Role Builder workflow.
   { path: "/build", sitemap: { changeFrequency: "weekly", priority: 0.9 } },
   {
     path: "/psychometric-assessment",
