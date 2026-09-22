@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 
 export default async function BuildPage() {
   const mode = getPublicBuildsMode();
-  if (mode === "off") return <BuilderFrame step={0}><div className="rb-ready"><BuilderHeading title="The Role Builder is taking a pause.">The preview is currently unavailable. Get in touch and we’ll help you explore an assessment for your role.</BuilderHeading><div className="px-actions"><a href="mailto:hello@trajectas.com" className="px-button">Talk to Trajectas</a><Link href="/" className="px-link">Back to home</Link></div></div></BuilderFrame>;
+  if (mode === "off") return <BuilderFrame step={0}><div className="rb-ready"><BuilderHeading title="The Role Builder is taking a pause.">The preview is currently unavailable. Get in touch and we’ll help you explore an assessment for your role.</BuilderHeading><div className="px-actions"><a href="/contact" className="px-button">Talk to Trajectas</a><Link href="/" className="px-link">Back to home</Link></div></div></BuilderFrame>;
   const session = await getPublicBuildSession();
   return <RoleBuilder inviteRequired={mode === "closed"} initialSession={"error" in session ? { email: null, build: null } : session} initialError={"error" in session ? session.error : undefined} />;
 }
