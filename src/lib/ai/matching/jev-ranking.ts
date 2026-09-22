@@ -167,27 +167,6 @@ export function mergeRerank(
 }
 
 /**
- * Make the displayed scores agree with the final order.
- *
- * The rerank moves factors inside the shortlist but says nothing about
- * their 0–4 relevance, so a factor can land above one with a higher stage-1
- * score — and the Architect prints that score as "% match" next to the rank.
- * Within the shortlist the stage-1 scores are re-dealt in descending order,
- * so the multiset (and hence `recommendedCountFrom`) is unchanged while the
- * sequence is monotone. `rawScore` keeps each factor's own value. Below the
- * shortlist nothing moved, so nothing changes.
- */
-export function alignScoresToOrder(final: ScoredFactor[], shortlistSize: number): ScoredFactor[] {
-  const head = final.slice(0, shortlistSize)
-  const tail = final.slice(shortlistSize)
-  const dealt = head.map((s) => s.penalisedScore).sort((a, b) => b - a)
-  return [
-    ...head.map((s, index) => ({ ...s, penalisedScore: dealt[index] })),
-    ...tail,
-  ]
-}
-
-/**
  * How many competencies to recommend, from the shape of the score distribution.
  *
  * Order-independent — it counts scores, it does not read positions.
@@ -212,6 +191,12 @@ export function recommendedCountFrom(scored: ScoredFactor[]): {
 /**
  * Project the final order onto the `FactorRanking` contract the rest of the
  * app already consumes.
+ *
+ * `relevanceScore` is always the factor's OWN stage-1 relevance (penalised),
+ * even when the stage-2 rerank decided its position — so after a rerank the
+ * score sequence is not guaranteed to be monotone in rank. That is deliberate:
+ * rank answers "which matter most relative to each other", the score answers
+ * "how relevant is this one", and a factor must never carry another's number.
  *
  * `incrementalValue`/`cumulativeValue` are a declining curve rather than a
  * measured redundancy — Jev judges each factor independently, so there is no

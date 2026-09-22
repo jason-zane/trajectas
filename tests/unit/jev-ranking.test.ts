@@ -4,7 +4,6 @@ import type { Brief, MatchingFactor } from '@/types/ai'
 import type { JevAnswer } from '@/lib/ai/providers/jev'
 import { isValidRankingsPayload } from '@/lib/ai/prompts/competency-matching'
 import {
-  alignScoresToOrder,
   DEFAULT_JEV_RANKING_CONFIG,
   fallbackSummary,
   mergeRerank,
@@ -223,27 +222,6 @@ describe('orderByScore', () => {
 // ---------------------------------------------------------------------------
 // mergeRerank
 // ---------------------------------------------------------------------------
-
-describe('alignScoresToOrder', () => {
-  it('re-deals the shortlist scores in descending order and leaves the tail alone', () => {
-    const reranked = [scored('B', 3.5), scored('C', 3.0), scored('A', 4.0), scored('D', 2.0)]
-    const aligned = alignScoresToOrder(reranked, 3)
-    expect(aligned.map((s) => s.factor.name)).toEqual(['B', 'C', 'A', 'D'])
-    expect(aligned.map((s) => s.penalisedScore)).toEqual([4.0, 3.5, 3.0, 2.0])
-    // Each factor keeps its own raw score; only the displayed value is re-dealt.
-    expect(aligned.map((s) => s.rawScore)).toEqual([3.5, 3.0, 4.0, 2.0])
-  })
-
-  it('is a no-op when the shortlist is already monotone', () => {
-    const ordered = [scored('A', 4.0), scored('B', 3.5), scored('C', 3.0)]
-    expect(alignScoresToOrder(ordered, 12)).toEqual(ordered)
-  })
-
-  it('leaves recommendedCountFrom unchanged (same multiset)', () => {
-    const reranked = [scored('B', 2.9), scored('A', 3.2), scored('C', 3.1), scored('D', 1.0)]
-    expect(recommendedCountFrom(alignScoresToOrder(reranked, 3))).toEqual(recommendedCountFrom(reranked))
-  })
-})
 
 describe('mergeRerank', () => {
   const ordered = [

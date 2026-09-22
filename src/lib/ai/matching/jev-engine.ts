@@ -22,7 +22,6 @@ import {
   LEVEL_QUESTION_KEY,
 } from './jev-criteria'
 import {
-  alignScoresToOrder,
   DEFAULT_JEV_RANKING_CONFIG,
   fallbackSummary,
   mergeRerank,
@@ -118,8 +117,7 @@ export async function runJevMatching(
     }
   }
 
-  const merged = mergeRerank(ordered, config.shortlistSize, stage2Scores)
-  const final = stage2Scores ? alignScoresToOrder(merged, config.shortlistSize) : merged
+  const final = mergeRerank(ordered, config.shortlistSize, stage2Scores)
   const rankings = toRankings(final)
 
   return {
