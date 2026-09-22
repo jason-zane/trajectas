@@ -61,7 +61,7 @@ export const PUBLIC_BUILDS_CODE_EXPIRY_MS = 10 * 60 * 1000;
 export const PUBLIC_BUILDS_CODE_MAX_ATTEMPTS = 5;
 export const PUBLIC_BUILDS_COOKIE_TTL_MS = 24 * 60 * 60 * 1000;
 
-export const PUBLIC_BUILDS_MAX_BUILDS_PER_EMAIL_PER_DAY = 3;
+export const PUBLIC_BUILDS_MAX_BUILDS_PER_EMAIL_PER_DAY = 10;
 
 export type PublicBuildsMode = "closed" | "open" | "off";
 

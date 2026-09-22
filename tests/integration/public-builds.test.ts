@@ -6,7 +6,7 @@
  *   - the 20260917* migrations applied (PUBLIC_BUILDS_CLIENT_ID row, both tables)
  *   - a public-build-owned assessment is invisible to the partner library read
  *     (client_id is null filter)
- *   - one-live-build-per-email (hasLiveBuildForEmail)
+ *   - one active creation per email (hasCreatingBuildForEmail)
  *   - the pd_hash cache hit (findCachedRankedBuild)
  *   - the signed tf_public_build cookie: round-trips, rejects tampering/expiry
  *   - RLS: platform admin can SELECT public_builds; an ordinary client admin cannot
@@ -23,9 +23,12 @@ import {
   revisePublicBuild,
   updatePublicBuildRanking,
   findCachedRankedBuild,
-  hasLiveBuildForEmail,
+  hasCreatingBuildForEmail,
+  getResumablePublicBuild,
   claimPublicBuildForCreation,
   markPublicBuildCreated,
+  markPublicBuildStarted,
+  markPublicBuildCompleted,
 } from '@/lib/dal/public-builds'
 import { hashPdText } from '@/lib/public-builds/codes'
 import { encodePublicBuildCookie, decodePublicBuildCookie } from '@/lib/public-builds/cookie'
@@ -133,7 +136,7 @@ describe.skipIf(!canRun)('public Role Builder backend', () => {
     }
   })
 
-  it('enforces one live build per email', async () => {
+  it('blocks only active creation and recovers a newer repeat-trial draft', async () => {
     const email = testEmail('live')
     const pdHash = hashPdText(`live-build PD ${ts}`)
     const { id: buildId } = await insertPublicBuild(admin, {
@@ -182,14 +185,15 @@ describe.skipIf(!canRun)('public Role Builder backend', () => {
       .single()
     if (participantErr) throw new Error(`participant insert failed: ${participantErr.message}`)
 
+    let repeatId: string | undefined
     try {
       // Merely "ranked" (not yet created) — not live.
-      expect(await hasLiveBuildForEmail(admin, email)).toBe(false)
+      expect(await hasCreatingBuildForEmail(admin, email)).toBe(false)
 
       // The claim is exclusive: a double-submit loses it.
       expect(await claimPublicBuildForCreation(admin, buildId)).toBe(true)
       expect(await claimPublicBuildForCreation(admin, buildId)).toBe(false)
-      expect(await hasLiveBuildForEmail(admin, email)).toBe(false)
+      expect(await hasCreatingBuildForEmail(admin, email)).toBe(true)
 
       await markPublicBuildCreated(admin, buildId, {
         picks: ['f1', 'f2', 'f3', 'f4'],
@@ -198,12 +202,31 @@ describe.skipIf(!canRun)('public Role Builder backend', () => {
         participantId: participant!.id,
       })
 
-      expect(await hasLiveBuildForEmail(admin, email)).toBe(true)
-      // Excluding this build's own id still finds it live (there is no OTHER
-      // live build) only if excludeId isn't this one — sanity-check the
-      // exclusion parameter itself:
-      expect(await hasLiveBuildForEmail(admin, email, buildId)).toBe(false)
+      expect(await hasCreatingBuildForEmail(admin, email)).toBe(false)
+      // An unfinished assessment no longer prevents another trial.
+      expect(await hasCreatingBuildForEmail(admin, email, buildId)).toBe(false)
+      const existing = await getResumablePublicBuild(admin, email)
+      expect(existing?.id).toBe(buildId)
+      expect(existing?.token).toBeTruthy()
+      const { error: ageError } = await admin.from('public_builds').update({ created_at: new Date(Date.now() - 60_000).toISOString() }).eq('id', buildId)
+      expect(ageError).toBeNull()
+      const repeat = await insertPublicBuild(admin, { email, ipHash: null, roleTitle: 'Second role', pdHash: hashPdText('Second PD'), pdText: 'Second PD', brief: sampleBrief, tier: 'core' })
+      repeatId = repeat.id
+      expect((await getResumablePublicBuild(admin, email))?.id).toBe(repeatId)
+      expect(await getResumablePublicBuild(admin, testEmail('other-owner'))).toBeNull()
+      expect(await claimPublicBuildForCreation(admin, repeatId)).toBe(true)
+      expect(await hasCreatingBuildForEmail(admin, email)).toBe(true)
+      expect((await getResumablePublicBuild(admin, email))?.status).toBe('creating')
+      // Starting a repeat trial never changes the earlier private link.
+      const { data: unchanged } = await admin.from('campaign_participants').select('access_token').eq('id', participant!.id).single()
+      expect(unchanged?.access_token).toBe(existing?.token)
+      await markPublicBuildStarted(admin, participant!.id)
+      await markPublicBuildCompleted(admin, participant!.id)
+      const { data: completed } = await admin.from('public_builds').select('status, completed_at').eq('id', buildId).single()
+      expect(completed?.status).toBe('completed')
+      expect(completed?.completed_at).toBeTruthy()
     } finally {
+      if (repeatId) await admin.from('public_builds').delete().eq('id', repeatId)
       await admin.from('public_builds').delete().eq('id', buildId)
       await admin.from('campaign_participants').delete().eq('id', participant!.id)
       await admin.from('campaigns').delete().eq('id', campaign!.id)

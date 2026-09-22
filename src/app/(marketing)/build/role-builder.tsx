@@ -67,14 +67,14 @@ export function RoleBuilder({ inviteRequired, initialSession, initialError }: { 
   }, [email]);
 
   useEffect(() => {
-    if (!email || !buildId || !ranking || initialSession.build?.token) return;
+    if (!email || !buildId || !ranking || token) return;
     try {
       const saved: unknown = JSON.parse(sessionStorage.getItem(`trajectas:role-picks:${email}:${buildId}`) ?? "null");
       if (Array.isArray(saved) && saved.length <= 8 && saved.every(id => typeof id === "string" && ranking.picks.some(pick => pick.factorId === id))) {
         setSelectedIds([...new Set(saved)]);
       }
     } catch { /* Ignore stale or unavailable browser storage. */ }
-  }, [email, buildId, ranking, initialSession.build?.token]);
+  }, [email, buildId, ranking, token]);
 
   function choose(ids: string[]) {
     setSelectedIds(ids);
@@ -165,13 +165,21 @@ export function RoleBuilder({ inviteRequired, initialSession, initialError }: { 
     finally { busy.current = false; }
   }
 
+  function buildAnother() {
+    setBuildId(null); setBrief(null); setRanking(null); setSelectedIds([]);
+    setToken(null); setEmailSent(null); setResumed(false); setError(null);
+    initialCreating.current = false;
+    updateDraft({ roleTitle: "", pdText: "" });
+    setStep("brief");
+  }
+
   const progress = step === "verify" ? 0 : step === "brief" ? 1 : step === "sent" || (step === "working" && workingStage === "creating") ? 3 : 2;
   return <BuilderFrame step={progress}>
     {step === "verify" && <VerifyStep inviteRequired={inviteRequired} onVerified={verified} />}
     {step === "brief" && email && <BriefStep email={email} draft={draft} onChange={updateDraft} onSubmit={submitRole} error={error} />}
     {step === "working" && <WorkingStep roleTitle={draft.roleTitle} brief={brief} stage={workingStage} />}
     {step === "result" && email && brief && ranking && <ResultStep email={email} brief={brief} ranking={ranking} selectedIds={selectedIds} onToggle={id => choose(selectedIds.includes(id) ? selectedIds.filter(item => item !== id) : selectedIds.length < 8 ? [...selectedIds, id] : selectedIds)} onSetCount={count => choose([...selectedIds, ...ranking.picks.map(p => p.factorId).filter(id => !selectedIds.includes(id))].slice(0, count))} onCreate={create} createError={null} onEdit={() => { setError(null); setStep("brief"); }} />}
-    {step === "sent" && email && token && <SentStep email={email} roleTitle={brief?.roleTitle || draft.roleTitle || "Your role"} capabilityCount={selectedIds.length} token={token} emailSent={emailSent} resumed={resumed} />}
+    {step === "sent" && email && token && <SentStep email={email} roleTitle={brief?.roleTitle || draft.roleTitle || "Your role"} capabilityCount={selectedIds.length} token={token} emailSent={emailSent} resumed={resumed} onBuildAnother={buildAnother} />}
     {step === "recover" && <div className="rb-ready"><BuilderHeading title="Let’s pick up where you left off.">{initialCreating.current ? "Your assessment may still be processing. Check its status to avoid creating it twice." : "We’ll check your saved progress before continuing."}</BuilderHeading>{error && <BuildError>{error}</BuildError>}<div className="px-actions" style={{ marginTop: 24 }}><button type="button" className="px-button" disabled={recovering} onClick={recover}>{recovering ? "Checking progress…" : "Check progress"}</button>{buildId && brief && !initialCreating.current && <button type="button" className="px-text-button" onClick={retryMatch}>Retry matching</button>}{!initialCreating.current && email && <button type="button" className="px-text-button" onClick={() => { setError(null); setStep("brief"); }}>Back to your role</button>}</div><p className="rb-help">If processing remains stuck, <a href="/contact" className="px-link">contact us</a> and we’ll help you continue.</p></div>}
   </BuilderFrame>;
 }

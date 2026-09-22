@@ -196,7 +196,7 @@ exceptions, with this document as the justification.
 | `startBuild(roleTitle, pdText \| file, tier)` | cookie; global cap; per-email daily cap; `pd_hash` cache hit returns the cached ranking with no AI call; else `extractBrief` → row `brief` | cookie, caps |
 | `rankBuild(buildId)` | `runArchitectMatch` restricted to non-cognitive items and fixed 6/factor; stores `ranking`, `usage`, `status = ranked` | cookie owns row |
 | `summariseBuild(buildId)` | non-blocking coverage sentence | cookie owns row |
-| `createBuild(buildId, picks)` | validates picks ⊆ ranking, count ≤ 8; creates assessment, campaign, experience row, participant; sends invite; `status = created` | cookie owns row, one live build per email |
+| `createBuild(buildId, picks)` | validates picks ⊆ ranking, count ≤ 8; creates assessment, campaign, experience row, participant; sends invite; `status = created` | cookie owns row, active creation guard and atomic per-build claim |
 
 The Architect's internals are reused, not copied: `extractBrief`,
 `runArchitectMatch` and `summariseArchitectSelection` get an options
@@ -229,7 +229,7 @@ verified email is the unit of accounting.
 | Mode | `off` refuses everything; `closed` requires the invite code | `requestCode` |
 | Bots | BotID on `requestCode` (`protect: []` today; add the route and call `checkBotId`) | instrumentation + action |
 | Inbox bombing | `requestCode`: 5/hour per IP, 3/hour per email (same pattern as `otp-email:` in `src/app/actions/auth.ts:157`) | `checkKeyedRateLimit` |
-| Spend per person | 3 builds per email per day; 1 live (uncompleted, unexpired) build per email | `startBuild`, `createBuild` |
+| Spend per person | 10 new role attempts per verified email per 24 hours; unfinished assessments do not block repeat trials; active creation must resolve first | `startBuild`, `createBuild` |
 | Spend overall | `PUBLIC_BUILDS_DAILY_CAP` builds per UTC day, counted from `public_builds`; over cap the page says so and offers the contact address | `startBuild` |
 | Repeats | `pd_hash` cache: same PD, no AI call | `startBuild` |
 | Input | 20 000 characters, 5 MB upload (internal is 40k/10 MB) | `startBuild` |

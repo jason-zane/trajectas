@@ -70,7 +70,7 @@ import {
   markPublicBuildFailed,
   countPublicBuildsSince,
   countBuildsForEmailSince,
-  hasLiveBuildForEmail,
+  hasCreatingBuildForEmail,
   type PublicBuildDTO,
   type PublicBuildUsage,
 } from '@/lib/dal/public-builds'
@@ -284,10 +284,10 @@ export async function startBuild(input: {
 
   const dailyCap = getPublicBuildsDailyCap()
   const sinceUtc = startOfUtcDayIso()
-  const [globalCount, emailCount, hasLive] = await Promise.all([
+  const [globalCount, emailCount, hasCreating] = await Promise.all([
     countPublicBuildsSince(db, sinceUtc),
     countBuildsForEmailSince(db, email, sinceUtc),
-    hasLiveBuildForEmail(db, email),
+    hasCreatingBuildForEmail(db, email),
   ])
 
   if (!previous && globalCount >= dailyCap) {
@@ -296,8 +296,20 @@ export async function startBuild(input: {
   if (!previous && emailCount >= PUBLIC_BUILDS_MAX_BUILDS_PER_EMAIL_PER_DAY) {
     return { error: 'You have reached the daily limit for new builds. Try again tomorrow.' }
   }
-  if (hasLive) {
-    return { error: 'You already have a build in progress. Finish it before starting another.' }
+  if (hasCreating) {
+    return { error: 'Your previous assessment is still being created. Check its progress before starting another.' }
+  }
+
+  if (!previous) {
+    try {
+      if ((await checkBotId()).isBot) return { error: 'Verification failed. Please try again.' }
+    } catch (error) {
+      logActionError('publicBuilds.startBuild.botid', error)
+      return { error: 'We couldn’t verify this request. Please try again.' }
+    }
+    // Reserve an attempt before AI work, including concurrent requests and failed extractions.
+    const attemptLimit = await checkKeyedRateLimit(`public-build-start:${email}`, PUBLIC_BUILDS_MAX_BUILDS_PER_EMAIL_PER_DAY, 24 * 60 * 60 * 1000, true)
+    if (!attemptLimit || !attemptLimit.allowed) return { error: 'You’ve used your 10 new role attempts in 24 hours. Please try again later.' }
   }
 
   const { roleTitle, pdText, tier } = parsed.data
@@ -468,9 +480,9 @@ export async function createBuild(
 
   // Re-check right before we create real infrastructure — startBuild's check
   // ran earlier and time may have passed. Excludes this build itself (still
-  // "ranked", not yet live).
-  if (await hasLiveBuildForEmail(db, email, buildId)) {
-    return { error: 'You already have a build in progress.' }
+  // "ranked", not yet creating).
+  if (await hasCreatingBuildForEmail(db, email, buildId)) {
+    return { error: 'Your previous assessment is still being created. Please check its progress.' }
   }
 
   // Claim the build (ranked → creating) atomically before creating anything
