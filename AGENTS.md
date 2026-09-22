@@ -24,6 +24,9 @@ maintained by `next dev` (Next.js here differs from your training data — read
 - Jason's zsh wraps `grep`, `find`, `ls` and some `git` commands with `rtk`,
   which reformats output and rejects some flags. In scripts and pipelines call
   `/usr/bin/grep`, `/usr/bin/find` and `/usr/bin/git` directly.
+- If `git push` hangs, the macOS keychain credential helper is waiting on a
+  prompt nobody can see. Push with `git -c credential.helper= -c
+  'credential.helper=!gh auth git-credential' push …` instead.
 
 ## Workspace isolation — ALWAYS use a git worktree
 
