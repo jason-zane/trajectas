@@ -10,7 +10,7 @@ Cool white and pale mineral-grey surfaces, charcoal text, emerald #2d6a5a primar
 The homepage introduces the broader capability-assessment platform. The dedicated `/role-builder` page explains position description → relevant capabilities → real assessment and report. The builder shares its header, typography, action hierarchy and controls. Use the selected mechanism-led homepage and a guided builder workspace. Use illustrative examples clearly labelled as examples.
 
 ## Interaction
-Design for open access, retaining the existing invitation gate until launch. Explain the gate before entry while active. Let visitors understand the task and expected output before verification; keep email verification before AI work. Use a legible step sequence, persistent role context, clear selection feedback, visible time/item estimates and recoverable errors. Preserve server authorization and quotas.
+Access is open: anyone with a verified email can build (the invitation gate was removed 2026-09-23). Let visitors understand the task and expected output before verification; keep email verification before AI work. Use a legible step sequence, persistent role context, clear selection feedback, visible time/item estimates and recoverable errors. Preserve server authorization and quotas.
 
 ## Responsive and accessibility
 Stack document and capability views on narrow screens. All controls remain touch-friendly and keyboard operable. Focus indicators, labels, contrast and reduced-motion support are mandatory. Core controls and text remain semantic HTML. Implemented tokens are recorded below.
@@ -24,7 +24,7 @@ The user selected the first generated concept, preserved at `docs/design/2026-09
 - Content maximum 1280px. 24–72px responsive gutters. Primary controls 50px high, 6px corners. Working containers 12px corners; separators rather than nested cards.
 - Use the real TrajectasLogo and existing Lucide outline icons. No new raster assets are needed: the central evidence is semantic, interactive role/capability content.
 - Homepage demonstration is explicitly illustrative. No proof claims, fake confidence percentages, invented clients or unsubstantiated norms.
-- Production sequence: verify email/invitation, describe role, actual extraction and matching, review capabilities and length, confirm creation, open assessment. Verification stays first because uploaded document extraction and AI are gated. Length is chosen once, in context, on review.
+- Production sequence: verify email, describe role, actual extraction and matching, review capabilities and length, confirm creation, open assessment. Verification stays first because uploaded document extraction and AI are gated. Length is chosen once, in context, on review.
 - Animation reflects actual requests. Reading completes only when extraction returns. Matching starts then, with extracted responsibilities visible. Creation has its own pending state. No synthetic percentages, timed card reveal or extra summary-generation call.
 - Reduced motion disables movement while retaining clear stage text. New-screen focus is managed without browser-induced scroll jumps. Inline details preserve context and keyboard affordances.
 - Cookie-gated recovery retrieves only the verified email's builds. Role drafts and adjustments are optionally retained in that browser tab, scoped to email/build, never used as authorization.

@@ -21,7 +21,7 @@ vi.mock('@/lib/dal/public-builds', () => ({
 import { startBuild } from '@/app/actions/public-builds'
 const input = { roleTitle: 'Another role', pdText: 'Lead a team.', tier: 'core' as const }
 beforeEach(() => {
-  vi.resetAllMocks(); vi.stubEnv('PUBLIC_BUILDS_MODE', 'closed'); vi.stubEnv('PUBLIC_BUILDS_DAILY_CAP', '100')
+  vi.resetAllMocks(); vi.stubEnv('PUBLIC_BUILDS_MODE', 'open'); vi.stubEnv('PUBLIC_BUILDS_DAILY_CAP', '100')
   m.decode.mockReturnValue({ email: 'person@example.com' }); m.bot.mockResolvedValue({ isBot: false }); m.rate.mockResolvedValue({ allowed: true })
   m.total.mockResolvedValue(5); m.count.mockResolvedValue(3); m.creating.mockResolvedValue(false)
   m.cache.mockResolvedValue(null); m.insert.mockResolvedValue({ id: 'new-build' }); m.extract.mockResolvedValue({ roleTitle: 'Another role', usage: { inputTokens: 1, outputTokens: 1 } })

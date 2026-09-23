@@ -114,8 +114,7 @@
 .rb-field-bottom { align-items: start; }
 .rb-field-bottom .rb-help:first-child { max-width: 50ch; }
 .rb-note { background: var(--px-soft); border-radius: 6px; padding: 16px 18px; font-size: 13px; color: var(--px-muted); }
-.rb-inline-button { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
-.rb-note a, .rb-inline-button { color: var(--px-green); text-decoration: underline; text-underline-offset: 3px; }
+.rb-note a { color: var(--px-green); text-decoration: underline; text-underline-offset: 3px; }
 .rb-error { border: 1px solid #e2b8b5; border-radius: 6px; padding: 14px 16px; color: var(--px-error); font-size: 14px; background: #fff8f7; }
 .rb-aside { border-top: 2px solid var(--px-gold); padding-top: 24px; }
 .rb-aside h2 { font-size: 21px; }

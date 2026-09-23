@@ -91,6 +91,8 @@ clients, and is capped before any AI runs.
 - **Closed and open modes behind one flag.** `PUBLIC_BUILDS_MODE=closed|open|off`.
   Closed additionally requires an invite code (`PUBLIC_BUILDS_INVITE_CODE`,
   rotatable). Launch closed; flip to open later. `off` is the kill switch.
+  *Superseded 2026-09-23:* the invite gate and the request-access flow were
+  removed. `closed` is now read as `open`; `off` remains the kill switch.
 - **PDF attached and linked.** Both.
 - **Single taker, capped at one participant per campaign.** Multi-taker,
   payments, and workspace conversion are later products, not this one.

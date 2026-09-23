@@ -63,11 +63,13 @@ export const PUBLIC_BUILDS_COOKIE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export const PUBLIC_BUILDS_MAX_BUILDS_PER_EMAIL_PER_DAY = 10;
 
-export type PublicBuildsMode = "closed" | "open" | "off";
+export type PublicBuildsMode = "open" | "off";
 
 export function getPublicBuildsMode(): PublicBuildsMode {
   const mode = process.env.PUBLIC_BUILDS_MODE;
-  if (mode === "closed" || mode === "open") return mode;
+  // "closed" was the invite-code preview mode. The gate is gone, but an
+  // environment still set to it must keep the builder running, not turn it off.
+  if (mode === "open" || mode === "closed") return "open";
   return "off";
 }
 

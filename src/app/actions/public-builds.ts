@@ -32,7 +32,6 @@ import {
   verifyPublicBuildCode,
   hashIp,
   hashPdText,
-  secretsEqual,
 } from '@/lib/public-builds/codes'
 import {
   encodePublicBuildCookie,
@@ -121,18 +120,10 @@ type ActionResult<T> = T | { error: string }
 
 export async function requestCode(input: {
   email: string
-  inviteCode?: string
 }): Promise<ActionResult<{ success: true }>> {
   const mode = getPublicBuildsMode()
   if (mode === 'off') {
     return { error: 'The Role Builder is not available right now.' }
-  }
-
-  if (mode === 'closed') {
-    const expected = process.env.PUBLIC_BUILDS_INVITE_CODE
-    if (!expected || !secretsEqual(input.inviteCode ?? '', expected)) {
-      return { error: 'Invalid invite code.' }
-    }
   }
 
   const parsedEmail = emailSchema.safeParse(input.email)

@@ -1,16 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { AccessRequest } from "./access-request";
 import { ArrowRight, Check, Mail, LoaderCircle } from "lucide-react";
 import { requestCode, verifyCode } from "@/app/actions/public-builds";
 import { BuilderHeading, BuildError } from "./builder-frame";
 
-export function VerifyStep({ inviteRequired, onVerified }: { inviteRequired: boolean; onVerified: (email: string) => void | Promise<void> }) {
-  const [requestingAccess, setRequestingAccess] = useState(false);
+export function VerifyStep({ onVerified }: { onVerified: (email: string) => void | Promise<void> }) {
   const [stage, setStage] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -19,7 +16,7 @@ export function VerifyStep({ inviteRequired, onVerified }: { inviteRequired: boo
     setError(null); setNotice(null);
     startTransition(async () => {
       try {
-        const result = await requestCode({ email: email.trim().toLowerCase(), inviteCode: inviteCode.trim() || undefined });
+        const result = await requestCode({ email: email.trim().toLowerCase() });
         if ("error" in result) { setError(result.error); return; }
         setStage("code"); setCode(""); setNotice("A new code is on its way. Check your inbox and spam folder.");
       } catch { setError("We couldn’t send a code. Check your connection and try again."); }
@@ -37,14 +34,11 @@ export function VerifyStep({ inviteRequired, onVerified }: { inviteRequired: boo
       } catch { setError("We couldn’t verify that code. Check your connection and try again."); }
     });
   }
-  if (requestingAccess) return <AccessRequest email={email} onEmailChange={setEmail} onBack={() => setRequestingAccess(false)} />;
   return <div className="px-enter">
     <BuilderHeading title={stage === "email" ? "Try it with a role you know." : "Check your inbox."}>{stage === "email" ? "Build a focused assessment, take it yourself and get your report. First, verify the email you’d like us to send it to." : <>Enter the six-digit code sent to <strong>{email}</strong>. It expires after 10 minutes.</>}</BuilderHeading>
     <div className="rb-layout"><form className="rb-form" onSubmit={submit}>
       {stage === "email" ? <>
-        {inviteRequired && <div className="rb-note">The Role Builder is invitation-only during preview. You’ll need an invitation code to continue. <button type="button" className="rb-inline-button" disabled={pending} onClick={() => { setError(null); setRequestingAccess(true); }}>Request access</button>.</div>}
         <div className="rb-field"><label htmlFor="rb-email">Email address</label><input id="rb-email" name="email" type="email" autoComplete="email" required maxLength={320} value={email} disabled={pending} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" /></div>
-        {inviteRequired && <div className="rb-field"><label htmlFor="rb-invite">Invitation code</label><input id="rb-invite" required autoComplete="off" value={inviteCode} disabled={pending} onChange={e => setInviteCode(e.target.value)} aria-describedby="invite-help" /><p id="invite-help" className="rb-help">Use the invitation code you received from Trajectas.</p></div>}
       </> : <><div className="rb-field"><label htmlFor="rb-code">Verification code</label><input id="rb-code" className="rb-code" autoFocus autoComplete="one-time-code" type="text" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={code} disabled={pending} onChange={e => setCode(e.target.value.replace(/\D/g, ""))} aria-describedby="code-help" /><p id="code-help" className="rb-help">You can paste the full code.</p></div>{notice && <p role="status" className="rb-help">{notice}</p>}</>}
       {error && <BuildError>{error}</BuildError>}
       <div className="px-actions"><button type="submit" className="px-button" disabled={pending}>{pending ? <><LoaderCircle size={17} className="rb-spinner" aria-hidden />{stage === "email" ? "Sending code…" : "Verifying…"}</> : <>{stage === "email" ? "Send verification code" : "Verify and continue"}<ArrowRight size={17} aria-hidden /></>}</button>{stage === "code" && <button type="button" className="px-text-button" disabled={pending} onClick={() => { setStage("email"); setCode(""); setError(null); }}>Change email</button>}</div>

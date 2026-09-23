@@ -34,10 +34,10 @@ describe('public-builds constants', () => {
     expect(getPublicBuildsMode()).toBe('off')
   })
 
-  it('accepts closed and open modes', () => {
-    process.env.PUBLIC_BUILDS_MODE = 'closed'
-    expect(getPublicBuildsMode()).toBe('closed')
+  it('accepts open, and treats the retired closed mode as open', () => {
     process.env.PUBLIC_BUILDS_MODE = 'open'
+    expect(getPublicBuildsMode()).toBe('open')
+    process.env.PUBLIC_BUILDS_MODE = 'closed'
     expect(getPublicBuildsMode()).toBe('open')
   })
 

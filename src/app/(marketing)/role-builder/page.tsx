@@ -28,7 +28,7 @@ export default function RoleBuilderLandingPage() {
         <div className="px-hero-heading"><h1>Every role is different.<br /><span>Measure what matters.</span></h1><p className="px-hero-aside">A clearer understanding of people starts with the work they need to do.</p></div>
         <p className="px-hero-lede">Turn a position description into a focused capability assessment.</p>
         <div className="px-actions"><Link href="/build" className="px-button">Build a role assessment <ArrowRight size={18} aria-hidden /></Link><a href="#how-it-works" className="px-link">See how it works <ArrowRight size={17} aria-hidden /></a></div>
-        <p className="px-hero-note">Free to try · One person · Your report by email{mode === "closed" ? " · Invitation required during preview" : mode === "off" ? " · Preview currently paused" : ""}</p>
+        <p className="px-hero-note">Free to try · One person · Your report by email{mode === "off" ? " · Preview currently paused" : ""}</p>
         <RoleExample />
       </section>
       <section id="how-it-works" className="px-process"><div className="px-container"><div className="px-section-heading"><p className="px-label">From role to report</p><h2>Relevant from the start.<br />Clear at every step.</h2></div><ol className="px-process-list">{steps.map(([heading, body], i) => <li key={heading}><span className="px-step-number">0{i + 1}</span><h3>{heading}</h3><p>{body}</p></li>)}</ol></div></section>
@@ -36,7 +36,7 @@ export default function RoleBuilderLandingPage() {
       <section className="px-container px-questions" aria-labelledby="questions-title"><h2 id="questions-title">Before you try it</h2><div>
         <details><summary>What can I do with the free assessment?</summary><p>Build an assessment for one role, take it yourself and receive a report by email. It is a way to experience the process. For assessments with your team or participants, get in touch.</p></details>
         <details><summary>How long will it take?</summary><p>You can choose 4–8 capabilities, with six questions each: roughly 5–10 minutes to complete. You will see the exact question count and estimated time before creating your assessment.</p></details>
-        <details><summary>What do I need to get started?</summary><p>A role title and a position description, as text, PDF or Word document. We verify your email before processing the role.{mode === "closed" && <> During preview, you also need an invitation code. <a href="/contact">Ask us for one.</a></>}</p></details>
+        <details><summary>What do I need to get started?</summary><p>A role title and a position description, as text, PDF or Word document. We verify your email before processing the role.</p></details>
       </div></section>
       <section className="px-container px-close"><h2>Bring a role.<br />See what it calls for.</h2><Link href="/build" className="px-button">Build a role assessment <ArrowRight size={18} aria-hidden /></Link></section>
     </main><PublicFooter />
