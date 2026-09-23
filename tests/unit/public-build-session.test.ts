@@ -8,7 +8,7 @@ vi.mock("@/lib/dal/public-builds", () => ({ getResumablePublicBuild: mocked.read
 vi.mock("@/lib/security/action-errors", () => ({ logActionError: vi.fn() }));
 import { getPublicBuildSession } from "@/app/actions/public-builds-session";
 import { recommendedPublicPickCount } from "@/lib/public-builds/session";
-beforeEach(() => { mocked.mode.mockReturnValue("closed"); mocked.cookies.mockResolvedValue({ get: () => ({ value: "signed-cookie" }) }); mocked.decode.mockReturnValue(null); });
+beforeEach(() => { mocked.mode.mockReturnValue("open"); mocked.cookies.mockResolvedValue({ get: () => ({ value: "signed-cookie" }) }); mocked.decode.mockReturnValue(null); });
 describe("public build recovery", () => {
   it("does not access the database without a valid signed cookie", async () => {
     expect(await getPublicBuildSession()).toEqual({ email: null, build: null }); expect(mocked.db).not.toHaveBeenCalled(); expect(mocked.read).not.toHaveBeenCalled();

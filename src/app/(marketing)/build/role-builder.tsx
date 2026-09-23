@@ -26,7 +26,7 @@ function initialPicks(build: PublicBuildSession["build"]) {
   return build?.picks ?? build?.ranking?.picks.slice(0, recommendedPublicPickCount(build.ranking.recommendedCount.optimal, build.ranking.picks.length)).map(p => p.factorId) ?? [];
 }
 
-export function RoleBuilder({ inviteRequired, initialSession, initialError }: { inviteRequired: boolean; initialSession: PublicBuildSession; initialError?: string }) {
+export function RoleBuilder({ initialSession, initialError }: { initialSession: PublicBuildSession; initialError?: string }) {
   const [step, setStep] = useState<Step>(initialError ? "recover" : sessionStep(initialSession));
   const [email, setEmail] = useState<string | null>(initialSession.email);
   const [draft, setDraft] = useState<RoleDraft>({ roleTitle: initialSession.build?.roleTitle ?? "", pdText: initialSession.build?.pdText ?? "" });
@@ -175,7 +175,7 @@ export function RoleBuilder({ inviteRequired, initialSession, initialError }: { 
 
   const progress = step === "verify" ? 0 : step === "brief" ? 1 : step === "sent" || (step === "working" && workingStage === "creating") ? 3 : 2;
   return <BuilderFrame step={progress}>
-    {step === "verify" && <VerifyStep inviteRequired={inviteRequired} onVerified={verified} />}
+    {step === "verify" && <VerifyStep onVerified={verified} />}
     {step === "brief" && email && <BriefStep email={email} draft={draft} onChange={updateDraft} onSubmit={submitRole} error={error} />}
     {step === "working" && <WorkingStep roleTitle={draft.roleTitle} brief={brief} stage={workingStage} />}
     {step === "result" && email && brief && ranking && <ResultStep email={email} brief={brief} ranking={ranking} selectedIds={selectedIds} onToggle={id => choose(selectedIds.includes(id) ? selectedIds.filter(item => item !== id) : selectedIds.length < 8 ? [...selectedIds, id] : selectedIds)} onSetCount={count => choose([...selectedIds, ...ranking.picks.map(p => p.factorId).filter(id => !selectedIds.includes(id))].slice(0, count))} onCreate={create} createError={null} onEdit={() => { setError(null); setStep("brief"); }} />}

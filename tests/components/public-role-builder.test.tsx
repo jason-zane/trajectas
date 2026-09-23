@@ -18,21 +18,24 @@ describe("public role builder", () => {
   it("reuses the current draft when the visitor edits the role", async () => {
     actions.startBuild.mockResolvedValue({buildId:"build-1",brief,cached:false});
     actions.rankBuild.mockResolvedValue(ranking);
-    render(<RoleBuilder inviteRequired initialSession={rankedSession} />);
+    render(<RoleBuilder initialSession={rankedSession} />);
     fireEvent.click(screen.getByRole("button", {name: /Edit role/i}));
     fireEvent.change(screen.getByLabelText("Position description"), {target:{value:"An updated role description."}});
     fireEvent.click(screen.getByRole("button", {name:/Find relevant capabilities/}));
     await waitFor(() => expect(actions.startBuild).toHaveBeenCalledWith(expect.objectContaining({buildId:"build-1",pdText:"An updated role description."})));
   });
-  it("makes the invite requirement explicit and hides it for open access", () => {
-    const { rerender } = render(<RoleBuilder inviteRequired initialSession={{ email: null, build: null }} />);
-    expect(screen.getByLabelText("Invitation code")).toBeRequired();
-    expect(screen.getByText(/invitation-only during preview/)).toBeVisible();
-    rerender(<RoleBuilder inviteRequired={false} initialSession={{ email: null, build: null }} />);
+  it("asks a new visitor for an email only, with no invitation step", async () => {
+    actions.requestCode.mockResolvedValue({ success: true });
+    render(<RoleBuilder initialSession={{ email: null, build: null }} />);
     expect(screen.queryByLabelText("Invitation code")).not.toBeInTheDocument();
+    expect(screen.queryByText(/invitation/i)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Email address"), { target: { value: "New@Example.com " } });
+    fireEvent.click(screen.getByRole("button", { name: /Send verification code/ }));
+    await waitFor(() => expect(actions.requestCode).toHaveBeenCalledWith({ email: "new@example.com" }));
+    expect(await screen.findByLabelText("Verification code")).toBeInTheDocument();
   });
   it("updates question counts and prevents creation below four selections", () => {
-    render(<RoleBuilder inviteRequired initialSession={rankedSession} />);
+    render(<RoleBuilder initialSession={rankedSession} />);
     expect(screen.getByText("36")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Focused · 4" }));
     expect(screen.getByText("24")).toBeVisible();
@@ -43,7 +46,7 @@ describe("public role builder", () => {
     expect(screen.getByRole("button", { name: /Create my assessment/ })).toBeEnabled();
   });
   it("preserves manual swaps when choosing the same or a longer assessment", () => {
-    render(<RoleBuilder inviteRequired initialSession={rankedSession} />);
+    render(<RoleBuilder initialSession={rankedSession} />);
     fireEvent.click(screen.getByRole("checkbox", { name: /Capability 1 / }));
     fireEvent.click(screen.getByRole("checkbox", { name: /Capability 7 / }));
     fireEvent.click(screen.getByRole("button", { name: "Core · 6" }));
@@ -55,19 +58,19 @@ describe("public role builder", () => {
   });
   it("restores adjusted selections for this verified email and build", () => {
     sessionStorage.setItem("trajectas:role-picks:test@example.com:build-1", JSON.stringify(["factor-1", "factor-2", "factor-3", "factor-6"]));
-    render(<RoleBuilder inviteRequired initialSession={rankedSession} />);
+    render(<RoleBuilder initialSession={rankedSession} />);
     expect(screen.getByRole("checkbox", { name: /Capability 1 / })).not.toBeChecked();
     expect(screen.getByRole("checkbox", { name: /Capability 7 / })).toBeChecked();
     expect(screen.getByText("24")).toBeVisible();
   });
   it("restores the owned description when editing a resumed build", () => {
-    render(<RoleBuilder inviteRequired initialSession={rankedSession} />);
+    render(<RoleBuilder initialSession={rankedSession} />);
     fireEvent.click(screen.getByRole("button", { name: "Edit role" }));
     expect(screen.getByLabelText("Role title")).toHaveValue("Operations Manager");
     expect(screen.getByLabelText("Position description")).toHaveValue("Coordinate teams and manage delivery.");
   });
   it("explains behaviours and lets visitors search ranked alternatives", () => {
-    render(<RoleBuilder inviteRequired initialSession={rankedSession} />);
+    render(<RoleBuilder initialSession={rankedSession} />);
     fireEvent.click(screen.getByRole("button", { name: "Explore Capability 1" }));
     expect(screen.getAllByText("Delivers in complex situations.")[0]).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Close capability details" }));
@@ -82,7 +85,7 @@ describe("public role builder", () => {
     let finishMatch!: (value: unknown) => void;
     actions.startBuild.mockReturnValue(new Promise(resolve => { finishRead = resolve; }));
     actions.rankBuild.mockReturnValue(new Promise(resolve => { finishMatch = resolve; }));
-    render(<RoleBuilder inviteRequired initialSession={{ email: "test@example.com", build: null }} />);
+    render(<RoleBuilder initialSession={{ email: "test@example.com", build: null }} />);
     fireEvent.change(screen.getByLabelText("Role title"), { target: { value: "Operations Manager" } });
     fireEvent.change(screen.getByLabelText("Position description"), { target: { value: "Coordinate teams and manage delivery." } });
     fireEvent.click(screen.getByRole("button", { name: /Find relevant capabilities/ }));
@@ -96,7 +99,7 @@ describe("public role builder", () => {
   });
   it("offers direct access even when delivery fails and lets the verified visitor start another role", async () => {
     actions.createBuild.mockResolvedValue({ token: "private-token", emailSent: false });
-    render(<RoleBuilder inviteRequired initialSession={rankedSession} />);
+    render(<RoleBuilder initialSession={rankedSession} />);
     fireEvent.click(screen.getByRole("button", { name: /Create my assessment/ }));
     await waitFor(() => expect(screen.getByRole("link", { name: /Take my assessment/ })).toHaveAttribute("href", "/assess/private-token"));
     expect(screen.getByRole("status")).toHaveTextContent("couldn’t deliver the email");
@@ -113,7 +116,7 @@ describe("public role builder", () => {
   it("recovers a created assessment after an uncertain response instead of creating twice", async () => {
     actions.createBuild.mockRejectedValue(new Error("offline"));
     actions.getPublicBuildSession.mockResolvedValue({ ...rankedSession, build: { ...rankedSession.build, status: "created", token: "existing-token", picks: ranking.picks.slice(0, 6).map(p => p.factorId) } });
-    render(<RoleBuilder inviteRequired initialSession={rankedSession} />);
+    render(<RoleBuilder initialSession={rankedSession} />);
     fireEvent.click(screen.getByRole("button", { name: /Create my assessment/ }));
     await screen.findByRole("button", { name: "Check progress" });
     fireEvent.click(screen.getByRole("button", { name: "Check progress" }));
@@ -122,7 +125,7 @@ describe("public role builder", () => {
   });
   it("keeps the role text when extraction returns an error", async () => {
     actions.startBuild.mockResolvedValue({ error: "Unable to read that position description." });
-    render(<RoleBuilder inviteRequired initialSession={{ email: "test@example.com", build: null }} />);
+    render(<RoleBuilder initialSession={{ email: "test@example.com", build: null }} />);
     fireEvent.change(screen.getByLabelText("Role title"), { target: { value: "Operations Manager" } });
     fireEvent.change(screen.getByLabelText("Position description"), { target: { value: "Coordinate delivery." } });
     fireEvent.click(screen.getByRole("button", { name: /Find relevant capabilities/ }));

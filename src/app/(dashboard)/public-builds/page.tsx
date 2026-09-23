@@ -6,7 +6,6 @@ import { PublicBuildsTable } from "./public-builds-table";
 
 const MODE_LABEL: Record<string, string> = {
   off: "Off",
-  closed: "Closed (invite code)",
   open: "Open",
 };
 

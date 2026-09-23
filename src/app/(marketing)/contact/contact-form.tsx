@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { submitContact } from "../actions/submit-contact";
-const topics = { organisation: "Assessment for my organisation", partner: "Working with Trajectas as a partner", invitation: "A Role Builder invitation", question: "Something else" };
+const topics = { organisation: "Assessment for my organisation", partner: "Working with Trajectas as a partner", question: "Something else" };
 export function ContactForm({ initialTopic }: { initialTopic?: string }) {
   const [pending, setPending] = useState(false);
   const [sent, setSent] = useState(false);
