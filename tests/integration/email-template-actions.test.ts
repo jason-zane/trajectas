@@ -135,7 +135,7 @@ vi.mock("@/lib/email/provider", () => ({
   sendHtmlEmail: providerMocks.sendHtmlEmail,
 }));
 
-vi.mock("@/app/actions/brand", () => ({
+vi.mock("@/lib/dal/brand", () => ({
   getEffectiveBrand: brandMocks.getEffectiveBrand,
 }));
 

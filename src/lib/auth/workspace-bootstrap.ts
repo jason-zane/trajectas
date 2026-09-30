@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { getCachedEffectiveBrand } from "@/app/actions/brand";
+import { getCachedEffectiveBrand } from "@/lib/dal/brand";
 import { resolveAuthorizedScope, AuthenticationRequiredError } from "@/lib/auth/authorization";
 import { getWorkspaceContextOptions } from "@/lib/auth/workspace-access";
 import { getWorkspaceRequestContext } from "@/lib/workspace-request";

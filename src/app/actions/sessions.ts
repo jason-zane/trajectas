@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { resolveAuthorizedScope, AuthorizationError } from '@/lib/auth/authorization'
+import { resolveAuthorizedScope, AuthorizationError, isUnconfinedPlatformAdmin, requireSessionAccess } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
 import { byDisplayOrder } from '@/lib/taxonomy-order'
 import {
@@ -168,19 +168,6 @@ type SnapshotLookupRow = {
   report_templates?: { name?: string | null } | { name?: string | null }[] | null
 }
 
-type SessionAccessCampaignRecord = {
-  client_id?: string | null
-  confidentiality_mode?: string | null
-}
-
-type SessionAccessLookupRow = {
-  campaign_participants?: {
-    campaigns?: SessionAccessCampaignRecord | SessionAccessCampaignRecord[] | null
-  } | {
-    campaigns?: SessionAccessCampaignRecord | SessionAccessCampaignRecord[] | null
-  }[] | null
-}
-
 function getEmbeddedRecord<T extends Record<string, unknown>>(
   value: T | T[] | null | undefined
 ) {
@@ -199,35 +186,15 @@ async function assertSessionAccess(
     throw new AuthorizationError('Invalid session ID.')
   }
   const scope = await resolveAuthorizedScope()
-  if (scope.isPlatformAdmin || scope.isLocalDevelopmentBypass) {
+  if (isUnconfinedPlatformAdmin(scope)) {
     return { sessionId, canViewIndividual: true }
   }
 
-  const db = await createClient()
-  const { data, error } = await db
-    .from('participant_sessions')
-    .select('id, campaign_participants(campaigns(client_id, confidentiality_mode))')
-    .eq('id', sessionId)
-    .single()
-
-  if (error || !data) {
-    throw new AuthorizationError('Session not found or not accessible.')
-  }
-
-  const accessRow = data as SessionAccessLookupRow
-  const cp = getEmbeddedRecord(accessRow.campaign_participants)
-  const campaign = getEmbeddedRecord(cp?.campaigns)
-  const clientId = campaign?.client_id ? String(campaign.client_id) : undefined
-
-  if (!clientId || !scope.clientIds.includes(clientId)) {
-    throw new AuthorizationError('Session not accessible in current scope.')
-  }
-
-  // Aggregate-only campaigns: client viewers keep the operational session
-  // view (status, progress) but not scores/responses/reports.
+  // Platform authority still respects the selected tenant/support workspace.
+  const access = await requireSessionAccess(sessionId)
   return {
     sessionId,
-    canViewIndividual: campaign?.confidentiality_mode !== 'aggregate_only',
+    canViewIndividual: access.scope.isPlatformAdmin || access.confidentialityMode !== 'aggregate_only',
   }
 }
 
@@ -242,6 +209,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     throw error
   }
   const db = createAdminClient()
+  const reportDb = await createClient()
 
   const { data: session, error } = await db
     .from('participant_sessions')
@@ -297,7 +265,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       .eq('assessment_id', session.assessment_id)
       .order('started_at', { ascending: true, nullsFirst: false }),
     canViewIndividual
-      ? db
+      ? reportDb
           .from('report_snapshots')
           .select('id, template_id, status, generated_at, released_at, sent_to_participant_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
           .eq('participant_session_id', sessionId)

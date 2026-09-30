@@ -39,7 +39,7 @@
 
 import { AlertTriangle, Info, KeyRound } from 'lucide-react'
 import type { CSSProperties } from 'react'
-import { getCachedEffectiveBrand } from '@/app/actions/brand'
+import { getCachedEffectiveBrand } from '@/lib/dal/brand'
 import { generateRunnerTokens } from '@/lib/brand/runner-tokens'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { errorLabelDisplay } from '../../lifecycle-display'

@@ -1,6 +1,6 @@
 import { Building2 } from "lucide-react"
 import { redirect, notFound } from "next/navigation"
-import { getBrandConfig } from "@/app/actions/brand"
+import { getBrandConfig } from "@/lib/dal/brand"
 import { isClientBrandingEnabled } from "@/app/actions/client-entitlements"
 import { canManageClient, resolveAuthorizedScope } from "@/lib/auth/authorization"
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org"

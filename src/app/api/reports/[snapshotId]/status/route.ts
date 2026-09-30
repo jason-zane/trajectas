@@ -2,7 +2,7 @@ import {
   AuthenticationRequiredError,
   AuthorizationError,
   assertIndividualResultsAccess,
-  requireReportSnapshotAccess,
+  requireReportSnapshotReadAccess,
 } from '@/lib/auth/authorization'
 import { getSnapshotPdfState, mapReportPdfStatus } from '@/lib/reports/pdf'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -48,7 +48,7 @@ export async function GET(
     }
   } else {
     try {
-      const access = await requireReportSnapshotAccess(snapshotId)
+      const access = await requireReportSnapshotReadAccess(snapshotId)
       assertIndividualResultsAccess(access.scope, access.confidentialityMode)
     } catch (error) {
       if (error instanceof AuthenticationRequiredError) {

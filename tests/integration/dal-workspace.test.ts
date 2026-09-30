@@ -6,7 +6,7 @@ import { canRun, createAdminClient } from "./_helpers/rls-fixture";
 // missing"). The DAL only takes name/logomark from it with a "Trajectas"
 // fallback, so returning null exercises exactly that fallback path while the
 // tenant queries below still hit the real local database.
-vi.mock("@/app/actions/brand", () => ({
+vi.mock("@/lib/dal/brand", () => ({
   getCachedPlatformBrand: async () => null,
 }));
 
@@ -60,8 +60,8 @@ describe.skipIf(!canRun)("dal/workspace: getSidebarIdentity", () => {
     };
 
     // Mock getCachedPlatformBrand to avoid cache lookups
-    vi.doMock("@/app/actions/brand", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("@/app/actions/brand")>();
+    vi.doMock("@/lib/dal/brand", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/dal/brand")>();
       return {
         ...actual,
         getCachedPlatformBrand: vi.fn().mockResolvedValue(null),
@@ -75,7 +75,7 @@ describe.skipIf(!canRun)("dal/workspace: getSidebarIdentity", () => {
       expect(result.platformName).toBe("Trajectas");
       expect(result.platformLogomarkUrl).toBeNull();
     } finally {
-      vi.doUnmock("@/app/actions/brand");
+      vi.doUnmock("@/lib/dal/brand");
     }
   });
 
@@ -85,8 +85,8 @@ describe.skipIf(!canRun)("dal/workspace: getSidebarIdentity", () => {
       workspaceContextOptions: [],
     };
 
-    vi.doMock("@/app/actions/brand", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("@/app/actions/brand")>();
+    vi.doMock("@/lib/dal/brand", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/dal/brand")>();
       return {
         ...actual,
         getCachedPlatformBrand: vi.fn().mockResolvedValue(null),
@@ -98,7 +98,7 @@ describe.skipIf(!canRun)("dal/workspace: getSidebarIdentity", () => {
       expect(result.tenantName).toBeNull();
       expect(result.tenantLogomarkUrl).toBeNull();
     } finally {
-      vi.doUnmock("@/app/actions/brand");
+      vi.doUnmock("@/lib/dal/brand");
     }
   });
 
@@ -118,8 +118,8 @@ describe.skipIf(!canRun)("dal/workspace: getSidebarIdentity", () => {
       ],
     };
 
-    vi.doMock("@/app/actions/brand", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("@/app/actions/brand")>();
+    vi.doMock("@/lib/dal/brand", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/dal/brand")>();
       return {
         ...actual,
         getCachedPlatformBrand: vi.fn().mockResolvedValue(null),
@@ -131,7 +131,7 @@ describe.skipIf(!canRun)("dal/workspace: getSidebarIdentity", () => {
       expect(result.tenantName).toBe(`DAL WS Client ${ts}`);
       expect(result.platformName).toBe("Trajectas");
     } finally {
-      vi.doUnmock("@/app/actions/brand");
+      vi.doUnmock("@/lib/dal/brand");
     }
   });
 
@@ -153,8 +153,8 @@ describe.skipIf(!canRun)("dal/workspace: getSidebarIdentity", () => {
       ],
     };
 
-    vi.doMock("@/app/actions/brand", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("@/app/actions/brand")>();
+    vi.doMock("@/lib/dal/brand", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/dal/brand")>();
       return {
         ...actual,
         getCachedPlatformBrand: vi.fn().mockResolvedValue(null),
@@ -165,7 +165,7 @@ describe.skipIf(!canRun)("dal/workspace: getSidebarIdentity", () => {
       const result = await getSidebarIdentity(bootstrap as WorkspaceBootstrap);
       expect(result.tenantName).toBe(fallbackLabel);
     } finally {
-      vi.doUnmock("@/app/actions/brand");
+      vi.doUnmock("@/lib/dal/brand");
     }
   });
 
@@ -185,8 +185,8 @@ describe.skipIf(!canRun)("dal/workspace: getSidebarIdentity", () => {
       ],
     };
 
-    vi.doMock("@/app/actions/brand", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("@/app/actions/brand")>();
+    vi.doMock("@/lib/dal/brand", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/dal/brand")>();
       return {
         ...actual,
         getCachedPlatformBrand: vi.fn().mockResolvedValue(null),
@@ -197,7 +197,7 @@ describe.skipIf(!canRun)("dal/workspace: getSidebarIdentity", () => {
       const result = await getSidebarIdentity(bootstrap as WorkspaceBootstrap);
       expect(result.tenantName).toBe(`DAL WS Partner ${ts}`);
     } finally {
-      vi.doUnmock("@/app/actions/brand");
+      vi.doUnmock("@/lib/dal/brand");
     }
   });
 
@@ -217,8 +217,8 @@ describe.skipIf(!canRun)("dal/workspace: getSidebarIdentity", () => {
       ],
     };
 
-    vi.doMock("@/app/actions/brand", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("@/app/actions/brand")>();
+    vi.doMock("@/lib/dal/brand", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/dal/brand")>();
       return {
         ...actual,
         getCachedPlatformBrand: vi.fn().mockResolvedValue(null),
@@ -229,7 +229,7 @@ describe.skipIf(!canRun)("dal/workspace: getSidebarIdentity", () => {
       const result = await getSidebarIdentity(bootstrap as WorkspaceBootstrap);
       expect(result.tenantName).toBe(`DAL WS Client ${ts}`);
     } finally {
-      vi.doUnmock("@/app/actions/brand");
+      vi.doUnmock("@/lib/dal/brand");
     }
   });
 });

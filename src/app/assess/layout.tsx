@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getCachedEffectiveBrand } from "@/app/actions/brand";
+import { getCachedEffectiveBrand } from "@/lib/dal/brand";
 import { generateCSSTokens } from "@/lib/brand/tokens";
 import { generateRunnerTokens } from "@/lib/brand/runner-tokens";
 import { ForceLightTheme } from "@/components/force-light-theme";

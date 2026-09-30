@@ -18,7 +18,7 @@ import { reportError } from '@/lib/observability/report-error'
 import { byDisplayOrder } from '@/lib/taxonomy-order'
 import { sendHtmlEmail } from '@/lib/email/provider'
 import { downloadSnapshotPdfBase64 } from '@/lib/reports/pdf-access'
-import { getEffectiveBrand } from '@/app/actions/brand'
+import { getEffectiveBrand } from '@/lib/dal/brand'
 import { buildSurfaceUrl, getConfiguredSurfaceUrl } from '@/lib/hosts'
 
 type CampaignSettings = {

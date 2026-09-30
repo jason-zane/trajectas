@@ -12,7 +12,7 @@ import {
 } from '@/lib/auth/authorization'
 import { upsertEmailTemplateSchema } from '@/lib/validations/email-template'
 import { renderEmailHtml } from '@/lib/email/render'
-import { getEffectiveBrand } from '@/app/actions/brand'
+import { getEffectiveBrand } from '@/lib/dal/brand'
 import { DEFAULT_EMAIL_STYLES } from '@/lib/brand/defaults'
 import { SAMPLE_VARIABLES } from '@/lib/email/types'
 import type { EmailType, EmailTemplateScope } from '@/lib/email/types'

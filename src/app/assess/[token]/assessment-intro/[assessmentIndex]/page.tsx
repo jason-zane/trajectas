@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { validateAccessToken, getAssessmentItemCount } from "@/app/actions/assess"
 import { RunnerCtaLink } from "@/components/assess/runner-cta-link"
-import { getCachedEffectiveBrand } from "@/app/actions/brand"
+import { getCachedEffectiveBrand } from "@/lib/dal/brand"
 import { getCachedEffectiveExperience } from "@/app/actions/experience"
 import { getPostSectionsUrl } from "@/lib/experience/flow-router"
 import { interpolateContent } from "@/lib/experience/interpolate"

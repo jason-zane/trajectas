@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Mock all the authorization and storage functions
-const requireReportSnapshotAccess = vi.fn()
+const requireReportSnapshotReadAccess = vi.fn()
 const verifyReportAccessToken = vi.fn()
 const getSnapshotPdfState = vi.fn()
 const mapReportPdfStatus = vi.fn()
@@ -19,7 +19,7 @@ vi.mock('@/lib/auth/authorization', () => {
       name = 'AuthenticationRequiredError'
     },
     AuthorizationError,
-    requireReportSnapshotAccess: () => requireReportSnapshotAccess(),
+    requireReportSnapshotReadAccess: () => requireReportSnapshotReadAccess(),
     // Mirror the real gate: throw only for a non-platform-admin on an
     // aggregate-only campaign. Default fixtures use standard/undefined, so
     // they pass through untouched.
@@ -103,7 +103,7 @@ describe('GET /api/reports/[snapshotId]/pdf', () => {
 
   it('returns 401 when authentication is required but missing', async () => {
     const error = new AuthenticationRequiredError()
-    requireReportSnapshotAccess.mockRejectedValue(error)
+    requireReportSnapshotReadAccess.mockRejectedValue(error)
 
     const response = await GET(
       new Request(`http://localhost/api/reports/${snapshotId}/pdf`),
@@ -117,7 +117,7 @@ describe('GET /api/reports/[snapshotId]/pdf', () => {
 
   it('returns 403 when authorization fails', async () => {
     const error = new AuthorizationError('Access denied')
-    requireReportSnapshotAccess.mockRejectedValue(error)
+    requireReportSnapshotReadAccess.mockRejectedValue(error)
 
     const response = await GET(
       new Request(`http://localhost/api/reports/${snapshotId}/pdf`),
@@ -160,7 +160,7 @@ describe('GET /api/reports/[snapshotId]/pdf', () => {
   })
 
   it('returns 404 when snapshot does not exist', async () => {
-    requireReportSnapshotAccess.mockResolvedValue({
+    requireReportSnapshotReadAccess.mockResolvedValue({
       scope: { actor: null },
       clientId: 'client-1',
       partnerId: null,
@@ -179,7 +179,7 @@ describe('GET /api/reports/[snapshotId]/pdf', () => {
   })
 
   it('returns 409 when PDF status is not ready or released', async () => {
-    requireReportSnapshotAccess.mockResolvedValue({
+    requireReportSnapshotReadAccess.mockResolvedValue({
       scope: { actor: null },
       clientId: 'client-1',
       partnerId: null,
@@ -202,7 +202,7 @@ describe('GET /api/reports/[snapshotId]/pdf', () => {
   })
 
   it('returns 200 with PDF when valid admin access and cached PDF exists', async () => {
-    requireReportSnapshotAccess.mockResolvedValue({
+    requireReportSnapshotReadAccess.mockResolvedValue({
       scope: { actor: { id: 'user-1' } },
       clientId: 'client-1',
       partnerId: null,
@@ -228,7 +228,7 @@ describe('GET /api/reports/[snapshotId]/pdf', () => {
 
   it('returns 200 with generated PDF when PDF generation succeeds', async () => {
     const mockPdfBuffer = new TextEncoder().encode('generated pdf')
-    requireReportSnapshotAccess.mockResolvedValue({
+    requireReportSnapshotReadAccess.mockResolvedValue({
       scope: { actor: { id: 'user-1' } },
       clientId: 'client-1',
       partnerId: null,
@@ -269,7 +269,7 @@ describe('GET /api/reports/[snapshotId]/pdf', () => {
   it('does not accept caller-supplied storage path — uses hardcoded format', async () => {
     // Attempt to pass a malicious storage path parameter should not be accepted
     const maliciousPath = '../../../sensitive.pdf'
-    requireReportSnapshotAccess.mockResolvedValue({
+    requireReportSnapshotReadAccess.mockResolvedValue({
       scope: { actor: { id: 'user-1' } },
       clientId: 'client-1',
       partnerId: null,
@@ -311,7 +311,7 @@ describe('POST /api/reports/[snapshotId]/pdf', () => {
 
   it('returns 401 when authentication is required but missing', async () => {
     const error = new AuthenticationRequiredError()
-    requireReportSnapshotAccess.mockRejectedValue(error)
+    requireReportSnapshotReadAccess.mockRejectedValue(error)
 
     const response = await POST(
       new Request(`http://localhost/api/reports/${snapshotId}/pdf`, {
@@ -329,7 +329,7 @@ describe('POST /api/reports/[snapshotId]/pdf', () => {
 
   it('returns 403 when authorization fails', async () => {
     const error = new AuthorizationError('Access denied')
-    requireReportSnapshotAccess.mockRejectedValue(error)
+    requireReportSnapshotReadAccess.mockRejectedValue(error)
 
     const response = await POST(
       new Request(`http://localhost/api/reports/${snapshotId}/pdf`, {
@@ -364,7 +364,7 @@ describe('POST /api/reports/[snapshotId]/pdf', () => {
   })
 
   it('returns 200 with job details when valid access and queue succeeds', async () => {
-    requireReportSnapshotAccess.mockResolvedValue({
+    requireReportSnapshotReadAccess.mockResolvedValue({
       scope: { actor: { id: 'user-1' } },
       clientId: 'client-1',
       partnerId: null,
@@ -388,7 +388,7 @@ describe('POST /api/reports/[snapshotId]/pdf', () => {
   })
 
   it('returns 413 when request body exceeds max size', async () => {
-    requireReportSnapshotAccess.mockResolvedValue({
+    requireReportSnapshotReadAccess.mockResolvedValue({
       scope: { actor: { id: 'user-1' } },
       clientId: 'client-1',
       partnerId: null,
@@ -415,7 +415,7 @@ describe('POST /api/reports/[snapshotId]/pdf', () => {
   })
 
   it('returns 400 when request body is invalid JSON', async () => {
-    requireReportSnapshotAccess.mockResolvedValue({
+    requireReportSnapshotReadAccess.mockResolvedValue({
       scope: { actor: { id: 'user-1' } },
       clientId: 'client-1',
       partnerId: null,

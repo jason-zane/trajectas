@@ -6,7 +6,7 @@ import {
   startSession,
   getSessionState,
 } from "@/app/actions/assess";
-import { getCachedEffectiveBrand } from "@/app/actions/brand";
+import { getCachedEffectiveBrand } from "@/lib/dal/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { getPageContent } from "@/lib/experience/resolve";
 import { getPostSectionsUrl } from "@/lib/experience/flow-router";

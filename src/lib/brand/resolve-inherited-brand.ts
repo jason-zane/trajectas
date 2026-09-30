@@ -1,4 +1,4 @@
-import { getBrandConfig, getCachedPlatformBrand } from '@/app/actions/brand'
+import { getBrandConfig, getCachedPlatformBrand } from '@/lib/dal/brand'
 import { mergeBrandLayers } from '@/lib/brand/merge'
 import type { BrandConfig } from '@/lib/brand/types'
 import { createAdminClient } from '@/lib/supabase/admin'

@@ -38,6 +38,7 @@ export async function getItemSelectionRules(): Promise<ItemSelectionRule[]> {
 export async function getItemSelectionRulesForEstimate(): Promise<
   Array<{ minConstructs: number; maxConstructs: number | null; itemsPerConstruct: number }>
 > {
+  await resolveAuthorizedScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('item_selection_rules')

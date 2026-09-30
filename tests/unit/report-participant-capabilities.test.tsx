@@ -18,7 +18,7 @@ vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({
 }) }))
 vi.mock('@/lib/reports/report-access-token', () => ({ createReportAccessToken: mocks.sign, verifyReportAccessToken: mocks.verify }))
 vi.mock('@/lib/email/send', () => ({ sendEmail: mocks.send }))
-vi.mock('@/app/actions/brand', () => ({ getEffectiveBrand: async () => ({ name: 'Test' }) }))
+vi.mock('@/lib/dal/brand', () => ({ getEffectiveBrand: async () => ({ name: 'Test' }) }))
 vi.mock('@/lib/hosts', () => ({ buildSurfaceUrl: () => null }))
 vi.mock('@/lib/security/action-errors', () => ({ logActionError: vi.fn() }))
 vi.mock('@/lib/reports/pdf', () => ({
@@ -31,7 +31,7 @@ vi.mock('@/lib/reports/pdf-filename', () => ({
 vi.mock('@/lib/auth/support-sessions', () => ({ logAuditEvent: vi.fn() }))
 vi.mock('@/lib/auth/authorization', () => ({
   AuthenticationRequiredError: class extends Error {}, AuthorizationError: class extends Error {},
-  assertIndividualResultsAccess: vi.fn(), requireReportSnapshotAccess: vi.fn(),
+  assertIndividualResultsAccess: vi.fn(), requireReportSnapshotAccess: vi.fn(), requireReportSnapshotReadAccess: vi.fn(),
 }))
 vi.mock('next/server', async importOriginal => ({ ...await importOriginal<typeof import('next/server')>(), after: vi.fn() }))
 vi.mock('next/navigation', () => ({ redirect: (url: string) => { throw new Error(`redirect:${url}`) } }))

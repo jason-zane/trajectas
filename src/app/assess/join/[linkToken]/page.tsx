@@ -1,5 +1,5 @@
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
-import { getCachedEffectiveBrand } from "@/app/actions/brand";
+import { getCachedEffectiveBrand } from "@/lib/dal/brand";
 import { getPageContent } from "@/lib/experience/resolve";
 import { generateCSSTokens } from "@/lib/brand/tokens";
 import { generateRunnerTokens } from "@/lib/brand/runner-tokens";

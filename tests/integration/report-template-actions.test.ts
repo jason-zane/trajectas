@@ -74,6 +74,7 @@ vi.mock("@/lib/auth/authorization", () => ({
   requireCampaignAccess: auth.requireCampaignAccess,
   requireParticipantAccess: auth.requireParticipantAccess,
   requireReportSnapshotAccess: auth.requireReportSnapshotAccess,
+  requireReportSnapshotReadAccess: auth.requireReportSnapshotAccess,
   requireReportTemplateAccess: auth.requireReportTemplateAccess,
   resolveAuthorizedScope: auth.resolveAuthorizedScope,
 }));

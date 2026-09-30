@@ -70,7 +70,7 @@ vi.mock('@/lib/assess/session-proof', () => ({ createAssessSessionProof: () => '
 vi.mock('@/app/actions/assess', async original => ({
   ...await original<typeof import('@/app/actions/assess')>(), validateAccessToken: mocks.validate,
 }))
-vi.mock('@/app/actions/brand', () => ({ getCachedEffectiveBrand: async () => ({ name: 'Trajectas' }) }))
+vi.mock('@/lib/dal/brand', () => ({ getCachedEffectiveBrand: async () => ({ name: 'Trajectas' }) }))
 vi.mock('@/app/actions/experience', () => ({ getCachedEffectiveExperience: async () => ({}) }))
 vi.mock('@/lib/experience/resolve', () => ({ getPageContent: () => ({}) }))
 vi.mock('@/lib/experience/flow-router', () => ({ getPostSectionsUrl: () => '/complete' }))

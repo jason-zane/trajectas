@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import { getCampaignHeader } from "@/app/actions/campaigns"
-import { getBrandConfig, getEffectiveBrand } from "@/app/actions/brand"
+import { getBrandConfig, getEffectiveBrand } from "@/lib/dal/brand"
 import { getPartnerName } from "@/lib/dal/partners"
 import { CampaignBrandEditor } from "@/app/(dashboard)/campaigns/[id]/branding/campaign-brand-editor"
 

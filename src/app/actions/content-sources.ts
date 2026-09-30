@@ -2,13 +2,15 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireAdminScope } from '@/lib/auth/authorization'
+import { requireAdminScope, resolveAuthorizedScope, canManageAssessmentLibrary, AuthorizationError } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapContentSourceRow } from '@/lib/supabase/mappers'
 import { contentSourceSchema } from '@/lib/validations/content-sources'
 import type { ContentSource } from '@/types/database'
 
 export async function getContentSources(): Promise<ContentSource[]> {
+  const scope = await resolveAuthorizedScope()
+  if (!canManageAssessmentLibrary(scope)) throw new AuthorizationError()
   const db = createAdminClient()
   const { data, error } = await db
     .from('content_sources')
@@ -20,6 +22,8 @@ export async function getContentSources(): Promise<ContentSource[]> {
 }
 
 export async function getContentSourceById(id: string): Promise<ContentSource | null> {
+  const scope = await resolveAuthorizedScope()
+  if (!canManageAssessmentLibrary(scope)) throw new AuthorizationError()
   const db = createAdminClient()
   const { data, error } = await db
     .from('content_sources')
