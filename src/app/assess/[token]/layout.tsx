@@ -1,5 +1,5 @@
 import { validateAccessToken } from "@/app/actions/assess";
-import { getCachedEffectiveBrand } from "@/app/actions/brand";
+import { getCachedEffectiveBrand } from "@/lib/dal/brand";
 import { generateCSSTokens } from "@/lib/brand/tokens";
 import { generateRunnerTokens } from "@/lib/brand/runner-tokens";
 

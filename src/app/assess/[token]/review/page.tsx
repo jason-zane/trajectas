@@ -3,7 +3,7 @@ import {
   validateAccessToken,
   getSessionState,
 } from "@/app/actions/assess";
-import { getCachedEffectiveBrand } from "@/app/actions/brand";
+import { getCachedEffectiveBrand } from "@/lib/dal/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { generateCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";

@@ -2,7 +2,7 @@ import {
   getExperienceTemplate,
   getPlatformExperienceTemplate,
 } from "@/app/actions/experience";
-import { getEffectiveBrand } from "@/app/actions/brand";
+import { getEffectiveBrand } from "@/lib/dal/brand";
 import { getCampaignHeader } from "@/app/actions/campaigns";
 import { getCampaignAssessmentIntros } from "@/app/actions/assessment-intro";
 import { notFound } from "next/navigation";

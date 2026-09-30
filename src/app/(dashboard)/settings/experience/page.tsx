@@ -1,6 +1,6 @@
 import { connection } from "next/server"
 import { getPlatformExperienceTemplate } from "@/app/actions/experience";
-import { getCachedPlatformBrand } from "@/app/actions/brand";
+import { getCachedPlatformBrand } from "@/lib/dal/brand";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mergeBrandLayers } from "@/lib/brand/merge";
 import { PageHeader } from "@/components/page-header";

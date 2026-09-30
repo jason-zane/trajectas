@@ -27,7 +27,7 @@ vi.mock("@/lib/auth/authorization", async () => {
   };
 });
 
-vi.mock("@/app/actions/brand", () => ({
+vi.mock("@/lib/dal/brand", () => ({
   getCachedEffectiveBrand: brand.getCachedEffectiveBrand,
 }));
 

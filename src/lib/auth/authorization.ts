@@ -2,6 +2,7 @@ import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   inferSurfaceFromRequest,
   isLocalDevelopmentHost,
@@ -837,6 +838,35 @@ export async function requireReportSnapshotAccess(snapshotId: string) {
     confidentialityMode: (campaign?.confidentiality_mode ??
       "standard") as CampaignConfidentialityMode,
   };
+}
+
+/**
+ * Service-role PDF/status reads must enforce the report release and audience
+ * rules as well as campaign membership. Authorized managers can preview drafts.
+ */
+export async function requireReportSnapshotReadAccess(snapshotId: string) {
+  const access = await requireReportSnapshotAccess(snapshotId);
+  assertIndividualResultsAccess(access.scope, access.confidentialityMode);
+  if (
+    access.scope.isPlatformAdmin ||
+    access.scope.isLocalDevelopmentBypass ||
+    canManageCampaign(access.scope, access.partnerId, access.clientId)
+  ) return access;
+
+  const db = await createServerSupabaseClient();
+  const { data, error } = await db
+    .from("report_snapshots")
+    .select("id")
+    .eq("id", snapshotId)
+    .eq("status", "released")
+    .not("released_at", "is", null)
+    .maybeSingle();
+  // RLS enforces audience and membership. The lookup above also confines the
+  // active workspace, which the database JWT does not carry.
+  if (error || !data) {
+    throw new AuthorizationError("Report not released or not available to this audience.");
+  }
+  return access;
 }
 
 export async function getAccessibleCampaignIds(scope: AuthorizedScope) {

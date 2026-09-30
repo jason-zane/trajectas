@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { getEffectiveBrand } from '@/app/actions/brand'
+import { getEffectiveBrand } from '@/lib/dal/brand'
 import {
   canManageCampaign,
   canManageReportTemplateLibrary,
@@ -16,6 +16,7 @@ import {
   requireParticipantAccess,
   requireReportTemplateAccess,
   requireReportSnapshotAccess,
+  requireReportSnapshotReadAccess,
   requireSessionAccess,
   resolveAuthorizedScope,
   assertIndividualResultsAccess,
@@ -741,7 +742,7 @@ export async function getReportSnapshot(id: string): Promise<ReportSnapshot | nu
   if (!postgresUuid().safeParse(id).success) return null
   let access: Awaited<ReturnType<typeof requireReportSnapshotAccess>>
   try {
-    access = await requireReportSnapshotAccess(id)
+    access = await requireReportSnapshotReadAccess(id)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return null

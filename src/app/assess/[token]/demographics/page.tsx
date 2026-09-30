@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { validateAccessToken } from "@/app/actions/assess";
-import { getCachedEffectiveBrand } from "@/app/actions/brand";
+import { getCachedEffectiveBrand } from "@/lib/dal/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { getPageContent, isPageEnabled } from "@/lib/experience/resolve";

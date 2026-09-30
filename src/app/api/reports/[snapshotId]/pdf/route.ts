@@ -4,7 +4,7 @@ import {
   AuthenticationRequiredError,
   AuthorizationError,
   assertIndividualResultsAccess,
-  requireReportSnapshotAccess,
+  requireReportSnapshotReadAccess,
 } from '@/lib/auth/authorization'
 import {
   generateAndStoreReportPdf,
@@ -29,13 +29,13 @@ export const maxDuration = 300
 const REPORTS_BUCKET = 'reports'
 const MAX_PDF_POST_BODY_BYTES = 8 * 1024
 
-type PdfAccess = Awaited<ReturnType<typeof requireReportSnapshotAccess>>
+type PdfAccess = Awaited<ReturnType<typeof requireReportSnapshotReadAccess>>
 
 async function requirePdfAccess(
   snapshotId: string,
 ): Promise<{ error: Response } | { access: PdfAccess }> {
   try {
-    const access = await requireReportSnapshotAccess(snapshotId)
+    const access = await requireReportSnapshotReadAccess(snapshotId)
     // Aggregate-only campaigns: no individual PDFs for client/partner
     // viewers. Participant token paths are unaffected (own report only).
     assertIndividualResultsAccess(access.scope, access.confidentialityMode)

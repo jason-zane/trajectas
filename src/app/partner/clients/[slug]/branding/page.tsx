@@ -1,4 +1,4 @@
-import { getBrandConfig } from "@/app/actions/brand";
+import { getBrandConfig } from "@/lib/dal/brand";
 import { getPartnerBrandingEnabled } from "@/app/actions/partner-entitlements";
 import { ClientBrandEditor } from "@/app/(dashboard)/clients/[slug]/branding/client-brand-editor";
 import { EmptyState } from "@/components/empty-state";

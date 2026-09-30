@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import { getClientBySlug } from "@/app/actions/clients"
-import { getBrandConfig } from "@/app/actions/brand"
+import { getBrandConfig } from "@/lib/dal/brand"
 import { resolveInheritedBrand } from "@/lib/brand/resolve-inherited-brand"
 import { ClientBrandEditor } from "./client-brand-editor"
 

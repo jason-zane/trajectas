@@ -15,7 +15,7 @@
 import { resolveTemplate } from './template-registry'
 import { renderEmailHtml, substituteVariables } from './render'
 import { sendHtmlEmail, type SendHtmlEmailAttachment } from './provider'
-import { getEffectiveBrand } from '@/app/actions/brand'
+import { getEffectiveBrand } from '@/lib/dal/brand'
 import { DEFAULT_EMAIL_STYLES } from '@/lib/brand/defaults'
 import type { EmailType } from './types'
 

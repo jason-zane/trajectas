@@ -24,7 +24,7 @@ vi.mock('@/lib/email/template-registry', () => ({
   resolveTemplate: mocks.resolveTemplate,
 }))
 
-vi.mock('@/app/actions/brand', () => ({
+vi.mock('@/lib/dal/brand', () => ({
   getEffectiveBrand: mocks.getEffectiveBrand,
 }))
 

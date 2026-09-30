@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation"
-import { getBrandConfig } from "@/app/actions/brand"
+import { getBrandConfig } from "@/lib/dal/brand"
 import { EmptyState } from "@/components/empty-state"
 import { canManagePartner, resolveAuthorizedScope } from "@/lib/auth/authorization"
 import { resolvePartnerOrg } from "@/lib/auth/resolve-partner-org"

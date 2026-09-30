@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCachedPlatformBrand } from "@/app/actions/brand";
+import { getCachedPlatformBrand } from "@/lib/dal/brand";
 import { type WorkspaceBootstrap } from "@/lib/auth/types";
 
 export interface SidebarIdentity {

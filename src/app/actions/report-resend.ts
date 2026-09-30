@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { buildSurfaceUrl } from "@/lib/hosts";
 import { createReportAccessToken } from "@/lib/reports/report-access-token";
 import { sendEmail } from "@/lib/email/send";
-import { getEffectiveBrand } from "@/app/actions/brand";
+import { getEffectiveBrand } from "@/lib/dal/brand";
 import { logActionError } from "@/lib/security/action-errors";
 import { postgresUuid } from "@/lib/validations/uuid";
 

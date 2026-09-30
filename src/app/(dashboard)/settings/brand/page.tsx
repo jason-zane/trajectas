@@ -1,5 +1,5 @@
 import { connection } from "next/server"
-import { getCachedPlatformBrand } from "@/app/actions/brand"
+import { getCachedPlatformBrand } from "@/lib/dal/brand"
 import { BrandEditor } from "./brand-editor"
 
 export default async function BrandSettingsPage() {
