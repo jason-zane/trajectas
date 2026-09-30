@@ -842,12 +842,16 @@ export async function requireReportSnapshotAccess(snapshotId: string) {
 
 /**
  * Service-role PDF/status reads must enforce the report release and audience
- * rules as well as campaign membership. Management keeps its separate gate.
+ * rules as well as campaign membership. Authorized managers can preview drafts.
  */
 export async function requireReportSnapshotReadAccess(snapshotId: string) {
   const access = await requireReportSnapshotAccess(snapshotId);
   assertIndividualResultsAccess(access.scope, access.confidentialityMode);
-  if (access.scope.isPlatformAdmin) return access;
+  if (
+    access.scope.isPlatformAdmin ||
+    access.scope.isLocalDevelopmentBypass ||
+    canManageCampaign(access.scope, access.partnerId, access.clientId)
+  ) return access;
 
   const db = await createServerSupabaseClient();
   const { data, error } = await db

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { resolveAuthorizedScope, AuthorizationError, isUnconfinedPlatformAdmin, requireSessionAccess } from '@/lib/auth/authorization'
+import { resolveAuthorizedScope, AuthorizationError, isUnconfinedPlatformAdmin, requireSessionAccess, canManageCampaign } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
 import { byDisplayOrder } from '@/lib/taxonomy-order'
 import {
@@ -180,14 +180,14 @@ function logSessionDetailError(scope: string, error: unknown) {
 
 async function assertSessionAccess(
   sessionId: string,
-): Promise<{ sessionId: string; canViewIndividual: boolean }> {
+): Promise<{ sessionId: string; canViewIndividual: boolean; canPreviewReports: boolean }> {
   const parsed = sessionIdSchema.safeParse({ sessionId })
   if (!parsed.success) {
     throw new AuthorizationError('Invalid session ID.')
   }
   const scope = await resolveAuthorizedScope()
   if (isUnconfinedPlatformAdmin(scope)) {
-    return { sessionId, canViewIndividual: true }
+    return { sessionId, canViewIndividual: true, canPreviewReports: true }
   }
 
   // Platform authority still respects the selected tenant/support workspace.
@@ -195,13 +195,16 @@ async function assertSessionAccess(
   return {
     sessionId,
     canViewIndividual: access.scope.isPlatformAdmin || access.confidentialityMode !== 'aggregate_only',
+    canPreviewReports: access.scope.isPlatformAdmin || access.scope.isLocalDevelopmentBypass ||
+      canManageCampaign(access.scope, access.partnerId, access.clientId),
   }
 }
 
 export async function getSessionDetail(sessionId: string): Promise<SessionDetail | null> {
   let canViewIndividual: boolean
+  let canPreviewReports: boolean
   try {
-    ;({ canViewIndividual } = await assertSessionAccess(sessionId))
+    ;({ canViewIndividual, canPreviewReports } = await assertSessionAccess(sessionId))
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return null
@@ -209,7 +212,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     throw error
   }
   const db = createAdminClient()
-  const reportDb = await createClient()
+  const reportDb = canPreviewReports ? db : await createClient()
 
   const { data: session, error } = await db
     .from('participant_sessions')
@@ -489,8 +492,11 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
 }
 
 export async function getSessionSnapshots(sessionId: string): Promise<SessionDetailSnapshot[]> {
+  let canPreviewReports: boolean
   try {
-    const { canViewIndividual } = await assertSessionAccess(sessionId)
+    const access = await assertSessionAccess(sessionId)
+    const { canViewIndividual } = access
+    canPreviewReports = access.canPreviewReports
     if (!canViewIndividual) return []
   } catch (error) {
     if (error instanceof AuthorizationError) {
@@ -498,7 +504,7 @@ export async function getSessionSnapshots(sessionId: string): Promise<SessionDet
     }
     throw error
   }
-  const db = await createClient()
+  const db = canPreviewReports ? createAdminClient() : await createClient()
 
   const { data, error } = await db
     .from('report_snapshots')

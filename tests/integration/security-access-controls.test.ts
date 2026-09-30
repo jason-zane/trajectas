@@ -23,7 +23,7 @@ vi.mock('next/headers', () => ({ headers: async () => new Headers({ host: state.
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 import { AuthorizationError, requireReportSnapshotReadAccess } from '@/lib/auth/authorization'
-import { getSessionDetail, getConstructScoresForFactor } from '@/app/actions/sessions'
+import { getSessionDetail, getSessionSnapshots, getConstructScoresForFactor } from '@/app/actions/sessions'
 import { getContentSources } from '@/app/actions/content-sources'
 import { getItemSelectionRulesForEstimate } from '@/app/actions/item-selection-rules'
 
@@ -47,7 +47,7 @@ describe.skipIf(!canRun)('security review access-control regressions', () => {
   function use(name: string, workspace?: string) {
     state.actor = { ...actors[name], activeContext: workspace ? { surface: 'admin', tenantType: 'client', tenantId: workspace } : null }
     state.user = clients[name]
-    state.host = name === 'admin' ? 'admin.trajectas.com' : name === 'partner' ? 'partner.trajectas.com' : 'client.trajectas.com'
+    state.host = name === 'admin' ? 'admin.trajectas.com' : ['partner', 'manager'].includes(name) ? 'partner.trajectas.com' : 'client.trajectas.com'
   }
   beforeEach(() => {
     vi.stubEnv('ADMIN_APP_URL', 'https://admin.trajectas.com')
@@ -72,8 +72,8 @@ describe.skipIf(!canRun)('security review access-control regressions', () => {
       const template = await insert('report_templates', { name: `security-${label}-${suffix}` })
       ids[label] = await insert('report_snapshots', { template_id: template, campaign_id: ids.campaignA, participant_session_id: ids.sessionA, audience_type: audience, status: released ? 'released' : 'ready', narrative_mode: 'derived', released_at: released ? new Date().toISOString() : null })
     }
-    for (const name of ['member', 'other', 'partner', 'admin']) {
-      const role = name === 'admin' ? 'platform_admin' : name === 'partner' ? 'partner_admin' : 'consultant'
+    for (const name of ['member', 'other', 'partner', 'manager', 'admin']) {
+      const role = name === 'admin' ? 'platform_admin' : ['partner', 'manager'].includes(name) ? 'partner_admin' : 'consultant'
       const user = await createTestUser(state.admin, { email: `security-${name}-${suffix}@test.local`, role })
       users.push(user.userId)
       clients[name] = user.client
@@ -82,9 +82,10 @@ describe.skipIf(!canRun)('security review access-control regressions', () => {
         const clientId = name === 'member' ? ids.clientA : ids.clientB
         const membership = await insert('client_memberships', { profile_id: user.userId, client_id: clientId, role: 'member' })
         actors[name].clientMemberships = [{ id: membership, clientId, role: 'member', isDefault: true, createdAt: new Date().toISOString() }]
-      } else if (name === 'partner') {
-        const membership = await insert('partner_memberships', { profile_id: user.userId, partner_id: ids.partnerA, role: 'member' })
-        actors[name].partnerMemberships = [{ id: membership, partnerId: ids.partnerA, role: 'member', isDefault: true, createdAt: new Date().toISOString() }]
+      } else if (name === 'partner' || name === 'manager') {
+        const membershipRole = name === 'manager' ? 'admin' : 'member'
+        const membership = await insert('partner_memberships', { profile_id: user.userId, partner_id: ids.partnerA, role: membershipRole })
+        actors[name].partnerMemberships = [{ id: membership, partnerId: ids.partnerA, role: membershipRole, isDefault: true, createdAt: new Date().toISOString() }]
       }
     }
   }, 60000)
@@ -125,6 +126,33 @@ describe.skipIf(!canRun)('security review access-control regressions', () => {
     use('partner')
     await expect(requireReportSnapshotReadAccess(ids.consultant)).resolves.toMatchObject({ snapshotId: ids.consultant })
     await expect(requireReportSnapshotReadAccess(ids.draft)).rejects.toBeInstanceOf(AuthorizationError)
+  })
+  it('lets campaign managers preview drafts without crossing tenants or confidentiality boundaries', async () => {
+    use('manager')
+    await expect(requireReportSnapshotReadAccess(ids.draft)).resolves.toMatchObject({ snapshotId: ids.draft })
+    const detail = await getSessionDetail(ids.sessionA)
+    expect(detail!.snapshots.map(row => row.id)).toContain(ids.draft)
+    expect((await getSessionSnapshots(ids.sessionA)).map(row => row.id)).toContain(ids.draft)
+    await expect(getSessionDetail(ids.sessionB)).resolves.toBeNull()
+    const campaignId = await insert('campaigns', { title: 'Confidential', slug: `security-aggregate-${suffix}`, client_id: ids.clientA, partner_id: ids.partnerA, status: 'active', confidentiality_mode: 'aggregate_only' })
+    const participantId = await insert('campaign_participants', { campaign_id: campaignId, email: `aggregate-${suffix}@test.local` })
+    const sessionId = await insert('participant_sessions', { assessment_id: ids.assessmentA, campaign_id: campaignId, client_id: ids.clientA, campaign_participant_id: participantId, status: 'completed' })
+    const templateId = await insert('report_templates', { name: `aggregate-${suffix}` })
+    const snapshotId = await insert('report_snapshots', { template_id: templateId, campaign_id: campaignId, participant_session_id: sessionId, status: 'ready', narrative_mode: 'derived' })
+    await expect(requireReportSnapshotReadAccess(snapshotId)).rejects.toBeInstanceOf(AuthorizationError)
+    expect((await getSessionDetail(sessionId))!.snapshots).toEqual([])
+    await expect(getSessionSnapshots(sessionId)).resolves.toEqual([])
+  })
+  it('preserves explicitly enabled local previews but never enables bypass on a public host', async () => {
+    state.actor = null
+    state.user = anon
+    state.host = 'localhost:3002'
+    vi.stubEnv('CLIENT_APP_URL', 'http://localhost:3002')
+    vi.stubEnv('TRAJECTAS_ALLOW_DEV_BYPASS', '1')
+    await expect(requireReportSnapshotReadAccess(ids.draft)).resolves.toMatchObject({ snapshotId: ids.draft })
+    expect((await getSessionSnapshots(ids.sessionA)).map(row => row.id)).toContain(ids.draft)
+    state.host = 'client.trajectas.com'
+    await expect(requireReportSnapshotReadAccess(ids.draft)).rejects.toThrow('Authentication')
   })
   it('denies another client every report', async () => {
     use('other')
