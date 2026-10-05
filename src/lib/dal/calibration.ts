@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -198,12 +199,18 @@ export async function fetchCalibrationResponses(
       // reject the whole query.
       `id, session_id, item_id, response_value, created_at,
        participant_sessions!inner(status, is_internal, campaign_id, assessment_id,
-         campaigns!inner(is_internal)),
+         campaign_participants!inner(research_use_permitted, status, deleted_at),
+         campaigns!inner(is_internal, deleted_at), participant_section_forms(entries)),
        items!inner(id, construct_id, reverse_scored, deleted_at,
          response_formats!inner(config, type),
          item_options(value, score_value, exclude_from_scoring))`,
     )
     .eq("participant_sessions.status", "completed")
+    .eq("participant_sessions.observation_origin", "real")
+    .is("participant_sessions.campaigns.deleted_at", null)
+    .eq("participant_sessions.campaign_participants.research_use_permitted", true)
+    .is("participant_sessions.campaign_participants.deleted_at", null)
+    .not("participant_sessions.campaign_participants.status", "in", "(withdrawn,expired)")
     .is("items.deleted_at", null)
     .not("items.construct_id", "is", null)
     // purpose='construct' only. construct_id is NOT a sufficient filter on its
@@ -270,6 +277,22 @@ export async function fetchCalibrationResponses(
     if (rowsInPage.length < PAGE_SIZE) break;
   }
 
+  // Frozen delivery, rather than observed answers, defines complete cases.
+  type FrozenEntry = { itemId: string; itemVersion: number; contentHash: string; countsTowardScore: boolean };
+  const sessionForms = new Map<string, FrozenEntry[]>();
+  for (const raw of data) {
+    const row = raw as DbRow;
+    const session = unwrapEmbedded(row.participant_sessions);
+    const forms = (session?.participant_section_forms ?? []) as { entries?: FrozenEntry[] }[];
+    sessionForms.set(String(row.session_id), forms.flatMap(form => form.entries ?? []).filter(entry => entry.countsTowardScore === true));
+  }
+  const deliveredIds = [...new Set([...sessionForms.values()].flatMap(entries => entries.map(entry => entry.itemId)))];
+  const constructByItem = new Map<string, string>();
+  for (let offset = 0; offset < deliveredIds.length; offset += 500) {
+    const metadata = await db.from("items").select("id, construct_id").in("id", deliveredIds.slice(offset, offset + 500));
+    if (metadata.error) throwActionError("fetchCalibrationResponses", "Unable to verify frozen calibration forms.", metadata.error);
+    for (const item of metadata.data ?? []) if (item.construct_id) constructByItem.set(String(item.id), String(item.construct_id));
+  }
   const rows: CalibrationResponseRow[] = [];
 
   for (const raw of data) {
@@ -331,7 +354,14 @@ export async function fetchCalibrationResponses(
       continue;
     }
 
+    const entries = sessionForms.get(sessionId) ?? [];
+    // Missing form or unresolved frozen metadata cannot establish completeness.
+    if (!entries.length || entries.some(entry => !constructByItem.has(entry.itemId))) continue;
+    const constructEntries = entries.filter(entry => constructByItem.get(entry.itemId) === constructId).sort((a, b) => a.itemId.localeCompare(b.itemId));
+    if (!constructEntries.some(entry => entry.itemId === itemId)) continue;
     rows.push({
+      formItemIds: constructEntries.map(entry => entry.itemId),
+      formSignature: createHash("sha256").update(JSON.stringify(constructEntries.map(entry => ({ itemId: entry.itemId, itemVersion: entry.itemVersion, contentHash: entry.contentHash })))).digest("hex"),
       sessionId,
       itemId,
       constructId,
@@ -521,11 +551,15 @@ export async function countEligibleSessions(
   // which is what the exclusion needs.
   let query = db
     .from("participant_sessions")
-    .select("id, campaigns!inner(is_internal)", {
+    .select("id, campaigns!inner(is_internal), campaign_participants!inner(research_use_permitted, status, deleted_at)", {
       count: "exact",
       head: true,
     })
-    .eq("status", "completed");
+    .eq("status", "completed")
+    .eq("observation_origin", "real")
+    .eq("campaign_participants.research_use_permitted", true)
+    .is("campaign_participants.deleted_at", null)
+    .not("campaign_participants.status", "in", "(withdrawn,expired)");
 
   // Exclude internal data by default.
   if (!options?.includeInternal) {

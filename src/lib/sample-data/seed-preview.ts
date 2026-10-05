@@ -108,6 +108,7 @@ export async function seedAssessmentPreview(
       .from('campaigns')
       .insert({
         client_id: PREVIEW_SAMPLE_CLIENT_ID,
+        is_internal: true,
         title: campaignTitle,
         slug: campaignSlug,
         status: 'active',
@@ -118,6 +119,9 @@ export async function seedAssessmentPreview(
     if (ins.error) throw new Error(`seedAssessmentPreview/campaign: ${ins.error.message}`)
     campaignId = ins.data.id
   }
+
+  const markedCampaign = await db.from('campaigns').update({ is_internal: true }).eq('id', campaignId);
+  if (markedCampaign.error) throw new Error('Unable to mark the synthetic preview campaign');
 
   // 3) Upsert participant (natural key: campaign_id + email).
   const sampleEmail = `sample+${assessmentId}${PREVIEW_SAMPLE_EMAIL_DOMAIN}`
@@ -164,6 +168,8 @@ export async function seedAssessmentPreview(
         campaign_id: campaignId,
         campaign_participant_id: participantId,
         client_id: PREVIEW_SAMPLE_CLIENT_ID,
+        is_internal: true,
+        observation_origin: 'preview',
         status: 'completed',
         started_at: nowIso,
         completed_at: nowIso,
@@ -175,6 +181,9 @@ export async function seedAssessmentPreview(
     if (ins.error) throw new Error(`seedAssessmentPreview/session: ${ins.error.message}`)
     sessionId = ins.data.id
   }
+
+  const markedSession = await db.from('participant_sessions').update({ is_internal: true, observation_origin: 'preview' }).eq('id', sessionId);
+  if (markedSession.error) throw new Error('Unable to mark the synthetic preview session');
 
   // 5) Clear + reinsert factor-level scores.
   await db.from('participant_scores').delete().eq('session_id', sessionId)

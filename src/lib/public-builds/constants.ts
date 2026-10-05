@@ -29,7 +29,7 @@ export const EXCLUDE_PUBLIC_BUILDS_CLIENT_FILTER = `client_id.is.null,client_id.
 /**
  * A fixed, non-request-derived AuthorizedScope representing "an admin of the
  * public-builds client". Passed as `opts.systemScope` to createAssessment,
- * createCampaign, and sendParticipantInviteEmail so the public Role Builder's
+ * createCampaign, and sendParticipantInviteEmail in server-only service modules so the public Role Builder's
  * six cookie-gated actions (src/app/actions/public-builds.ts) can create real
  * records without an interactive admin session. It still runs through the
  * same canManageAssessmentLibrary / canManageClient / canManageCampaign

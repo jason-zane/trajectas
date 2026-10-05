@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   snapshot: {} as Record<string, unknown>, send: vi.fn(), sign: vi.fn(), verify: vi.fn(), pdfState: vi.fn(),
-  participantExists: true,
+  participantExists: true, recipientAvailable: true,
 }))
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({
   from: (table: string) => {
@@ -16,6 +16,7 @@ vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({
   },
   storage: { from: () => ({ download: async () => ({ data: new Blob(['PDF']), error: null }) }) },
 }) }))
+vi.mock('@/lib/reports/recipient-availability', () => ({ isReportRecipientAvailable: async () => mocks.recipientAvailable }));
 vi.mock('@/lib/reports/report-access-token', () => ({ createReportAccessToken: mocks.sign, verifyReportAccessToken: mocks.verify }))
 vi.mock('@/lib/email/send', () => ({ sendEmail: mocks.send }))
 vi.mock('@/lib/dal/brand', () => ({ getEffectiveBrand: async () => ({ name: 'Test' }) }))
@@ -50,6 +51,7 @@ const params = { params: Promise.resolve({ snapshotId }) }
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.participantExists = true
+  mocks.recipientAvailable = true
   mocks.snapshot = { id: snapshotId, status: 'released', audience_type: 'hr_manager', sent_to_participant_at: null,
     participant_sessions: { campaign_participant_id: 'participant', campaign_participants: {
       id: 'participant', email: 'person@example.invalid', first_name: 'Test',
@@ -122,3 +124,16 @@ describe('participant audience versus explicit signed report grants', () => {
     expect(mocks.pdfState).not.toHaveBeenCalled()
   })
 })
+
+
+it('withholds revoked reports across signed HTML, PDF, status and resend', async () => {
+  mocks.recipientAvailable = false;
+  mocks.snapshot.audience_type = 'participant';
+  await expect(ReportByTokenPage({ ...params, searchParams: Promise.resolve({ t: 'signed-grant' }) })).rejects.toThrow('redirect:');
+  expect((await getPdf(new Request(`http://localhost/api/reports/${snapshotId}/pdf?reportToken=signed-grant`), params)).status).toBe(403);
+  expect((await getStatus(new Request(`http://localhost/api/reports/${snapshotId}/status?reportToken=signed-grant`), params)).status).toBe(403);
+  await requestNewReportLink({ snapshotId, email: 'person@example.invalid' });
+  expect(mocks.send).not.toHaveBeenCalled();
+  expect(mocks.sign).not.toHaveBeenCalled();
+  expect(mocks.pdfState).not.toHaveBeenCalled();
+});

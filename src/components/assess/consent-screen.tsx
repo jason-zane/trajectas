@@ -13,6 +13,7 @@ interface ConsentScreenProps {
   token: string;
   participantId: string;
   content: ConsentContent;
+  contentVersion?: string;
   /** URL to navigate after consent. Determined server-side from flow config. */
   nextUrl: string;
   /** Design preview only: never writes consent or navigates. */
@@ -32,6 +33,7 @@ export function ConsentScreen({
   token,
   participantId,
   content,
+  contentVersion,
   nextUrl,
   isPreview = false,
 }: ConsentScreenProps) {
@@ -47,7 +49,7 @@ export function ConsentScreen({
     setSaveError(null);
     try {
       // Continue only after the server acknowledges consent persistence.
-      const result = await saveConsent(token, participantId);
+      const result = await saveConsent(token, participantId, contentVersion ?? "");
       if (result.error) throw new Error('Consent was not saved');
       window.location.href = nextUrl;
     } catch {

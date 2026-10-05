@@ -194,7 +194,7 @@ function OverviewRow({ brain, divider }: { brain: FiveBrainsBrain; divider: bool
                   fontFeatureSettings: "'tnum'",
                 }}
               >
-                {c.score}
+                {Math.round(c.score)}
               </span>
             </div>
           </div>

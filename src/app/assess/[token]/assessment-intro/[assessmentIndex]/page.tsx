@@ -249,7 +249,7 @@ async function AssessmentIntroContent({
           }}
         >
           {isAggregateOnly
-            ? "Your responses are kept completely anonymous and only analysed in aggregate"
+            ? "Your organisation receives group-level results; your participant record is identifiable"
             : "Your responses are confidential"}
         </span>
       </footer>

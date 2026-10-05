@@ -16,6 +16,7 @@ interface ReviewScreenProps {
   sessionId: string;
   sections: SectionForRunner[];
   responses: Record<string, { value: number; data: Record<string, unknown> }>;
+  completeness?: { expected: number; answered: number; expiredSectionIds: string[] };
   brandLogoUrl?: string;
   brandName?: string;
   isCustomBrand?: boolean;
@@ -46,6 +47,7 @@ export function ReviewScreen({
   sessionId,
   sections,
   responses,
+  completeness,
   brandLogoUrl,
   brandName,
   isCustomBrand,
@@ -73,7 +75,8 @@ export function ReviewScreen({
     (id) => responses[id] !== undefined,
   ).length;
 
-  const allAnswered = uniqueAnsweredCount >= uniqueTotalItems;
+  const expiredSectionIds = new Set(completeness?.expiredSectionIds ?? []);
+  const allAnswered = completeness ? completeness.answered >= completeness.expected : uniqueAnsweredCount >= uniqueTotalItems;
   const canSubmit = !submitting && allAnswered;
 
   async function handleSubmit() {
@@ -181,8 +184,8 @@ export function ReviewScreen({
                 color: "var(--runner-text-muted, hsl(var(--muted-foreground)))",
               }}
             >
-              {uniqueAnsweredCount === uniqueTotalItems
-                ? "You've answered all questions. Ready to submit?"
+              {allAnswered
+                ? (uniqueAnsweredCount < uniqueTotalItems ? "Timed sections have ended. Your saved answers are ready to submit." : "You've answered all questions. Ready to submit?")
                 : "One section still has an unanswered question."}
             </p>
           </div>
@@ -198,7 +201,8 @@ export function ReviewScreen({
               const answered = section.items.filter(
                 (i) => responses[i.id] !== undefined,
               ).length;
-              const complete = answered === section.items.length;
+              const expired = expiredSectionIds.has(section.id);
+              const complete = expired || answered === section.items.length;
 
               return (
                 <div
@@ -237,7 +241,7 @@ export function ReviewScreen({
                       color: "var(--runner-text-meta, hsl(var(--muted-foreground)))",
                     }}
                   >
-                    {answered} / {section.items.length}
+                    {answered} / {section.items.length}{expired && answered < section.items.length ? " · time ended" : ""}
                   </span>
 
                   {/* Complete check or Finish button */}

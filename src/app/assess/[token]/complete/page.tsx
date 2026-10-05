@@ -7,7 +7,6 @@ import { getPageContent } from "@/lib/experience/resolve";
 import { interpolateContent } from "@/lib/experience/interpolate";
 import { getNextFlowUrl } from "@/lib/experience/flow-router";
 import { CompleteScreen } from "@/components/assess/complete-screen";
-import type { BrandConfig } from "@/lib/brand/types";
 import type { TemplateVariables } from "@/lib/experience/types";
 
 export default async function CompletePage({
@@ -17,59 +16,27 @@ export default async function CompletePage({
 }) {
   const { token } = await params;
 
-  let brandConfig: BrandConfig | null = null;
-  let campaignId: string | undefined;
-  let participantName: string | undefined;
-  // Set when the auto-submit below completes the final required assessment:
-  // the server rotates the access token at that moment, so onward links must
-  // carry the fresh one.
+  const result = await validateAccessToken(token);
+  if (result.error || !result.data) redirect('/assess/expired');
+  const { campaign, participant, sessions, assessments } = result.data;
+  const brandConfig = await getCachedEffectiveBrand(campaign.clientId, campaign.id);
+  const campaignId = campaign.id;
+  const participantName = participant.firstName;
   let effectiveToken = token;
-  let bounceToRunner = false;
-
-  try {
-    const result = await validateAccessToken(token);
-    if (result.data?.campaign) {
-      campaignId = result.data.campaign.id;
-      brandConfig = await getCachedEffectiveBrand(
-        result.data.campaign.clientId,
-        result.data.campaign.id,
-      );
-    }
-    if (result.data?.participant) {
-      participantName = result.data.participant.firstName;
-    }
-    // Auto-submit any in-progress session — handles the case where the review
-    // page is disabled and submitSession was never triggered by review-screen.
-    // submitSession enforces the completeness gate, so landing here with
-    // unanswered questions does NOT complete the session — the participant is
-    // bounced back into the runner to finish instead.
-    const inProgressSession = result.data?.sessions?.find(
-      (s) => s.status === "in_progress",
-    );
-    if (inProgressSession) {
-      const submitResult = await submitSession(token, inProgressSession.id).catch(
-        () => null,
-      );
-      if (!submitResult || !submitResult.ok) {
-        bounceToRunner = true;
-      } else if (submitResult.refreshedAccessToken) {
-        effectiveToken = submitResult.refreshedAccessToken;
-      }
-    }
-  } catch {
-    // Fall through — brandConfig stays null, resolved below.
+  const inProgressSession = sessions.find(session => session.status === 'in_progress');
+  if (inProgressSession) {
+    const submitted = await submitSession(token, inProgressSession.id);
+    if (!submitted.ok) redirect(`/assess/${token}/section/0`);
+    if (submitted.refreshedAccessToken) effectiveToken = submitted.refreshedAccessToken;
+    // Re-read durable state; the request's original session snapshot is now stale.
+    redirect(`/assess/${effectiveToken}/complete`);
   }
+  if (assessments.length === 0) redirect(`/assess/${token}/welcome`);
+  const hasCompleted = sessions.some(session => session.status === 'completed');
+  const requiredComplete = assessments.filter(assessment => assessment.isRequired).every(assessment =>
+    sessions.some(session => session.assessmentId === assessment.assessmentId && session.status === 'completed'));
+  if (!hasCompleted || !requiredComplete) redirect(`/assess/${token}/section/0`);
 
-  if (bounceToRunner) {
-    // Outside the try/catch: Next's redirect works by throwing.
-    redirect(`/assess/${token}`);
-  }
-
-  // Fallback only when token validation fails / no campaign. This preserves
-  // the prior behaviour of showing the platform brand even on an expired link.
-  if (!brandConfig) {
-    brandConfig = await getCachedEffectiveBrand();
-  }
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
 
   const experience = await getCachedEffectiveExperience(campaignId);

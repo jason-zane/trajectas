@@ -45,6 +45,10 @@ export interface CalibrationResponseRow {
   minValue?: number
   /** Whether the item is reverse-scored. */
   reverseScored: boolean
+  /** Frozen administered items for this construct; production never infers this from answers. */
+  formItemIds?: string[]
+  /** Includes frozen content/version identity, so different versions cannot be pooled. */
+  formSignature?: string
 }
 
 /**
@@ -163,11 +167,10 @@ function prepareOneConstruct(
   const setSignature = new Map<string, string[]>()
   const sessionsBySignature = new Map<string, string[]>()
   for (const sessionId of sessionIds) {
-    const seen = dedupedRows
-      .filter((r) => r.sessionId === sessionId)
-      .map((r) => r.itemId)
-      .sort()
-    const signature = seen.join('|')
+    const sessionRows = dedupedRows.filter((r) => r.sessionId === sessionId)
+    const frozen = sessionRows[0]?.formItemIds
+    const seen = [...new Set(frozen ?? sessionRows.map((r) => r.itemId))].sort()
+    const signature = sessionRows[0]?.formSignature ?? seen.join('|')
     setSignature.set(signature, seen)
     const bucket = sessionsBySignature.get(signature) ?? []
     bucket.push(sessionId)
@@ -215,7 +218,7 @@ function prepareOneConstruct(
   // Filter to complete sessions (those with all items)
   const completeSessions = new Set<string>()
   for (const sessionId of sessionIds) {
-    let isComplete = true
+    let isComplete = (sessionsBySignature.get(dominantSignature) ?? []).includes(sessionId)
     for (const itemId of itemIds) {
       if (!responseIndex.has(`${sessionId}|${itemId}`)) {
         isComplete = false

@@ -140,7 +140,7 @@ export async function buildReportContext(
   const scoreMap: ScoreMap = {}
   for (const row of (scoresResult.data ?? []) as Array<Record<string, unknown>>) {
     const factorId = row.factor_id
-    if (typeof factorId === 'string' && factorId && !isCognitiveMetric(row.metric as string | null | undefined)) {
+    if (typeof factorId === 'string' && factorId && row.provisional !== true && !isCognitiveMetric(row.metric as string | null | undefined)) {
       scoreMap[factorId] = row.scaled_score as number
     }
   }
@@ -205,7 +205,10 @@ export async function buildReportContext(
 
   // Taxonomy fetch — scored entities + caller's extras
   const extraEntityIds = opts.extraEntityIds ?? []
-  const initialEntityIds = Array.from(new Set([...extraEntityIds, ...Object.keys(scoreMap)]))
+  const expectedFactorsResult = await db.from('assessment_factors').select('factor_id').eq('assessment_id', session.assessmentId)
+  if (expectedFactorsResult.error) throw new Error('Unable to verify report factor coverage.')
+  const expectedFactorIds = (expectedFactorsResult.data ?? []).map(row => String(row.factor_id))
+  const initialEntityIds = Array.from(new Set([...expectedFactorIds, ...extraEntityIds, ...Object.keys(scoreMap)]))
   const taxonomy: TaxonomyMap = await fetchTaxonomy(db, initialEntityIds)
 
   const dimensionChildFactors = new Map<string, string[]>()

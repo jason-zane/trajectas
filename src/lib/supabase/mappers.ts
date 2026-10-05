@@ -756,6 +756,8 @@ export function mapCampaignParticipantRow(row: any): CampaignParticipant {
     startedAt: row.started_at ?? undefined,
     completedAt: row.completed_at ?? undefined,
     consentGivenAt: row.consent_given_at ?? undefined,
+    demographics: row.demographics ?? {},
+    demographicsCompletedAt: row.demographics_completed_at ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
   }

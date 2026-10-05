@@ -27,6 +27,7 @@ export interface SendHtmlEmailOptions {
   text: string
   from?: string
   replyTo?: string
+  idempotencyKey?: string
   attachments?: SendHtmlEmailAttachment[]
 }
 
@@ -46,7 +47,7 @@ export async function sendHtmlEmail(options: SendHtmlEmailOptions) {
       content: a.content,
       contentType: a.contentType,
     })),
-  })
+  }, options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : undefined)
 
   // The Resend SDK resolves with { data, error } and does NOT reject on
   // API-level failures (unverified domain, suppressed recipient, rate limit,

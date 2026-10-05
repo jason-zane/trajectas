@@ -14,6 +14,7 @@ import {
   submitSession,
 } from "@/app/actions/assess";
 import { checkPracticeAnswer } from "@/app/actions/assess-practice";
+import { clearSession } from "@/lib/assess/response-store";
 import { useSaveQueue } from "./use-save-queue";
 import { SavingOverlay } from "./saving-overlay";
 import { SectionTimer } from "./section-timer";
@@ -317,9 +318,23 @@ export function SectionWrapper({
         return;
       }
 
-      router.push(href);
+      let destination = href;
+      if (sectionIndex === totalSections - 1 && href === postAssessmentUrl && !href.endsWith('/review')) {
+        try {
+          const result = await submitSession(token, sessionId);
+          if (!result.ok) throw new Error(result.message);
+          await clearSession(sessionId).catch(() => {});
+          if (result.refreshedAccessToken) destination = href.replace(`/assess/${token}`, `/assess/${result.refreshedAccessToken}`);
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : 'Unable to submit. Please try again.');
+          boundaryLockRef.current = false;
+          setIsBoundaryPending(false);
+          return;
+        }
+      }
+      router.push(destination);
     },
-    [flushProgress, flushSaves, retryFailedSaves, router, section.id],
+    [flushProgress, flushSaves, retryFailedSaves, router, section.id, sectionIndex, totalSections, postAssessmentUrl, token, sessionId],
   );
 
   // Fired once by SectionTimer when the server-issued deadline is reached
@@ -341,14 +356,21 @@ export function SectionWrapper({
       // The completeness gate now excludes this section's unanswered items
       // (they're in an expired section), so a timed-out participant can
       // still complete instead of being stuck forever on incomplete_submission.
-      const result = await submitSession(token, sessionId);
-      if (result.ok) {
+      if (postAssessmentUrl.endsWith('/review')) {
+        router.push(postAssessmentUrl);
+        return;
+      }
+      const result = await submitSession(token, sessionId).catch(() => null);
+      if (result?.ok) {
+        await clearSession(sessionId).catch(() => {});
         const destination = result.refreshedAccessToken
           ? postAssessmentUrl.replace(`/assess/${token}`, `/assess/${result.refreshedAccessToken}`)
           : postAssessmentUrl;
         router.push(destination);
         return;
       }
+      toast.error(result && !result.ok ? result.message : "Unable to submit. Please reload and try again.");
+      expiryHandledRef.current = false;
       setIsBoundaryPending(false);
       return;
     }

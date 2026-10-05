@@ -1142,6 +1142,7 @@ async function getSnapshotRecipientContext(
   const { data: participant, error: participantError } = await db
     .from('campaign_participants')
     .select('id, email, first_name, access_token')
+    .is('deleted_at', null).not('status', 'in', '(withdrawn,expired)')
     .eq('id', participantId)
     .maybeSingle()
 

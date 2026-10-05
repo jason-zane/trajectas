@@ -65,7 +65,8 @@ export function ClosingPage({ data }: { data: FiveBrainsReportData }) {
           }}
         >
           This report is a snapshot, not a verdict. Take it into your next conversation, set the
-          focus areas that matter most, and use it as a baseline to measure growth against.
+          focus areas that matter most, and revisit your reflections in future coaching conversations.
+          A change in self-reported scores alone does not establish significant growth.
         </p>
 
         <div

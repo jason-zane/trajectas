@@ -36,7 +36,7 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
   consent: {
     eyebrow: 'Before you begin',
     heading: 'How your answers are used.',
-    body: '- Your responses are used to generate a profile based on validated psychometric constructs.\n- Results are used for professional development and/or selection purposes.\n- Your responses save automatically — you may pause, or withdraw at any time by closing this page.',
+    body: '- Your responses are used to generate a self-report profile for professional development and coaching.\n- Five Brains is currently a development pilot; real population norms and validation for selection are not yet available.\n- Your responses save automatically. Closing this page pauses participation; it does not delete saved data or withdraw permission. Contact your campaign administrator for withdrawal or deletion requests.\n- See the privacy information for the purposes, recipients and retention of your identifiable data.',
     consentCheckboxLabel: 'I have read and agree to the above information',
     buttonLabel: 'Continue',
   },
@@ -44,7 +44,7 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
   demographics: {
     eyebrow: 'A little about you',
     heading: 'Help us read the results fairly.',
-    body: 'Used only to compare groups fairly — never to identify you.',
+    body: 'These answers are stored with your participant record and may be used for approved group-level research. Optional fields can be left unanswered. See the privacy information for who can access the data and how long it is retained.',
     buttonLabel: 'Continue',
   },
 
@@ -92,9 +92,10 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
  * Replaces the "Results are used for..." line with a guarantee that
  * individual answers are never visible to the organization.
  */
-export const AGGREGATE_ONLY_CONSENT_BODY = `- Your responses are used to generate a profile based on validated psychometric constructs.
+export const AGGREGATE_ONLY_CONSENT_BODY = `- Your responses are used to generate a profile for professional development and coaching.
 - {{brandName}} receives group-level patterns only — never your individual answers.
-- Your responses save automatically — you may pause, or withdraw at any time by closing this page.`
+- Responses are stored with your participant record; group-only reporting does not make collection anonymous.
+- Closing this page pauses participation; contact your campaign administrator for withdrawal or deletion requests.`
 
 // =============================================================================
 // Default flow config — order mirrors the participant journey

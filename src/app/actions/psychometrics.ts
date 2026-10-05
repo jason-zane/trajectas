@@ -837,23 +837,12 @@ export async function getCalibrationScopePreview(input?: {
   if (campaignRows) {
     for (const campaign of campaignRows) {
       const campaignId = String(campaign.id)
-      let countQuery = db
-        .from('participant_sessions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'completed')
-        .eq('campaign_id', campaignId)
-
-      if (!input?.includeInternal) {
-        countQuery = countQuery.eq('is_internal', false)
-      }
-
-      const { count } = await countQuery
-
+      const completedSessions = await countEligibleSessions(db, { ...input, campaignIds: [campaignId] });
       campaigns.push({
         id: campaignId,
         title: String(campaign.title),
         isInternal: Boolean(campaign.is_internal),
-        completedSessions: count ?? 0,
+        completedSessions,
       })
     }
   }
@@ -1335,17 +1324,10 @@ export async function getConstructStats(): Promise<ConstructStatsRow[]> {
     const level = determineWithholdingLevel(n)
     const alpha = row.cronbach_alpha != null ? Number(row.cronbach_alpha) : null
 
-    // Compute 95% CI for alpha using rule of thumb: SE ≈ (1 - α²) / sqrt(n - 1)
-    // Only show for level 'standard' and 'full'
-    let alphaConfidenceLower: number | null = null
-    let alphaConfidenceUpper: number | null = null
-    if (level === 'standard' || level === 'full') {
-      if (alpha !== null && n >= 50) {
-        const se = Math.sqrt((1 - alpha * alpha) / (n - 1))
-        alphaConfidenceLower = Math.max(-1, alpha - 1.96 * se)
-        alphaConfidenceUpper = Math.min(1, alpha + 1.96 * se)
-      }
-    }
+    // Withhold uncertainty until a reviewed interval estimator (including item count
+    // and its assumptions) is implemented. The old rule of thumb was not a 95% CI.
+    const alphaConfidenceLower: number | null = null
+    const alphaConfidenceUpper: number | null = null
 
     // Reliability statistics require n >= 50. Below that alpha is not merely
     // imprecise, it is unstable enough to come out negative by chance, which is

@@ -1,3 +1,4 @@
+import { isReportRecipientAvailable } from '@/lib/reports/recipient-availability';
 import {
   AuthenticationRequiredError,
   AuthorizationError,
@@ -42,7 +43,8 @@ export async function GET(
     if (
       !validSnapshot ||
       !session?.campaign_participant_id ||
-      String(session.campaign_participant_id) !== tokenPayload.participantId
+      String(session.campaign_participant_id) !== tokenPayload.participantId ||
+    !(await isReportRecipientAvailable(tokenPayload.participantId))
     ) {
       return Response.json({ error: 'Report not available' }, { status: 403 })
     }

@@ -144,8 +144,8 @@ export async function scoreSessionCTT(
 
   const responses: ResponseRow[] = responseRows.filter(row => scoredIds.has(row.item_id))
 
-  // 3. Load item metadata for all responded items
-  const itemIds = responses.map((r) => r.item_id)
+  // Load the complete frozen scoring form to retain the missingness denominator.
+  const itemIds = [...scoredIds]
   const { data: itemRows, error: itemErr } = await db
     .from('items')
     .select('id, construct_id, reverse_scored, weight, response_format_id, purpose')
@@ -355,6 +355,8 @@ export async function scoreSessionCTT(
     rawScore: number
     scaledScore: number
     itemsUsed: number
+    itemsExpected: number
+    itemsAttempted: number
   }[] = []
 
   for (const [factorId, links] of linksByFactor) {
@@ -380,6 +382,8 @@ export async function scoreSessionCTT(
       rawScore: scaledScore, // For CTT, raw = POMP
       scaledScore,
       itemsUsed: totalItems,
+      itemsExpected: [...itemMap.values()].filter(meta => links.some(link => link.constructId === meta.constructId)).length,
+      itemsAttempted: responses.filter(response => links.some(link => link.constructId === itemMap.get(response.item_id)?.constructId)).length,
     })
   }
 
@@ -394,6 +398,10 @@ export async function scoreSessionCTT(
     raw_score: fs.rawScore,
     scaled_score: fs.scaledScore,
     scoring_method: 'ctt',
+    items_used: fs.itemsUsed,
+    items_expected: fs.itemsExpected,
+    items_attempted: fs.itemsAttempted,
+    provisional: fs.itemsUsed < fs.itemsExpected,
   }))
 
   const { error: upsertErr } = await db

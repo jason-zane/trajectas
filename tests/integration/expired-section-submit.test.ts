@@ -198,7 +198,7 @@ describe.skipIf(!canRun)("getSessionCompleteness — expired sections (LR-2 / #3
     expect(error).toBeNull();
     expect(await getSessionCompleteness(adminDb, {
       sessionId: ids.session, assessmentId: ids.assessment, campaignId: ids.campaign,
-    })).toEqual({ expected: 2, answered: 1 });
+    })).toEqual({ expected: 2, answered: 1, expiredSectionIds: [ids.sectionExpired] });
   });
 
   it("still counts an expired section's item if it WAS answered before time ran out", async () => {

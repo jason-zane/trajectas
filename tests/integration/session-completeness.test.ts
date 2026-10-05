@@ -323,7 +323,7 @@ describe.skipIf(!canRun)("getSessionCompleteness", () => {
     });
 
     const result = await check();
-    expect(result).toEqual({ expected: 3, answered: 1 });
+    expect(result).toEqual({ expected: 3, answered: 1, expiredSectionIds: [] });
   });
 
   it("ignores responses to items that are not part of the assessment", async () => {
@@ -334,7 +334,7 @@ describe.skipIf(!canRun)("getSessionCompleteness", () => {
     });
 
     const result = await check();
-    expect(result).toEqual({ expected: 3, answered: 1 });
+    expect(result).toEqual({ expected: 3, answered: 1, expiredSectionIds: [] });
   });
 
   it("a factor selection applied AFTER the session's form is already frozen has no effect (LR-3 / #333)", async () => {
@@ -349,7 +349,7 @@ describe.skipIf(!canRun)("getSessionCompleteness", () => {
     });
 
     const afterSelection = await check();
-    expect(afterSelection).toEqual({ expected: 3, answered: 1 });
+    expect(afterSelection).toEqual({ expected: 3, answered: 1, expiredSectionIds: [] });
 
     // itemChecky was already part of the frozen set — answering it moves
     // `answered`, but `expected` still doesn't move.
@@ -360,7 +360,7 @@ describe.skipIf(!canRun)("getSessionCompleteness", () => {
     });
 
     const afterAnswering = await check();
-    expect(afterAnswering).toEqual({ expected: 3, answered: 2 });
+    expect(afterAnswering).toEqual({ expected: 3, answered: 2, expiredSectionIds: [] });
 
     // itemB is still outstanding — genuinely delivered (it was in the
     // no-selection freeze), genuinely unanswered. The gate correctly still
@@ -379,7 +379,7 @@ describe.skipIf(!canRun)("getSessionCompleteness", () => {
     // Still 3/2 — clearing the selection doesn't add anything back either;
     // the frozen set never moves once written.
     const afterClearing = await check();
-    expect(afterClearing).toEqual({ expected: 3, answered: 2 });
+    expect(afterClearing).toEqual({ expected: 3, answered: 2, expiredSectionIds: [] });
 
     await adminDb.from("participant_responses").insert({
       session_id: ids.session,
@@ -388,7 +388,7 @@ describe.skipIf(!canRun)("getSessionCompleteness", () => {
     });
 
     const result = await check();
-    expect(result).toEqual({ expected: 3, answered: 3 });
+    expect(result).toEqual({ expected: 3, answered: 3, expiredSectionIds: [] });
   });
 
   it("a factor selection active BEFORE a session's first read is what gets frozen for that session", async () => {
@@ -408,7 +408,7 @@ describe.skipIf(!canRun)("getSessionCompleteness", () => {
     // Delivered = itemA (construct A) + the always-delivered non-construct
     // item. itemB (construct B) is excluded — never having been selected,
     // it was never frozen in, so it can never become expected for sessionB.
-    expect(result).toEqual({ expected: 2, answered: 0 });
+    expect(result).toEqual({ expected: 2, answered: 0, expiredSectionIds: [] });
 
     // Clearing the selection now must not retroactively ADD itemB back in
     // for sessionB either — its form is frozen from the moment above.
@@ -422,6 +422,6 @@ describe.skipIf(!canRun)("getSessionCompleteness", () => {
       assessmentId: ids.assessment,
       campaignId: ids.campaign,
     });
-    expect(afterClearing).toEqual({ expected: 2, answered: 0 });
+    expect(afterClearing).toEqual({ expected: 2, answered: 0, expiredSectionIds: [] });
   });
 });

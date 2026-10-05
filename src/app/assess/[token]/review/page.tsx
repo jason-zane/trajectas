@@ -11,6 +11,8 @@ import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { getPageContent } from "@/lib/experience/resolve";
 import { interpolateContent } from "@/lib/experience/interpolate";
 import { getNextFlowUrl } from "@/lib/experience/flow-router";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getSessionCompleteness } from "@/lib/dal/session-completeness";
 import { ReviewScreen } from "@/components/assess/review-screen";
 import type { TemplateVariables } from "@/lib/experience/types";
 
@@ -23,7 +25,7 @@ export default async function ReviewPage({
   const result = await validateAccessToken(token);
   if (result.error) redirect("/assess/expired");
 
-  const { campaign, sessions } = result.data!;
+  const { campaign, sessions, assessments } = result.data!;
   const currentSession = sessions.find((s) => s.status === "in_progress");
 
   if (!currentSession) {
@@ -36,12 +38,20 @@ export default async function ReviewPage({
   }
 
   const { sections, responses } = stateResult.data;
+  const completeness = await getSessionCompleteness(createAdminClient(), {
+    sessionId: currentSession.id, assessmentId: currentSession.assessmentId, campaignId: campaign.id,
+  });
+  if ('error' in completeness) throw new Error(completeness.error);
 
   // Load brand + experience in parallel — independent.
   const [brandConfig, experience] = await Promise.all([
     getCachedEffectiveBrand(campaign.clientId, campaign.id),
     getCachedEffectiveExperience(campaign.id),
   ]);
+  const currentAssessmentIndex = assessments.findIndex(a => a.assessmentId === currentSession.assessmentId);
+  const nextUrl = currentAssessmentIndex >= 0 && currentAssessmentIndex + 1 < assessments.length
+    ? `/assess/${token}/assessment-intro/${currentAssessmentIndex + 1}`
+    : getNextFlowUrl(experience, "review", token) ?? `/assess/${token}/complete`;
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
   const rawContent = getPageContent(experience, "review");
   const rawRunnerContent = getPageContent(experience, "runner");
@@ -74,11 +84,12 @@ export default async function ReviewPage({
         sessionId={currentSession.id}
         sections={sections}
         responses={responses}
+        completeness={completeness}
         brandLogoUrl={brandConfig.logoUrl}
         brandName={brandConfig.name}
         isCustomBrand={isCustomBrand}
         content={content}
-        nextUrl={getNextFlowUrl(experience, "review", token) ?? `/assess/${token}/complete`}
+        nextUrl={nextUrl}
         privacyUrl={experience.privacyUrl}
         termsUrl={experience.termsUrl}
         participantFirstName={undefined}
