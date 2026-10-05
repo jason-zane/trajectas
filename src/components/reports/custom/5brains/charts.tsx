@@ -16,12 +16,10 @@ export function WheelChart({
   size = 320,
   brains,
   gap = 6,
-  showLabels = true,
 }: {
   size?: number
   brains: FiveBrainsBrain[]
   gap?: number
-  showLabels?: boolean
 }) {
   const cx = size / 2
   const cy = size / 2
@@ -93,7 +91,7 @@ export function WheelChart({
                 </g>
               )
             })}
-            {showLabels && <text
+            <text
               x={lx}
               y={ly}
               textAnchor={anchor}
@@ -107,7 +105,7 @@ export function WheelChart({
               <tspan x={lx} dy={baseDy}>
                 {b.name}
               </tspan>
-            </text>}
+            </text>
           </g>
         )
       })}

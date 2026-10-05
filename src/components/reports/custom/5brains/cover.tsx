@@ -97,9 +97,7 @@ export function CoverPage({ data }: { data: FiveBrainsReportData }) {
 
         {/* Right column: wheel + composite */}
         <div style={{ position: 'relative', paddingRight: 24 }}>
-          {/* The full brain labels are in the legend below. Long labels around
-              the wheel otherwise extend beyond the A4 page. */}
-          <WheelChart size={320} brains={brains} showLabels={false} />
+          <WheelChart size={320} brains={brains} />
           <div
             style={{
               position: 'absolute',

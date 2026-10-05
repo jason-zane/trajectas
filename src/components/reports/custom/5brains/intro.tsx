@@ -48,10 +48,11 @@ export function IntroPage({
             margin: 0,
           }}
         >
-          The <FiveBrains tmSize={0.45} /> capability assessment summarises how you described
-          your behaviour across five modes of work. Use this self-report profile to focus
-          development and start a coaching conversation. It is a development pilot; it has
-          not yet been validated for hiring, selection, or measuring significant change.
+          The <FiveBrains tmSize={0.45} /> capability assessment measures how you operate across
+          five distinct modes of work. This report shows where each of those modes currently sits
+          for you, and which underlying capabilities are driving the score. Use it as a snapshot
+          to focus development, a conversation starter for coaching, or a baseline to measure
+          growth against.
         </p>
 
         <div
@@ -65,7 +66,7 @@ export function IntroPage({
           <HowToCol
             n="01"
             title="Five brains"
-            body="Capabilities are grouped into five colour-coded categories. The brain names are a framework metaphor; this questionnaire does not measure brain anatomy or neural activity."
+            body="Capabilities are grouped into five brains — distinct modes you use across your work. Each brain has its own colour throughout this report."
           />
           <HowToCol
             n="02"
@@ -81,7 +82,7 @@ export function IntroPage({
           <HowToCol
             n="03"
             title="0–100 capability scores"
-            body="Scores summarise the frequency you reported, rescaled from the minimum to the maximum possible response onto 0–100. They are not population percentiles or independently observed effectiveness. The shaded 30–70 range is illustrative; real population norms are not yet available."
+            body="Scores show how consistently you reported each capability, as a share of the highest possible score. Higher means more consistently demonstrated; lower means more development room."
           />
           <HowToCol
             n="04"

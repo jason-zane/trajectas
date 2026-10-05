@@ -13,13 +13,15 @@
 | Assessment boundaries | Review-enabled first form completed; a fresh review-disabled two-form campaign completed both forms and its participant. Misconfigured follow-up fixture failed processing; a new configured fixture replaced it before administration. |
 | Collection | Required country saved with displayed configuration and consent snapshot. Research accepted in one synthetic run and declined in another. Declining allowed completion. |
 | Report operations | Cron worker processed two PDFs, zero failures. Final report released, stored PDF ready; participant endpoint returned a nine-page PDF. Representative pages visually inspected after regeneration. |
-| Pilot interpretation | Self-reported capability badges; qualified development-pilot, metaphor, illustrative range, absence of real norms and no hiring/significant-growth claims. |
+| Report copy restoration | Original introduction, score explanation, band labels, cover labels and closing text restored at Jason’s request. Calculation precision and completeness checks retained. |
 | Client/partner | Existing seeded UI and local integration evidence covers portfolio/client/campaign reads, quota bounds and tenant/membership rules. Full operational OTP, reassignment, report audience, delivery and support walkthrough remains required. |
 | Future norms | Unit checks cover sample SD/distributions, first-complete deduplication, incomplete exclusion and incompatible frozen forms. Empirical provenance and publication were not fabricated; synthetic observations do not create real norms. |
 | External services | No customer email or paid AI call. Production email-variable names exist, but actual hook/SMTP configuration and provider acceptance were not certified. |
 | Recovery | Database/storage restore not rehearsed; user confirmed recovery prerequisite pending. |
 
-Additional staging defects repaired: mode-specific consent copy, memoized concurrent-start recovery, per-assessment estimated duration, report-mode resolution, stable SVG coordinates and cover-label clipping. Targeted resolution/science/flow checks: 27 passed; session-start checks: 15 passed; local TypeScript and changed-source lint passed. Complete CI passed at `057024e1`; subsequent fixes have fresh PR checks.
+Additional staging defects repaired: mode-specific consent copy, memoized concurrent-start recovery, per-assessment estimated duration, report-mode resolution and stable SVG coordinates. Original report wording/labels/cover layout subsequently restored at Jason’s request. Targeted resolution/science/flow checks: 27 passed; session-start checks: 15 passed; local TypeScript and changed-source lint passed. Complete CI passed at `057024e1`; subsequent fixes have fresh PR checks.
 
 The sample below contains invented participant, item, capability and dimension data. It demonstrates rendering and arithmetic, and provides no evidence of actual instrument validity or population norms.
 
+
+Report correction — 6 October 2026: Jason requested reversal of the added report qualifications. Original introduction and closing copy, capability band badges and cover labels are restored. Backend scoring precision, coverage/provisional handling and complete-report checks are retained. Production is unchanged. The prior validation record applies to the earlier commit; this correction has targeted checks and fresh PR CI.
