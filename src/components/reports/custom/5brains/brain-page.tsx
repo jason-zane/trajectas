@@ -177,7 +177,7 @@ function ContinuumRow({
               fontWeight: 600,
             }}
           >
-            {capability.bandLabel}
+            Self-reported
           </span>
           <span
             style={{

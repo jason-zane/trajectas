@@ -136,9 +136,13 @@ export function getPageContent<T extends ExperiencePageType>(
   template: ExperienceTemplate,
   pageType: T
 ): PageContentMap[T] {
-  const content = template.pageContent[pageType]
-  if (content) return content as PageContentMap[T]
-  return DEFAULT_PAGE_CONTENT[pageType]
+  const content = template.pageContent[pageType] ?? DEFAULT_PAGE_CONTENT[pageType]
+  // The editor stores the report audience experience in flow config. Use the
+  // same setting in the participant runtime as in the editor preview.
+  if (pageType === 'report' && template.flowConfig.report?.reportMode) {
+    return { ...content, reportMode: template.flowConfig.report.reportMode } as PageContentMap[T]
+  }
+  return content as PageContentMap[T]
 }
 
 /**

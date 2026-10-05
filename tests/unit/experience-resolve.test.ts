@@ -202,3 +202,20 @@ describe("getDefaultConsentBody", () => {
     expect(body).not.toContain("withdraw at any time by closing");
   });
 });
+
+
+describe("participant report mode", () => {
+  it("shows released results when the campaign editor selects view results", () => {
+    const template = resolveTemplate(null, createRecord({
+      flowConfig: { report: { enabled: true, order: 130, reportMode: "view_results" } },
+    }));
+    expect(getPageContent(template, "report").reportMode).toBe("view_results");
+  });
+  it("keeps a holding page when the campaign chooses to withhold results", () => {
+    const template = resolveTemplate(null, createRecord({
+      pageContent: { report: { ...DEFAULT_PAGE_CONTENT.report, reportMode: "view_results" } },
+      flowConfig: { report: { enabled: true, order: 130, reportMode: "holding" } },
+    }));
+    expect(getPageContent(template, "report").reportMode).toBe("holding");
+  });
+});
