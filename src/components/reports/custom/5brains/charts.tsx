@@ -2,6 +2,11 @@
 
 import type { FiveBrainsBrain } from '@/lib/reports/custom/5brains'
 
+// Trigonometric results can differ in their final bits between Node and the
+// browser. Stable SVG coordinates prevent hydration mismatches; scores retain
+// their full calculation precision.
+const svgCoordinate = (value: number) => Number(value.toFixed(4))
+
 // ---------------------------------------------------------------------------
 // WheelChart — 25 radial bars, color-coded by brain. One sector per brain,
 // 5 bars per sector. Each bar's radial length encodes the capability score.
@@ -27,14 +32,14 @@ export function WheelChart({
   const capAngle = (sectorAngle - gapAngle) / 5
 
   const arc = (a1: number, a2: number, r1: number, r2: number) => {
-    const x1 = cx + Math.cos(a1) * r2
-    const y1 = cy + Math.sin(a1) * r2
-    const x2 = cx + Math.cos(a2) * r2
-    const y2 = cy + Math.sin(a2) * r2
-    const x3 = cx + Math.cos(a2) * r1
-    const y3 = cy + Math.sin(a2) * r1
-    const x4 = cx + Math.cos(a1) * r1
-    const y4 = cy + Math.sin(a1) * r1
+    const x1 = svgCoordinate(cx + Math.cos(a1) * r2)
+    const y1 = svgCoordinate(cy + Math.sin(a1) * r2)
+    const x2 = svgCoordinate(cx + Math.cos(a2) * r2)
+    const y2 = svgCoordinate(cy + Math.sin(a2) * r2)
+    const x3 = svgCoordinate(cx + Math.cos(a2) * r1)
+    const y3 = svgCoordinate(cy + Math.sin(a2) * r1)
+    const x4 = svgCoordinate(cx + Math.cos(a1) * r1)
+    const y4 = svgCoordinate(cy + Math.sin(a1) * r1)
     return `M ${x1} ${y1} A ${r2} ${r2} 0 0 1 ${x2} ${y2} L ${x3} ${y3} A ${r1} ${r1} 0 0 0 ${x4} ${y4} Z`
   }
 
@@ -66,8 +71,8 @@ export function WheelChart({
       {brains.map((b, bi) => {
         const sectorStart = -Math.PI / 2 + bi * sectorAngle + gapAngle / 2
         const aMid = sectorStart + (sectorAngle - gapAngle) / 2
-        const lx = cx + Math.cos(aMid) * rLabel
-        const ly = cy + Math.sin(aMid) * rLabel
+        const lx = svgCoordinate(cx + Math.cos(aMid) * rLabel)
+        const ly = svgCoordinate(cy + Math.sin(aMid) * rLabel)
         const anchor =
           Math.abs(Math.cos(aMid)) < 0.2 ? 'middle' : Math.cos(aMid) > 0 ? 'start' : 'end'
         const isTop = Math.sin(aMid) < -0.4
