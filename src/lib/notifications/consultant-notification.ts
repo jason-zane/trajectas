@@ -410,9 +410,14 @@ function buildEmailText(p: EmailBodyParams): string {
 export async function sweepConsultantNotifications() {
   const staleBefore = new Date(Date.now() - 15 * 60 * 1000).toISOString();
   const result = await createAdminClient().from('report_snapshots')
-    .select('id, campaigns!inner(consultant_notification_enabled, consultant_emails, deleted_at)')
+    .select(`id, campaigns!inner(consultant_notification_enabled, consultant_emails, deleted_at, client_id, clients(deleted_at)),
+      participant_sessions!inner(campaign_participants!inner(status, deleted_at))`)
     .eq('status', 'released').is('consultant_notified_at', null)
     .eq('campaigns.consultant_notification_enabled', true).is('campaigns.deleted_at', null)
+    .neq('campaigns.consultant_emails', '{}').is('campaigns.clients.deleted_at', null)
+    .or('client_id.is.null,clients.not.is.null', { referencedTable: 'campaigns' })
+    .is('participant_sessions.campaign_participants.deleted_at', null)
+    .not('participant_sessions.campaign_participants.status', 'in', '(withdrawn,expired)')
     .or(`consultant_notification_claimed_at.is.null,consultant_notification_claimed_at.lt.${staleBefore}`)
     .order('created_at').limit(10);
   if (result.error) throw new Error('Unable to load pending consultant notifications');

@@ -136,8 +136,8 @@ A successful release can then support a limited, monitored coaching pilot. Incre
 - 274 unit/component/architecture files: **3,291 tests passed**, including a complete rerun after the dependency patch.
 - Strict TypeScript and source/changed-test ESLint passed after the dependency patch.
 - Final migration applied successfully to a schema-only disposable local database. Normal consented session creation and dedicated preview creation passed; fixture rows were rolled back. No shared application database reset and no production fixture insertion.
-- Production-format webpack build passed after fixing runtime-specific instrumentation imports, using non-production placeholder database credentials.
-- Default Turbopack build stalled locally; no success is claimed for that attempt. Final compiler/CI results must be checked before deployment.
+- Production builds passed with both webpack and the default Turbopack compiler after fixing runtime-specific instrumentation imports. The final patched default build compiled successfully using non-production placeholder database credentials.
+- Sandboxed Turbopack attempts stalled; the same default build passed outside the sandbox. Bundle budgets passed. Final CI results must still be checked before deployment.
 - Published production dependency audit after the Next.js patch: **zero high/critical**, **35 moderate** findings.
 - Full live lifecycle, deployed multi-tenant behavior, SMTP/Resend delivery, PDF worker/browser rendering, production migration behavior, capacity and restore were not certified by these offline checks.
 
