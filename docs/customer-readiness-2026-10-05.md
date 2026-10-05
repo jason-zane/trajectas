@@ -1,6 +1,6 @@
 # Trajectas customer readiness and Five Brains review
 
-**5 October 2026 · Development/coaching launch · Existing data treated as synthetic**
+**6 October 2026 · Development/coaching launch · Existing data treated as synthetic**
 
 ## Decision
 
@@ -13,7 +13,7 @@ The fixes need a coordinated schema/application rollout and the release checks b
 | Direct clients operating independently | Hold production launch | Deploy reviewed changes; verify client onboarding, permissions, email, assessment, report and recovery in staging; complete infrastructure/privacy setup |
 | Partners with their own clients | Hold production launch | All direct-client gates, plus a complete partner/client membership, reassignment, entitlements and confidentiality walkthrough |
 | Assisted development/coaching pilot | Suitable direction after release gates | Explicit self-report pilot wording, trained interpretation, support process, no selection/ranking claims |
-| Five Brains arithmetic | Core formula consistent; reporting defects repaired in branch | Validate a complete 150-item administration through persistence and PDF in staging |
+| Five Brains arithmetic | Core formula consistent; reporting defects repaired in branch | Synthetic 150-item HTML/PDF/persistence checks passed; actual production item mappings were not exported or independently certified |
 | Empirical norm groups | Draft-study infrastructure implemented | Collect eligible real first administrations under a defined sampling plan; expert review before any published norm |
 | Hiring/selection, promotion or objective growth decisions | Not supported by available evidence | A separate intended-use validation programme and defensible decision rules |
 
@@ -30,7 +30,7 @@ No live exploitation, penetration testing, load testing, customer email sending 
 | ID / priority | Evidence and impact | Branch repair / remaining gate |
 |---|---|---|
 | SEC-01 Critical | Four exported server actions accepted a caller-supplied `systemScope`. Service-role mutations could therefore rely on authority supplied at the public action boundary. Locations: `src/app/actions/campaigns.ts`, `assessments.ts`; legitimate Role Builder orchestration in `public-builds.ts`. | Public wrappers now accept business inputs only and resolve normal authorization. Trusted implementations moved into `server-only` service modules; the Role Builder retains its fixed server-owned context after its ownership gate. Confirm normal client and public-builder paths in staging. |
-| SEC-02 High | Authenticated raw session/response write grants provided a path around the guarded token/session RPC contract and scoring invariants. | Migration revokes direct INSERT/UPDATE/DELETE, including column grants, from browser roles. Supported guarded RPCs/server actions remain the write path. Migration pending production approval; check all supported workflows after rollout. |
+| SEC-02 High | Authenticated raw session/response write grants provided a path around the guarded token/session RPC contract and scoring invariants. | Migration revokes direct INSERT/UPDATE/DELETE, including column grants, from browser roles. Supported guarded RPCs/server actions remain the write path. Migration approved conditionally; recovery prerequisite pending; check all supported workflows after rollout. |
 | SEC-03 High | Production `assessment_sections_select` and `assessment_section_items_select` used `true` for authenticated users. The active-account policy is restrictive and does not add tenant ownership. | Child reads now inherit parent assessment visibility through RLS. Shared assessment libraries remain governed by their parent policy. Verify private client/partner instruments alongside intentionally assigned/shared instruments. |
 | SEC-04 High | Several assessment, partner, entitlement and report-template helpers treated platform-admin role as a global bypass while a workspace/support context was selected. | Updated these helpers to use unconfined platform authority and the resolved client/managed-client sets. The branch also corrects the report read bypass. Selected-workspace and support-session walkthrough remains required. |
 | SEC-05 High | Signed report grants and self-serve resends did not consistently recheck later withdrawal/deletion. Locations: participant HTML viewer, dashboard token viewer, PDF/status endpoints, report resend. | A shared recipient availability check now blocks withdrawn/expired or deleted participants and deleted campaigns/owning clients. Staff report access, report email preparation and consultant notifications use the same availability contract. Prior emailed PDF attachments cannot be recalled. |
@@ -120,7 +120,7 @@ Before inviting customers, verify custom SMTP for Supabase OTP/invites, sender-d
 
 | Gate | Owner / evidence needed |
 |---|---|
-| Coordinated schema/application rollout | Explicit production approval; deploy the reviewed migration before application merge; recheck advisors and schema; retain deployment/rollback notes |
+| Coordinated schema/application rollout | Conditional production approval received; establish the recovery point, then deploy the reviewed migration before application merge; recheck advisors and schema; retain deployment/rollback notes |
 | Green repository CI | Security/dependency, quality, migration/integration and smoke checks on the final commits; do not merge a draft or bypass checks |
 | Complete staged Five Brains administration | Full 150-item completion, all 25 scores, persisted composite, HTML/PDF consistency, resume/retry and report release |
 | Direct-client operational walkthrough | Invitations/OTP, own workspace, assignment/quota, campaign, participants, consent/demographics, report, closure/revocation and support |
@@ -137,7 +137,23 @@ A successful release can then support a limited, monitored coaching pilot. Incre
 - Strict TypeScript and source/changed-test ESLint passed after the dependency patch.
 - Final migration applied successfully to a schema-only disposable local database. Normal consented session creation and dedicated preview creation passed; fixture rows were rolled back. No shared application database reset and no production fixture insertion.
 - Production builds passed with both webpack and the default Turbopack compiler after fixing runtime-specific instrumentation imports. The final patched default build compiled successfully using non-production placeholder database credentials.
-- Sandboxed Turbopack attempts stalled; the same default build passed outside the sandbox. Bundle budgets passed. Final CI results must still be checked before deployment.
+- Sandboxed Turbopack attempts stalled; the same default build passed outside the sandbox. Bundle budgets passed. Earlier implementation commit `4de83ad8` passed [repository CI](https://github.com/jason-zane/trajectas/actions/runs/37264229239) and [seeded browser CI](https://github.com/jason-zane/trajectas/actions/runs/37264229231).
+- Earlier full CI: quality coverage **3,350 passed / 489 skipped** (database-dependent checks also run separately); local database integration **533 passed / 12 skipped** across 65 passing files; statistical verification **16 passed**; seeded browser journeys **16 passed**; smoke **7 passed**. Security, lint/type checking, default production build and bundle gates passed. Supabase Preview was skipped, so no isolated hosted staging database was certified.
+- SMTP settings could not be inspected through the connector; a focused dashboard check reached sign-in. Customer OTP delivery configuration remains unverified.
 - Published production dependency audit after the Next.js patch: **zero high/critical**, **35 moderate** findings.
-- Full live lifecycle, deployed multi-tenant behavior, SMTP/Resend delivery, PDF worker/browser rendering, production migration behavior, capacity and restore were not certified by these offline checks.
+- Full live lifecycle, deployed multi-tenant behavior, SMTP/Resend delivery, production migration behavior, capacity and restore were not certified by these offline checks.
 
+
+## Synthetic staging acceptance update — 6 October
+
+Jason authorized the coordinated production rollout after the staging checks, then confirmed that the Supabase upgrade or verified recovery point is still pending. Production has not changed and the PR must not merge before that prerequisite and schema rollout. Jason chose **synthetic staging data only**; no production assessment items, options, mappings or template payload were exported.
+
+An isolated local Supabase project replayed the migrations and ran a synthetic 150-item POMP form: five dimensions, 25 capabilities, six items per capability and 75 reverse items. An independent calculation matched all 25 reported capability scores, the five means (40, 44, 48, 52, 56) and composite 48. A browser reload resumed after 26 saved responses. Review-enabled submission scored the first form; a fresh review-disabled two-assessment campaign completed both forms and persisted overall completion. Required country collection and both choices of optional research permission were exercised; declining research did not block participation. The first follow-up fixture lacked factor configuration and correctly failed processing; it was replaced with a separately configured fresh fixture before administration. This was not repaired by changing an already delivered form.
+
+The local PDF worker processed two reports with zero failures. Participant HTML displayed the released report, and the ordinary participant PDF endpoint returned the regenerated nine-page PDF. The stored report payload matched the independent score vector. The report covers the development pilot, absence of real norms and unsupported hiring/significant-growth use. PDF pages were rendered and representative cover, overview, capability and closing pages inspected. This checks synthetic mechanics and presentation, not the wording/keying of the actual production 150-item instrument or empirical validity.
+
+Staging found additional defects, now repaired: mode-specific consent used legacy copy; concurrent starts could reread a memoized empty session result; introductions counted all campaign items; report display ignored the editor's flow mode. Report SVG coordinates now render consistently across runtimes, long cover labels use the full legend, and capability badges say self-reported rather than implying validated performance categories. Final targeted resolution/science/flow checks passed 27 tests; the earlier session-start tests passed 15. Strict local TypeScript and changed-source lint passed. Commit `057024e1` also passed complete repository and seeded-browser CI. The final presentation/report-mode commits are undergoing fresh CI; their exact release status is recorded in the PR.
+
+The existing seeded browser suite covers client campaign/participant reading and partner portfolio, client console, assignment cap, campaign tabs and foreign-client exclusion in synthetic environments. Integration tests cover the corresponding membership, entitlement and allocation rules. A complete operational walkthrough of OTP invitation acceptance, two-client management/reassignment, configured report audiences, staff delivery and support ownership remains a launch gate. No real customer email, external AI call, production write, live exploitation or load test was performed.
+
+Production has dedicated report-access/PDF signing variables, cron and application email variables by name; this does not verify their values or Supabase's configured authentication email hook/SMTP. Pro/recovery, actual OTP/application delivery, storage recovery, privacy/campaign configuration and remaining operational acceptance still prevent customer launch. See the [staging acceptance record](./customer-readiness-staging-2026-10-06.md).
