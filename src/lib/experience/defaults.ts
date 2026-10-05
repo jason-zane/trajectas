@@ -93,6 +93,7 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
  * individual answers are never visible to the organization.
  */
 export const AGGREGATE_ONLY_CONSENT_BODY = `- Your responses are used to generate a profile for professional development and coaching.
+- Five Brains is currently a development pilot; real population norms and validation for selection are not yet available.
 - {{brandName}} receives group-level patterns only — never your individual answers.
 - Responses are stored with your participant record; group-only reporting does not make collection anonymous.
 - Closing this page pauses participation; contact your campaign administrator for withdrawal or deletion requests.`
