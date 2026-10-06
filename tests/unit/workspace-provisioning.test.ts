@@ -2,15 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedScope } from '@/lib/auth/authorization'
 import { defaultWorkspaceFeatures } from '@/lib/features/workspace-features'
 import { workspacePreset } from '@/lib/features/workspace-presets'
-const mocks = vi.hoisted(() => ({ scope: vi.fn(), insert: vi.fn(), rpc: vi.fn(), features: vi.fn() }))
+const mocks = vi.hoisted(() => ({ scope: vi.fn(), insert: vi.fn(), update: vi.fn(), rpc: vi.fn(), features: vi.fn() }))
 const partner = '11111111-1111-4111-8111-111111111111'
 const client = '22222222-2222-4222-8222-222222222222'
 const actor = '33333333-3333-4333-8333-333333333333'
-vi.mock('@/lib/auth/authorization', async original => ({ ...await original<typeof import('@/lib/auth/authorization')>(), resolveAuthorizedScope: mocks.scope }))
+vi.mock('@/lib/auth/authorization', async original => ({ ...await original<typeof import('@/lib/auth/authorization')>(), resolveAuthorizedScope: mocks.scope, requireClientAccess: async (clientId: string) => ({ scope: await mocks.scope(), clientId, partnerId: null }) }))
 vi.mock('@/lib/dal/workspace-features', () => ({ getEffectiveWorkspaceFeatures: mocks.features }))
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({ rpc: mocks.rpc, from: (table: string) => {
   const query: Record<string, unknown> = {}
   for (const method of ['select','eq','is','single']) query[method] = () => query
+  query.update = (value: unknown) => { mocks.update(table, value); return query }
   query.insert = (value: unknown) => { mocks.insert(table, value); return query }
   query.then = (resolve: (value: unknown) => unknown) => Promise.resolve({ data: { id: table === 'partners' ? partner : client }, error: null }).then(resolve)
   return query
@@ -45,6 +46,26 @@ describe('provisioning preserves existing partner authority and defaults', () =>
     await expect(createClient(form())).rejects.toThrow('not enabled')
     await expect(updateClient(client,form())).rejects.toThrow('not enabled')
     expect(mocks.insert).not.toHaveBeenCalled();expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+  it.each([null, partnerScope.activeContext])('denies alternate admin-surface partner calls with context %s before mutation', async context => {
+    mocks.scope.mockResolvedValue({ ...partnerScope, requestSurface: 'admin', activeContext: context, managedClientIds: [client], clientIds: [client] })
+    mocks.features.mockResolvedValue({ ...defaultWorkspaceFeatures('partner'), clientProvisioning: false, clientManagement: false })
+    await expect(createClient(form())).rejects.toThrow('request surface')
+    await expect(updateClient(client, form())).rejects.toThrow('request surface')
+    expect(mocks.insert).not.toHaveBeenCalled(); expect(mocks.update).not.toHaveBeenCalled(); expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+  it('does not let partner-admin memberships provision a new client through a client surface', async () => {
+    mocks.scope.mockResolvedValue({ ...partnerScope, requestSurface: 'client', activeContext: { surface: 'client', tenantType: 'client', tenantId: client }, clientIds: [client], managedClientIds: [client] })
+    mocks.features.mockResolvedValue(defaultWorkspaceFeatures('client'))
+    await expect(createClient(form())).rejects.toThrow('not enabled')
+    expect(mocks.insert).not.toHaveBeenCalled(); expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+  it('preserves a client administrator’s own scoped editing without partner-only capabilities', async () => {
+    mocks.scope.mockResolvedValue({ ...partnerScope, actor: { ...partnerScope.actor!, role: 'client_admin' }, requestSurface: 'client', activeContext: { surface: 'client', tenantType: 'client', tenantId: client }, partnerIds: [], partnerAdminIds: [], clientIds: [client], clientAdminIds: [client], managedClientIds: [client] })
+    mocks.features.mockResolvedValue(defaultWorkspaceFeatures('client'))
+    expect(await updateClient(client, form())).toMatchObject({ success: true })
+    expect(mocks.update).toHaveBeenCalledOnce()
+    expect(mocks.insert).not.toHaveBeenCalled()
   })
   it('rejects partner-supplied preset selection without writing a client or settings', async () => {
     expect(await createClient(form(true))).toMatchObject({ error: { _form: [expect.stringContaining('Only unrestricted')] } })

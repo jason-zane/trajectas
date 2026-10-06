@@ -1,3 +1,5 @@
+import { getWebhookBacklogReview } from '@/lib/dal/webhook-backlog'
+import { WebhookBacklogReviewPanel } from '@/components/webhook-backlog-review'
 import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { getClientInternalIntegrationSettings } from "@/app/actions/integrations";
@@ -19,14 +21,15 @@ export default async function PartnerClientSettingsPage({
     (await isWorkspaceFeatureEnabled('integrationManagement')) ? getClientInternalIntegrationSettings(client.id) : Promise.resolve(null),
   ]);
 
+  const backlog = integrationSettings?.canManage ? await getWebhookBacklogReview(client.id) : null;
   return (
-    <ClientSettingsPanel
+    <div className="space-y-6"><ClientSettingsPanel
       clientId={client.id}
       clientSlug={slug}
       canCustomizeBranding={client.canCustomizeBranding ?? false}
       partnerBrandingDisabled={!partnerBrandingEnabled}
       partnerBrandingDisabledMessage="Brand customisation is not enabled for your partner organisation. Contact Trajectas to switch it on."
       integrationSettings={integrationSettings}
-    />
+    />{backlog && <WebhookBacklogReviewPanel clientId={client.id} initial={backlog} />}</div>
   );
 }

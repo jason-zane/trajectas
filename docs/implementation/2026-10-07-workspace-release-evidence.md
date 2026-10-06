@@ -28,7 +28,7 @@ These changes remain unmerged. EPP visibility is first priority and is distinct 
 
 | Check | Result |
 | --- | --- |
-| Unit suite | Passed: 240 files, 3,215 tests |
+| Unit suite | Passed: 243 files, 3,233 tests; additional client-surface provisioning regression passed; final repeat recorded in PR |
 | Component suite | Passed: 39 files, 213 tests |
 | Architecture suite | Passed: 20 files, 97 tests |
 | Release orchestration | Passed: six tests |
@@ -38,6 +38,8 @@ These changes remain unmerged. EPP visibility is first priority and is distinct 
 | Combined normal build / seeded / smoke / release-gate | Awaiting draft CI for final commit |
 | Local release:validate / local smoke | Unrun as a combined runner: previous local process/server restrictions remain; no denied operation retried |
 | Hosted authenticated acceptance / recovery rehearsal | Blocked; no synthetic seeding or writes against production |
+
+The first draft CI replayed both migrations and passed all 14 real workspace-feature DB cases, but failed 39 other integration cases / 11 coverage cases because older synthetic action/chat fixtures lacked the new feature context. Explicit legacy licence fixtures retain their original role/RLS assertions; denied former-owner actions now allow an earlier AuthorizationError while still requiring denial. Independent review found four blockers: bulk activation bypassed delivery/360; admin campaign composition fetched disabled launch modules; alternate admin-surface partner calls skipped entitlements; and partner managers lacked the existing scoped backlog review UI. All four were corrected within existing roles. Provisioning also remains gated on client surfaces despite partner memberships, while client admins retain their own scoped editing. New bulk, actual-page composition and alternate-surface regressions passed. The unnecessary extra campaign read was removed; the existing role-checked batch read supplies kind, and all architecture rules pass without new allowlists. Local full coverage passed 3,602 tests with 504 local-DB/environment skips before the final extra provisioning case; the CI local stack must execute the DB cases, and current-head CI must pass again.
 
 Real local DB cases cover defaults, scoped ownership/RLS, concurrent first inserts, service-role RPC grants, dependency rejection, optimistic conflicts, audited presets/overrides, failed-provision rollback, queued-before-pause/new-while-paused events, re-enable without replay, exact release, stale batch rejection and audit. Unit/component cases cover cancellation, actor/client delivery denial, tenant predicates, metadata-only DTOs, claim invalidation before HTTP and held-event attempt preservation. They do not establish hosted recovery.
 

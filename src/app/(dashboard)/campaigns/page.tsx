@@ -13,11 +13,20 @@ import { QuickLaunchButton } from "@/components/campaigns/quick-launch-button";
 export default async function CampaignsPage() {
   if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
 
+  const [deliveryEnabled, managementEnabled, directoryEnabled, feedback360Enabled] = await Promise.all([
+    isWorkspaceFeatureEnabled('assessmentDelivery'),
+    isWorkspaceFeatureEnabled('campaignManagement'),
+    isWorkspaceFeatureEnabled('clientDirectory'),
+    isWorkspaceFeatureEnabled('feedback360'),
+  ]);
+  // This admin launch form needs a permitted client selector. Historical reads
+  // remain independently available in selected and support tenant contexts.
+  const canLaunch = deliveryEnabled && managementEnabled && directoryEnabled;
   const [campaigns, assessments, clients, actor] = await Promise.all([
     getCampaigns(),
-    getActiveAssessments(),
-    getClients(),
-    resolveSessionActor(),
+    canLaunch ? getActiveAssessments() : Promise.resolve([]),
+    canLaunch ? getClients() : Promise.resolve([]),
+    canLaunch ? resolveSessionActor() : Promise.resolve(null),
   ]);
 
   return (
@@ -27,12 +36,12 @@ export default async function CampaignsPage() {
         title="Campaigns"
         description="Deploy assessments to participants and track completion."
       >
-        <div className="flex items-center gap-3">
+        {canLaunch && <div className="flex items-center gap-3">
           <QuickLaunchButton
             assessments={assessments}
             clients={clients.map((c) => ({ id: c.id, name: c.name }))}
             creatorEmail={actor?.email}
-            allowLeadership360
+            allowLeadership360={feedback360Enabled}
           />
           <Link href="/campaigns/create">
             <Button variant="outline">
@@ -40,7 +49,7 @@ export default async function CampaignsPage() {
               New Campaign
             </Button>
           </Link>
-        </div>
+        </div>}
       </PageHeader>
 
       <CampaignsTable campaigns={campaigns} />

@@ -2422,13 +2422,14 @@ export async function getActiveAssessments(): Promise<CampaignAssessmentOption[]
 
 async function assertCanManageCampaigns(
   ids: string[],
+  disallowLeadership360 = false,
 ): Promise<{ error: string } | null> {
   if (ids.length === 0) return null
   const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
   const { data: rows, error } = await db
     .from('campaigns')
-    .select('id, client_id, partner_id')
+    .select('id, client_id, partner_id, kind')
     .in('id', ids)
 
   if (error) return { error: error.message }
@@ -2440,6 +2441,9 @@ async function assertCanManageCampaigns(
     if (!canManageCampaign(scope, row.partner_id, row.client_id)) {
       return { error: 'Not authorized to manage one or more campaigns.' }
     }
+  }
+  if (disallowLeadership360 && rows.some(row => row.kind === 'leadership_360')) {
+    return { error: '360 feedback is not enabled for your workspace.' }
   }
   return null
 }
@@ -2466,9 +2470,11 @@ export async function bulkDeleteCampaigns(ids: string[]) {
 
 export async function bulkUpdateCampaignStatus(ids: string[], status: string) {
   await requireWorkspaceFeature('campaignManagement')
+  if (status === 'active') await requireWorkspaceFeature('assessmentDelivery')
 
   if (ids.length === 0) return
-  const authErr = await assertCanManageCampaigns(ids)
+  const disallowLeadership360 = status === 'active' && !(await isWorkspaceFeatureEnabled('feedback360'))
+  const authErr = await assertCanManageCampaigns(ids, disallowLeadership360)
   if (authErr) return authErr
 
   const db = createAdminClient()

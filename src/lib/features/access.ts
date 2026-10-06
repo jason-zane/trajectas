@@ -29,5 +29,8 @@ export async function requirePartnerWorkspaceFeature(feature: import('./workspac
   const { resolveAuthorizedScope } = await import('@/lib/auth/authorization')
   const scope = await resolveAuthorizedScope()
   const context = scope.activeContext ?? scope.previewContext
-  if (scope.requestSurface === 'partner' || (scope.requestSurface === 'admin' && context?.tenantType === 'partner')) await requireWorkspaceFeature(feature)
+  if (scope.requestSurface === 'admin' && !scope.isPlatformAdmin) {
+    throw new AuthorizationError('Partner controls are unavailable from this request surface.')
+  }
+  if (feature === 'clientProvisioning' || scope.requestSurface === 'partner' || (scope.requestSurface === 'admin' && context?.tenantType === 'partner')) await requireWorkspaceFeature(feature)
 }
