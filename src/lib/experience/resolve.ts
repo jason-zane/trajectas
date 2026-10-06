@@ -8,6 +8,7 @@ import type {
   CustomPageContent,
 } from './types'
 import {
+  AGGREGATE_ONLY_CONSENT_BODY,
   DEFAULT_PAGE_CONTENT,
   DEFAULT_FLOW_CONFIG,
   DEFAULT_DEMOGRAPHICS_CONFIG,
@@ -135,9 +136,13 @@ export function getPageContent<T extends ExperiencePageType>(
   template: ExperienceTemplate,
   pageType: T
 ): PageContentMap[T] {
-  const content = template.pageContent[pageType]
-  if (content) return content as PageContentMap[T]
-  return DEFAULT_PAGE_CONTENT[pageType]
+  const content = template.pageContent[pageType] ?? DEFAULT_PAGE_CONTENT[pageType]
+  // The editor stores the report audience experience in flow config. Use the
+  // same setting in the participant runtime as in the editor preview.
+  if (pageType === 'report' && template.flowConfig.report?.reportMode) {
+    return { ...content, reportMode: template.flowConfig.report.reportMode } as PageContentMap[T]
+  }
+  return content as PageContentMap[T]
 }
 
 /**
@@ -194,13 +199,7 @@ export function getFlowOrder(template: ExperienceTemplate): string[] {
  * Used by consent page when no campaign override exists.
  */
 export function getDefaultConsentBody(mode: 'standard' | 'aggregate_only'): string {
-  if (mode === 'aggregate_only') {
-    return `- Your responses are used to generate a profile based on validated psychometric constructs.
-- {{brandName}} receives group-level patterns only — never your individual answers.
-- Your responses save automatically — you may pause, or withdraw at any time by closing this page.`
-  }
-
-  return `- Your responses are used to generate a profile based on validated psychometric constructs.
-- Results are used for professional development and/or selection purposes.
-- Your responses save automatically — you may pause, or withdraw at any time by closing this page.`
+  return mode === 'aggregate_only'
+    ? AGGREGATE_ONLY_CONSENT_BODY
+    : DEFAULT_PAGE_CONTENT.consent.body
 }

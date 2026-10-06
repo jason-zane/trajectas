@@ -30,8 +30,11 @@ export default async function SectionPage({
   const { campaign, participant, assessments } = result.data!;
 
   if (assessments.length === 0) {
-    redirect(`/assess/${token}/complete`);
+    return renderBrandedAssessError("There are no assessments available in this campaign. Please contact your administrator.", token);
   }
+
+  const prerequisiteExperience = await getCachedEffectiveExperience(campaign.id);
+  if (prerequisiteExperience.flowConfig.consent?.enabled && !participant.consentGivenAt) redirect(`/assess/${token}/consent`);
 
   // Work through assessments sequentially
   const sessions = result.data!.sessions;
@@ -136,7 +139,7 @@ export default async function SectionPage({
   // Load brand + experience in parallel — they're independent.
   const [brandConfig, experience] = await Promise.all([
     getCachedEffectiveBrand(campaign.clientId, campaign.id),
-    getCachedEffectiveExperience(campaign.id),
+    Promise.resolve(prerequisiteExperience),
   ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
   const runnerContent = getPageContent(experience, "runner");
@@ -148,7 +151,9 @@ export default async function SectionPage({
   const nextAssessmentIdx = currentAssessmentIdx + 1;
 
   let postAssessmentUrl: string;
-  if (nextAssessmentIdx < assessments.length) {
+  if (experience.flowConfig.review?.enabled) {
+    postAssessmentUrl = `/assess/${token}/review`;
+  } else if (nextAssessmentIdx < assessments.length) {
     // More assessments to go — route to next assessment's intro
     postAssessmentUrl = `/assess/${token}/assessment-intro/${nextAssessmentIdx}`;
   } else {

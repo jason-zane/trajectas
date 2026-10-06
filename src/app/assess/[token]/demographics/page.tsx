@@ -35,8 +35,7 @@ export default async function DemographicsPage({
     redirect(nextUrl);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if ((participant as any).demographicsCompletedAt) {
+  if (participant.demographicsCompletedAt) {
     redirect(nextUrl);
   }
 
@@ -64,6 +63,7 @@ export default async function DemographicsPage({
       token={token}
       participantId={participant.id}
       fields={fields}
+      initialValues={participant.demographics}
       brandLogoUrl={brandConfig.logoUrl}
       brandName={brandConfig.name}
       isCustomBrand={isCustomBrand}

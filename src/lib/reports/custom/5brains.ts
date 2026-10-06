@@ -98,6 +98,7 @@ function mean(values: number[]): number {
 }
 
 function buildFiveBrainsData(ctx: ReportContext): FiveBrainsReportData {
+  // Withhold an incomplete report rather than inventing zero scores or a partial profile.
   // Each "brain" is a dimension; each "capability" is a child factor
   // (post-taxonomy-unification, the 1:1 wrapper factor for what was previously
   // a construct).
@@ -119,7 +120,10 @@ function buildFiveBrainsData(ctx: ReportContext): FiveBrainsReportData {
           const fEntity = ctx.taxonomy.get(fid)
           if (!fEntity || fEntity._taxonomy_level !== 'factor') return null
           const rawScore = ctx.scores[fid]
-          const score = typeof rawScore === 'number' ? Math.round(rawScore) : 0
+          if (typeof rawScore !== 'number' || !Number.isFinite(rawScore) || rawScore < 0 || rawScore > 100) {
+            throw new Error('Five Brains report withheld: a capability score is missing or invalid.');
+          }
+          const score = rawScore
           return {
             id: fid,
             name: getString(fEntity, 'name'),
@@ -133,11 +137,12 @@ function buildFiveBrainsData(ctx: ReportContext): FiveBrainsReportData {
         .filter((c): c is FiveBrainsCapability => c !== null)
         .sort((a, b) => a.name.localeCompare(b.name))
 
+      if (capabilities.length !== 5) throw new Error("Five Brains report withheld: each brain requires five scored capabilities.");
       const dimRawScore = ctx.scores[dim.id]
       const brainScore =
         typeof dimRawScore === 'number'
-          ? Math.round(dimRawScore)
-          : Math.round(mean(capabilities.map((c) => c.score)))
+          ? dimRawScore
+          : mean(capabilities.map((c) => c.score))
 
       return {
         id: dim.id,
@@ -153,9 +158,11 @@ function buildFiveBrainsData(ctx: ReportContext): FiveBrainsReportData {
     .filter((b): b is FiveBrainsBrain => b !== null)
     .sort((a, b) => BRAIN_ORDER.indexOf(a.slug) - BRAIN_ORDER.indexOf(b.slug))
 
-  // Composite = mean of all 25 capability scores. v1 placeholder.
+  if (brains.length !== 5) throw new Error("Five Brains report withheld: the complete five-brain profile is required.");
+
+  // Aggregate at full precision. Components round only for display.
   const allCapabilityScores = brains.flatMap((b) => b.capabilities.map((c) => c.score))
-  const compositeScore = Math.round(mean(allCapabilityScores))
+  const compositeScore = mean(allCapabilityScores)
 
   const firstName = ctx.session.firstName ?? ''
   const lastName = ctx.session.lastName ?? ''

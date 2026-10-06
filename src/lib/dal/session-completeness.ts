@@ -48,7 +48,7 @@ export async function getSessionCompleteness(
     assessmentId: string | null
     campaignId: string | null
   },
-): Promise<{ expected: number; answered: number } | { error: string }> {
+): Promise<{ expected: number; answered: number; expiredSectionIds: string[] } | { error: string }> {
   const { sessionId, assessmentId, campaignId } = input
   if (!assessmentId) {
     return { error: 'Unable to verify assessment completeness right now' }
@@ -103,5 +103,5 @@ export async function getSessionCompleteness(
     }
   }
 
-  return { expected, answered }
+  return { expected, answered, expiredSectionIds: [...expiredSectionIds] }
 }

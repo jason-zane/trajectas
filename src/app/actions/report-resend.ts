@@ -1,4 +1,5 @@
 "use server";
+import { isReportRecipientAvailable } from '@/lib/reports/recipient-availability';
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildSurfaceUrl } from "@/lib/hosts";
@@ -65,6 +66,7 @@ export async function requestNewReportLink(input: {
     if (!participantRow) return { ok: true };
 
     const participantId = String(participantRow.id);
+    if (!(await isReportRecipientAvailable(participantId, String(snapshot.campaign_id)))) return { ok: true };
     const participantEmail = String(participantRow.email ?? "")
       .trim()
       .toLowerCase();

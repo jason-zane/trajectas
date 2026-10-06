@@ -64,7 +64,7 @@ async function AssessmentIntroContent({
           .eq("id", assessment.assessmentId)
           .single()
       : Promise.resolve({ data: null }),
-    getAssessmentItemCount(assessments.map((a) => a.assessmentId)),
+    assessment ? getAssessmentItemCount([assessment.assessmentId]) : Promise.resolve(0),
   ])
 
   // No assessment at this index -- move to post-sections flow
@@ -249,7 +249,7 @@ async function AssessmentIntroContent({
           }}
         >
           {isAggregateOnly
-            ? "Your responses are kept completely anonymous and only analysed in aggregate"
+            ? "Your organisation receives group-level results; your participant record is identifiable"
             : "Your responses are confidential"}
         </span>
       </footer>

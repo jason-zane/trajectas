@@ -18,6 +18,7 @@
  * reset by the next run's stuck-generating recovery.
  */
 
+import { sweepConsultantNotifications } from '@/lib/notifications/consultant-notification'
 import { NextResponse } from 'next/server'
 import { recoverInterruptedSessionProcessing } from '@/lib/dal/session-processing-recovery'
 import { sweepReportGeneration } from '@/lib/reports/generation-sweep'
@@ -39,9 +40,10 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   try {
+    const notifications = await sweepConsultantNotifications()
     const sessionRecovery = await recoverInterruptedSessionProcessing()
     const result = await sweepReportGeneration()
-    return NextResponse.json({ ok: true, sessionRecovery, ...result })
+    return NextResponse.json({ ok: true, notifications, sessionRecovery, ...result })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('[cron:report-generation-sweep] sweep failed:', message)

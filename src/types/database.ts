@@ -1853,6 +1853,8 @@ export interface CampaignParticipant {
   completedAt?: string
   /** When consent was recorded. */
   consentGivenAt?: string
+  demographics?: Record<string, string>
+  demographicsCompletedAt?: string
   created_at: string
   updated_at?: string
   participantSessions?: { id: string; status: string }[]

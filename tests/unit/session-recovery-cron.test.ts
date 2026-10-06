@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-const mocks = vi.hoisted(() => ({ recover: vi.fn(), reports: vi.fn(), reportError: vi.fn() }))
+const mocks = vi.hoisted(() => ({ recover: vi.fn(), reports: vi.fn(), reportError: vi.fn(), notifications: vi.fn() }))
+vi.mock('@/lib/notifications/consultant-notification', () => ({ sweepConsultantNotifications: mocks.notifications }));
 vi.mock('@/lib/dal/session-processing-recovery', () => ({ recoverInterruptedSessionProcessing: mocks.recover }))
 vi.mock('@/lib/reports/generation-sweep', () => ({ sweepReportGeneration: mocks.reports }))
 vi.mock('@/lib/observability/report-error', () => ({ reportError: mocks.reportError }))
@@ -8,11 +9,13 @@ import { GET } from '@/app/api/cron/report-generation-sweep/route'
 describe('report cron recovers interrupted assessment processing', () => {
   beforeEach(() => {
     vi.stubEnv('CRON_SECRET', 'local-test-cron-secret')
+    mocks.notifications.mockResolvedValue({ checked: 1 })
     mocks.recover.mockResolvedValue({ picked: 1, attempted: 1, failed: 0 })
     mocks.reports.mockResolvedValue({ picked: 1, processed: 1, failed: 0 })
   })
   it('does not begin recovery without cron authentication', async () => {
     expect((await GET(new Request('http://localhost/api/cron/report-generation-sweep'))).status).toBe(401)
+    expect(mocks.notifications).not.toHaveBeenCalled()
     expect(mocks.recover).not.toHaveBeenCalled()
     expect(mocks.reports).not.toHaveBeenCalled()
   })

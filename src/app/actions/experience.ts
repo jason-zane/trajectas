@@ -11,9 +11,16 @@ import {
   canManageCampaign,
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
+import { logActionError } from '@/lib/security/action-errors'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapExperienceTemplateRow } from '@/lib/supabase/mappers'
+import { consentVersion } from '@/lib/experience/consent-version'
+import { getCachedEffectiveBrand } from '@/lib/dal/brand'
+import { getPageContent, getDefaultConsentBody } from '@/lib/experience/resolve'
+import { DEFAULT_PAGE_CONTENT } from '@/lib/experience/defaults'
+import { interpolateContent } from '@/lib/experience/interpolate'
+import { validateDemographicAnswers } from '@/lib/experience/demographics'
 import { resolveTemplate } from '@/lib/experience/resolve'
 import type {
   ExperienceOwnerType,
@@ -467,17 +474,34 @@ export async function resetExperienceToDefault(
 export async function saveConsent(
   token: string,
   participantId: string,
+  contentVersion: string,
 ): Promise<{ error?: string }> {
-  const parsed = saveConsentSchema.safeParse({ token, participantId })
+  const parsed = saveConsentSchema.safeParse({ token, participantId, contentVersion })
   if (!parsed.success) return { error: 'Invalid input' }
+  let campaignId: string
   try {
-    await requireParticipantRuntimeParticipantAccess(token, participantId)
+    const access = await requireParticipantRuntimeParticipantAccess(token, participantId)
+    campaignId = access.campaignId
   } catch (error) {
     if (error instanceof ParticipantRuntimeAccessError) {
       return { error: error.message }
     }
     throw error
   }
+
+  const db = createAdminClient()
+  const [campaign, participant, experience] = await Promise.all([
+    db.from('campaigns').select('title, client_id, confidentiality_mode').eq('id', campaignId).single(),
+    db.from('campaign_participants').select('first_name').eq('id', participantId).single(),
+    getCachedEffectiveExperience(campaignId),
+  ])
+  if (campaign.error || participant.error || !campaign.data || !participant.data) return { error: 'Unable to load consent information.' }
+  if (!experience.flowConfig.consent?.enabled) return { error: 'Consent collection is not enabled.' }
+  const brand = await getCachedEffectiveBrand(campaign.data.client_id, campaignId)
+  const rawContent = getPageContent(experience, 'consent')
+  const body = rawContent.body === DEFAULT_PAGE_CONTENT.consent.body ? getDefaultConsentBody(campaign.data.confidentiality_mode) : rawContent.body
+  const content = interpolateContent({ ...rawContent, body }, { participantName: participant.data.first_name ?? undefined, candidateName: participant.data.first_name ?? undefined, campaignTitle: campaign.data.title, brandName: brand.name })
+  if (consentVersion(content, experience.privacyUrl, experience.termsUrl) !== parsed.data.contentVersion) return { error: 'Consent information has changed. Please reload and review it.' }
 
   // Capture client IP server-side from request headers
   const { headers } = await import('next/headers')
@@ -487,16 +511,16 @@ export async function saveConsent(
     headersList.get('x-real-ip') ??
     'unknown'
 
-  const db = createAdminClient()
   const { error } = await db
     .from('campaign_participants')
     .update({
       consent_given_at: new Date().toISOString(),
       consent_ip: ip,
+      consent_content_snapshot: { version: parsed.data.contentVersion, content, privacyUrl: experience.privacyUrl ?? null, termsUrl: experience.termsUrl ?? null },
     })
     .eq('id', participantId)
 
-  if (error) return { error: error.message }
+  if (error) { logActionError('saveConsent', error); return { error: 'Unable to save consent. Please try again.' } }
   return {}
 }
 
@@ -506,28 +530,40 @@ export async function saveConsent(
 export async function saveDemographics(
   token: string,
   participantId: string,
-  demographics: Record<string, string>
+  demographics: Record<string, string>,
+  researchPermission = false,
 ): Promise<{ error?: string }> {
-  const parsed = saveDemographicsSchema.safeParse({ token, participantId, demographics })
+  const parsed = saveDemographicsSchema.safeParse({ token, participantId, demographics, researchPermission })
   if (!parsed.success) return { error: 'Invalid input' }
+  let campaignId: string
   try {
-    await requireParticipantRuntimeParticipantAccess(token, participantId)
+    const access = await requireParticipantRuntimeParticipantAccess(token, participantId)
+    campaignId = access.campaignId
   } catch (error) {
-    if (error instanceof ParticipantRuntimeAccessError) {
-      return { error: error.message }
-    }
+    if (error instanceof ParticipantRuntimeAccessError) return { error: error.message }
     throw error
   }
+  const experience = await getCachedEffectiveExperience(campaignId)
+  if (!experience.flowConfig.demographics?.enabled) return { error: 'Demographic collection is not enabled for this campaign.' }
+  const validated = validateDemographicAnswers(experience.demographicsConfig, parsed.data.demographics)
+  if ('error' in validated) return validated
 
   const db = createAdminClient()
   const { error } = await db
     .from('campaign_participants')
     .update({
-      demographics,
+      demographics: validated.values,
+      demographics_schema_snapshot: experience.demographicsConfig,
+      research_use_permitted: Boolean(experience.privacyUrl && parsed.data.researchPermission),
+      research_consent_at: experience.privacyUrl && parsed.data.researchPermission ? new Date().toISOString() : null,
+      research_consent_snapshot: experience.privacyUrl && parsed.data.researchPermission ? {
+        version: 'development-research-v1', privacyUrl: experience.privacyUrl,
+        text: 'I agree to my assessment responses and demographic answers being used in group-level research to develop and evaluate this assessment. This is optional and does not affect participation.',
+      } : null,
       demographics_completed_at: new Date().toISOString(),
     })
     .eq('id', participantId)
 
-  if (error) return { error: error.message }
+  if (error) { logActionError('saveDemographics', error); return { error: 'Unable to save your answers. Please try again.' } }
   return {}
 }

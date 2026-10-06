@@ -7,6 +7,7 @@ import { getPageContent, isPageEnabled, getDefaultConsentBody } from "@/lib/expe
 import { interpolateContent } from "@/lib/experience/interpolate";
 import { getNextFlowUrl } from "@/lib/experience/flow-router";
 import { DEFAULT_PAGE_CONTENT } from "@/lib/experience/defaults";
+import { consentVersion } from "@/lib/experience/consent-version";
 import { ConsentScreen } from "@/components/assess/consent-screen";
 import type { TemplateVariables } from "@/lib/experience/types";
 
@@ -80,6 +81,7 @@ export default async function ConsentPage({
       brandName={brandConfig.name}
       isCustomBrand={isCustomBrand}
       content={content}
+      contentVersion={consentVersion(content, experience.privacyUrl, experience.termsUrl)}
       nextUrl={nextUrl}
       privacyUrl={experience.privacyUrl}
       termsUrl={experience.termsUrl}

@@ -193,9 +193,10 @@ export function aggregateToConstructs(
     const rawSum = weightedRawSum
 
     const norms = constructNorms?.get(constructId)
-    const scores = buildScoreRepresentations(rawSum, rawMax, 0, norms)
-    // Override POMP with the weighted mean of item-level POMPs
-    scores.pomp = meanPomp
+    // Norm parameters are defined on the same POMP scale as the delivered score.
+    const scores = buildScoreRepresentations(meanPomp, 100, 0, norms)
+    scores.raw = rawSum
+    scores.rawMax = rawMax
 
     results.push({
       constructId,

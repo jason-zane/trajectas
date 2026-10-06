@@ -17,6 +17,9 @@ import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
 import { ScrollReveal } from "@/components/scroll-reveal"
 import { AnimatedNumber } from "@/components/animated-number"
+import { getAssessments } from '@/app/actions/assessments'
+import { getNormStudyDefinitions, getResearchObservationReviewQueue } from '@/app/actions/norm-studies'
+import { NormStudyManager } from './norm-study-manager'
 import { getNormGroups } from "@/app/actions/psychometrics"
 import { cn } from "@/lib/utils"
 import { formatDateOrNull } from "@/lib/formatting"
@@ -24,7 +27,7 @@ import { formatDateOrNull } from "@/lib/formatting"
 function normStatus(sampleSize: number) {
   if (sampleSize >= 200) {
     return {
-      label: "Robust",
+      label: "Review required",
       dotClass: "bg-emerald-500",
       badgeBg:
         "bg-emerald-500/10 text-emerald-700 font-semibold",
@@ -32,7 +35,7 @@ function normStatus(sampleSize: number) {
   }
   if (sampleSize >= 100) {
     return {
-      label: "Active",
+      label: "Review required",
       dotClass: "bg-emerald-500",
       badgeBg: "bg-emerald-500/10 text-emerald-700",
     }
@@ -49,7 +52,7 @@ function isGeneralPopulation(name: string) {
 }
 
 export default async function NormsPage() {
-  const groups = await getNormGroups()
+  const [groups, studies, reviewQueue, assessments] = await Promise.all([getNormGroups(), getNormStudyDefinitions(), getResearchObservationReviewQueue(), getAssessments()])
 
   const hasOnlyDefault =
     groups.length === 0 ||
@@ -64,11 +67,13 @@ export default async function NormsPage() {
         description="Manage norm groups and reference populations for score interpretation."
       />
 
+      <NormStudyManager studies={studies} reviewQueue={reviewQueue} assessments={assessments.filter(assessment => assessment.status === "active" && /5\s*brains/i.test(assessment.title)).map(assessment => ({ id: assessment.id, title: assessment.title }))} />
+
       {showEmpty ? (
         <EmptyState
           variant="default"
           title="Building your norm base"
-          description="Norm data accumulates automatically as participants complete assessments. The General Population baseline is ready — specific norms (by industry, role level, region) will become available as your sample grows."
+          description="No empirical norms are available yet. Real, eligible participant data must be selected into a documented reference population and reviewed before an immutable norm version can be published. Test and preview records do not count."
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">

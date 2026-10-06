@@ -1,5 +1,7 @@
 'use server'
 
+import { createAssessment as createAssessmentInternal } from '@/lib/services/assessments'
+
 import { assessmentSelectionIssue } from '@/lib/dal/model-management'
 
 import { revalidatePath } from 'next/cache'
@@ -10,7 +12,6 @@ import {
   AuthorizationError,
   canManageAssessment,
   canManageAssessmentLibrary,
-  canManageClient,
   getAccessibleCampaignIds,
   getAccessiblePartnerIds,
   getPreferredPartnerIdForAssessmentCreation,
@@ -19,7 +20,6 @@ import {
   requireAssessmentAccess,
   resolveAuthorizedScope,
   resolveTenantClientFilter,
-  type AuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
@@ -845,141 +845,9 @@ export async function getConstructsForBuilder(): Promise<BuilderConstruct[]> {
   }))
 }
 
-/**
- * `opts.systemScope` lets a non-interactive, cookie-gated caller (the public
- * Role Builder — see docs/superpowers/specs/2026-09-17-public-role-builder-design.md)
- * create an assessment without an admin session. It must only ever be the
- * fixed PUBLIC_BUILDS_SYSTEM_SCOPE constant, never derived from request
- * input: the scope still runs through canManageAssessmentLibrary below, so
- * this is dependency injection of an already-legitimate authorization scope,
- * not a bypass.
- */
-export async function createAssessment(
-  payload: Record<string, unknown>,
-  opts: { systemScope?: AuthorizedScope } = {},
-) {
-  let scope: AuthorizedScope | null = null
-  let partnerId: string | null = null
-  try {
-    if (opts.systemScope) {
-      scope = opts.systemScope
-      if (!canManageAssessmentLibrary(scope)) {
-        throw new AuthorizationError('You do not have permission to manage assessments.')
-      }
-      partnerId = null
-    } else {
-      scope = await requireAssessmentBuilderScope()
-      partnerId = scope.isPlatformAdmin
-        ? null
-        : getPreferredPartnerIdForAssessmentCreation(scope)
-    }
-  } catch (error) {
-    if (error instanceof AuthorizationError) {
-      return { error: { _form: [error.message] } }
-    }
-    throw error
-  }
-
-  if (!scope) {
-    return { error: { _form: ['Unable to resolve assessment scope.'] } }
-  }
-
-  const parsed = assessmentSchema.safeParse(payload)
-  if (!parsed.success) {
-    return { error: parsed.error.flatten().fieldErrors }
-  }
-
-  // A system scope is confined to the clients it manages, exactly as
-  // createCampaign confines every caller — the constant scope must not be
-  // able to write an assessment under some other client.
-  if (opts.systemScope && (!parsed.data.clientId || !canManageClient(scope, parsed.data.clientId))) {
-    return { error: { clientId: ['You do not have permission to manage this client'] } }
-  }
-
-  const selectionIssue = opts.systemScope ? null : await assessmentSelectionIssue(parsed.data.factors.map(f => f.factorId))
-  if (selectionIssue) return { error: { _form: [selectionIssue] } }
-
-  const db = createAdminClient()
-  const { data: assessment, error } = await db.from('assessments').insert({
-    partner_id: partnerId,
-    client_id: parsed.data.clientId || null,
-    title: parsed.data.title,
-    description: parsed.data.description ?? null,
-    status: parsed.data.status,
-    item_selection_strategy: parsed.data.itemSelectionStrategy,
-    scoring_method: 'ctt',
-    creation_mode: parsed.data.creationMode,
-    format_mode: parsed.data.formatMode,
-    fc_block_size: parsed.data.fcBlockSize ?? null,
-    source_id: parsed.data.sourceId || null,
-  }).select('id').single()
-
-  if (error) return { error: { _form: [error.message] } }
-
-  if (parsed.data.factors.length > 0) {
-    const links = parsed.data.factors.map((f) => ({
-      assessment_id: assessment.id,
-      factor_id: f.factorId,
-      weight: f.weight,
-      item_count: f.itemCount,
-    }))
-    const { error: linkError } = await db.from('assessment_factors').insert(links)
-    if (linkError) return { error: { _form: [linkError.message] } }
-  }
-
-  // Insert sections (traditional mode)
-  const sections = (payload.sections ?? []) as SectionDraft[]
-  if (sections.length > 0 && parsed.data.formatMode === 'traditional') {
-    const factorIds = parsed.data.factors.map((f) => f.factorId)
-    const { error: sectionErr } = await persistSections(db, assessment.id, sections, {
-      factorIds,
-    })
-    if (sectionErr) return { error: { _form: [sectionErr] } }
-  }
-
-  // Persist FC blocks (forced_choice mode)
-  const fcBlocks = (payload.forcedChoiceBlocks ?? []) as ForcedChoiceBlockDraft[]
-  if (fcBlocks.length > 0 && parsed.data.formatMode === 'forced_choice') {
-    const blockErr = await persistForcedChoiceBlocks(db, assessment.id, fcBlocks)
-    if (blockErr) return { error: { _form: [blockErr] } }
-  }
-
-  // Fail closed on empty-but-active: auto-build the default layout from the
-  // factors first; if nothing is deliverable even then, keep the row as a
-  // draft rather than let a question-less assessment reach campaigns.
-  if (parsed.data.status === 'active') {
-    let deliverable = await hasDeliverableContent(db, assessment.id)
-    if (deliverable === false) {
-      const built = await tryAutoBuildSections(db, assessment.id)
-      if (built === null) deliverable = null
-      else if (built.built) deliverable = true
-    }
-    if (!deliverable) {
-      await db.from('assessments').update({ status: 'draft' }).eq('id', assessment.id)
-      return {
-        error: {
-          _form: [
-            deliverable === null ? CONTENT_CHECK_FAILED_ERROR : EMPTY_ASSESSMENT_ACTIVATION_ERROR,
-          ],
-        },
-      }
-    }
-  }
-
-  revalidateAssessmentPaths()
-  await logAuditEvent({
-    actorProfileId: scope.actor?.id ?? null,
-    eventType: 'assessment.created',
-    targetTable: 'assessments',
-    targetId: assessment.id,
-    partnerId,
-    metadata: {
-      formatMode: parsed.data.formatMode,
-      factorCount: parsed.data.factors.length,
-    },
-  })
-  await refreshPreviewSeed(assessment.id)
-  return { success: true as const, id: assessment.id }
+export async function createAssessment(payload: Record<string, unknown>) {
+  // Request-facing actions derive authority from the authenticated actor.
+  return createAssessmentInternal(payload);
 }
 
 export async function updateAssessment(id: string, payload: Record<string, unknown>) {

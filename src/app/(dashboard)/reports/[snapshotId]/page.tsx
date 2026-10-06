@@ -1,3 +1,4 @@
+import { isReportRecipientAvailable } from '@/lib/reports/recipient-availability';
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/page-header'
@@ -45,7 +46,8 @@ async function getSnapshotForReportTokenAccess(
 
   if (
     !session?.campaign_participant_id ||
-    String(session.campaign_participant_id) !== tokenPayload.participantId
+    String(session.campaign_participant_id) !== tokenPayload.participantId ||
+    !(await isReportRecipientAvailable(tokenPayload.participantId))
   ) {
     return null
   }

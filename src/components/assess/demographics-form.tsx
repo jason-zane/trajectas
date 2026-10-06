@@ -4,6 +4,7 @@ import { BrandFooter } from "@/components/brand/brand-logo";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { ChevronDown } from "lucide-react";
 import { saveDemographics } from "@/app/actions/experience";
 import type {
@@ -15,6 +16,7 @@ interface DemographicsFormProps {
   token: string;
   participantId: string;
   fields: DemographicsFieldConfig[];
+  initialValues?: Record<string, string>;
   brandLogoUrl?: string;
   brandName?: string;
   isCustomBrand?: boolean;
@@ -28,6 +30,7 @@ export function DemographicsForm({
   token,
   participantId,
   fields,
+  initialValues = {},
   isCustomBrand,
   content,
   nextUrl,
@@ -36,7 +39,9 @@ export function DemographicsForm({
    
 }: DemographicsFormProps) {
   const router = useRouter();
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(initialValues);
+  const [researchPermission, setResearchPermission] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -69,9 +74,20 @@ export function DemographicsForm({
       return;
     }
 
+    if (submitting) return;
     setSubmitting(true);
-    await saveDemographics(token, participantId, values);
-    router.push(nextUrl);
+    setSaveError(null);
+    try {
+      const submitted = Object.fromEntries(enabledFields.map((field) => [field.key, values[field.key] ?? ""]));
+      const result = await saveDemographics(token, participantId, submitted, researchPermission);
+      if (result.error) throw new Error(result.error);
+      router.push(nextUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "We couldn't save your answers. Please try again.";
+      setSaveError(message);
+      toast.error(message);
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -184,6 +200,7 @@ export function DemographicsForm({
                     <input
                       id={`demo-${field.key}`}
                       type="text"
+                      maxLength={500}
                       value={values[field.key] ?? ""}
                       onChange={(e) => handleChange(field.key, e.target.value)}
                       placeholder={field.label}
@@ -216,6 +233,12 @@ export function DemographicsForm({
                 </div>
               ))}
             </div>
+
+            {privacyUrl && <label className="flex items-start gap-3 text-sm" style={{ color: "var(--runner-text)" }}>
+              <input type="checkbox" checked={researchPermission} onChange={e => setResearchPermission(e.target.checked)} />
+              <span>I agree to my assessment responses and demographic answers being used in group-level research to develop and evaluate this assessment. This is optional and does not affect participation. See the <a className="underline" href={privacyUrl} target="_blank" rel="noreferrer">privacy information</a>.</span>
+            </label>}
+            {saveError && <p role="alert" className="text-sm" style={{ color: "var(--brand-error)" }}>{saveError}</p>}
 
             {/* CTA button */}
             <div className="flex justify-center pt-4">

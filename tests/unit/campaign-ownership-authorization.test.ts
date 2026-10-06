@@ -27,6 +27,7 @@ const mock = vi.hoisted(() => {
   }
   return { state, from };
 });
+vi.mock("@/lib/reports/recipient-availability", () => ({ isReportRecipientAvailable: async () => true }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: mock.from }) }));
 vi.mock("@/lib/auth/actor", () => ({
   resolveSessionActor: async () => mock.state.actor,

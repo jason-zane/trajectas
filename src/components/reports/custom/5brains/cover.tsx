@@ -131,7 +131,7 @@ export function CoverPage({ data }: { data: FiveBrainsReportData }) {
                 marginTop: 4,
               }}
             >
-              {compositeScore}
+              {Math.round(compositeScore)}
             </div>
           </div>
         </div>

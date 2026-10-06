@@ -1,3 +1,5 @@
+import 'server-only'
+import { isReportRecipientAvailable } from '@/lib/reports/recipient-availability'
 /**
  * Post-release consultant notification.
  *
@@ -50,7 +52,7 @@ export async function notifyConsultantsForSnapshot(snapshotId: string): Promise<
   const { data: snapshot, error } = await db
     .from('report_snapshots')
     .select(
-      'id, status, campaign_id, participant_session_id, consultant_notified_at, report_templates(name)',
+      'id, status, campaign_id, participant_session_id, consultant_notified_at, participant_sessions(campaign_participant_id), report_templates(name)',
     )
     .eq('id', snapshotId)
     .maybeSingle()
@@ -79,13 +81,19 @@ export async function notifyConsultantsForSnapshot(snapshotId: string): Promise<
     if (!pdfState?.pdf_url || pdfState.pdf_status !== 'ready') return
   }
 
+  const participantSession = pickEmbedded(snapshot.participant_sessions);
+  if (!participantSession?.campaign_participant_id || !(await isReportRecipientAvailable(String(participantSession.campaign_participant_id), String(snapshot.campaign_id)))) return;
+  const claimedAt = new Date().toISOString();
+  const staleBefore = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  // Atomic expiring lease. A killed instance cannot permanently mark an email sent.
   // Atomic idempotency claim. Two concurrent callers race on this UPDATE; only
-  // one gets a row back. If the email send fails later we reset the column.
+  // one gets a row back. Failures release the lease; a cron retries pending notifications.
   const claim = await db
     .from('report_snapshots')
-    .update({ consultant_notified_at: new Date().toISOString() })
+    .update({ consultant_notification_claimed_at: claimedAt })
     .eq('id', snapshotId)
     .is('consultant_notified_at', null)
+    .or(`consultant_notification_claimed_at.is.null,consultant_notification_claimed_at.lt.${staleBefore}`)
     .select('id')
 
   if (claim.error) {
@@ -99,7 +107,7 @@ export async function notifyConsultantsForSnapshot(snapshotId: string): Promise<
 
   // Everything past the claim must either send the email or release the
   // claim. A failure in the data-load / brand / PDF phase previously left
-  // consultant_notified_at set with no email ever sent — permanently
+  // a sent marker set with no email ever sent — permanently
   // suppressing the notification.
   try {
     const summary = await loadSessionSummary(db, String(snapshot.participant_session_id))
@@ -166,14 +174,19 @@ export async function notifyConsultantsForSnapshot(snapshotId: string): Promise<
       text,
       from: `${brand.name} <${emailAddress}>`,
       attachments,
+      idempotencyKey: `consultant-report-${snapshotId}`,
     })
+    const marked = await db.from('report_snapshots')
+      .update({ consultant_notified_at: new Date().toISOString(), consultant_notification_claimed_at: null })
+      .eq('id', snapshotId).eq('consultant_notification_claimed_at', claimedAt);
+    if (marked.error) throw new Error('Unable to record the delivered consultant notification');
   } catch (notifyError) {
     // Release the idempotency claim so the notification can be retried, then
     // alert. Covers the provider send AND every step between claim and send.
     await db
       .from('report_snapshots')
-      .update({ consultant_notified_at: null })
-      .eq('id', snapshotId)
+      .update({ consultant_notification_claimed_at: null })
+      .eq('id', snapshotId).eq('consultant_notification_claimed_at', claimedAt)
     await reportError(notifyError, {
       source: 'notifications.consultant',
       severity: 'error',
@@ -390,4 +403,24 @@ function buildEmailText(p: EmailBodyParams): string {
   ]
     .filter(Boolean)
     .join('\n')
+}
+
+
+/** Bounded recovery for released reports whose notification was interrupted. */
+export async function sweepConsultantNotifications() {
+  const staleBefore = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const result = await createAdminClient().from('report_snapshots')
+    .select(`id, campaigns!inner(consultant_notification_enabled, consultant_emails, deleted_at, client_id, clients(deleted_at)),
+      participant_sessions!inner(campaign_participants!inner(status, deleted_at))`)
+    .eq('status', 'released').is('consultant_notified_at', null)
+    .eq('campaigns.consultant_notification_enabled', true).is('campaigns.deleted_at', null)
+    .neq('campaigns.consultant_emails', '{}').is('campaigns.clients.deleted_at', null)
+    .or('client_id.is.null,clients.not.is.null', { referencedTable: 'campaigns' })
+    .is('participant_sessions.campaign_participants.deleted_at', null)
+    .not('participant_sessions.campaign_participants.status', 'in', '(withdrawn,expired)')
+    .or(`consultant_notification_claimed_at.is.null,consultant_notification_claimed_at.lt.${staleBefore}`)
+    .order('created_at').limit(10);
+  if (result.error) throw new Error('Unable to load pending consultant notifications');
+  for (const row of result.data ?? []) await notifyConsultantsForSnapshot(String(row.id));
+  return { checked: result.data?.length ?? 0 };
 }

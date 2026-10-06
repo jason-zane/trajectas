@@ -407,6 +407,7 @@ export async function startSession(
     .select('id')
     .eq('campaign_participant_id', campaignParticipantId)
     .eq('assessment_id', assessmentId)
+    .abortSignal(new AbortController().signal)
     .single()
 
   if (existing) {
@@ -430,9 +431,15 @@ export async function startSession(
 
   if (error) {
     if (error.code === '23505') {
+      // A competing render may have created the session after the first read.
+      // Opt out of render-pass fetch memoization so recovery sees that row.
       const { data: winner } = await db.from('participant_sessions').select('id')
-        .eq('campaign_participant_id', campaignParticipantId).eq('assessment_id', assessmentId).single()
-      if (winner) return { id: winner.id }
+        .eq('campaign_participant_id', campaignParticipantId).eq('assessment_id', assessmentId)
+        .abortSignal(new AbortController().signal).single()
+      if (winner) {
+        await markCampaignParticipantStarted(db, campaignParticipantId, startedAt)
+        return { id: winner.id }
+      }
     }
     logActionError('startSession.insert', error)
     return { error: 'Unable to start this assessment right now' }

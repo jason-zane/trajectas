@@ -183,17 +183,39 @@ describe("experience template resolution", () => {
 });
 
 describe("getDefaultConsentBody", () => {
-  it("standard mode keeps the development/selection wording and no brand promise", () => {
+  it("standard mode describes the coaching pilot and explains pausing versus withdrawal", () => {
     const body = getDefaultConsentBody("standard");
-    expect(body).toContain("professional development and/or selection purposes");
+    expect(body).toContain("professional development and coaching");
+    expect(body).toContain("validation for selection are not yet available");
+    expect(body).toContain("it does not delete saved data or withdraw permission");
+    expect(body).not.toContain("validated psychometric constructs");
     expect(body).not.toContain("{{brandName}}");
-    expect(body.split("\n")).toHaveLength(3);
   });
 
   it("aggregate-only mode promises group-level reporting via the brand name", () => {
     const body = getDefaultConsentBody("aggregate_only");
     expect(body).toContain("{{brandName}} receives group-level patterns only");
     expect(body).not.toContain("selection purposes");
-    expect(body.split("\n")).toHaveLength(3);
+    expect(body).toContain("validation for selection are not yet available");
+    expect(body).toContain("does not make collection anonymous");
+    expect(body).toContain("contact your campaign administrator for withdrawal");
+    expect(body).not.toContain("withdraw at any time by closing");
+  });
+});
+
+
+describe("participant report mode", () => {
+  it("shows released results when the campaign editor selects view results", () => {
+    const template = resolveTemplate(null, createRecord({
+      flowConfig: { report: { enabled: true, order: 130, reportMode: "view_results" } },
+    }));
+    expect(getPageContent(template, "report").reportMode).toBe("view_results");
+  });
+  it("keeps a holding page when the campaign chooses to withhold results", () => {
+    const template = resolveTemplate(null, createRecord({
+      pageContent: { report: { ...DEFAULT_PAGE_CONTENT.report, reportMode: "view_results" } },
+      flowConfig: { report: { enabled: true, order: 130, reportMode: "holding" } },
+    }));
+    expect(getPageContent(template, "report").reportMode).toBe("holding");
   });
 });

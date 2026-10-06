@@ -1,3 +1,4 @@
+import { isReportRecipientAvailable } from '@/lib/reports/recipient-availability';
 import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
@@ -97,7 +98,8 @@ async function validateReportTokenAccess(
   if (
     !validSnapshot ||
     !session?.campaign_participant_id ||
-    String(session.campaign_participant_id) !== tokenPayload.participantId
+    String(session.campaign_participant_id) !== tokenPayload.participantId ||
+    !(await isReportRecipientAvailable(tokenPayload.participantId))
   ) {
     return Response.json({ error: 'Report not available' }, { status: 403 })
   }
@@ -137,7 +139,7 @@ export async function GET(
       .eq('access_token', participantToken)
       .is('deleted_at', null)
       .maybeSingle()
-    if (tokenError || !tokenData) {
+    if (tokenError || !tokenData || !(await isReportRecipientAvailable(String(tokenData.id), String(tokenData.campaign_id)))) {
       return Response.json({ error: 'Invalid participant token' }, { status: 403 })
     }
     // Verify this snapshot belongs to the participant's session and is released

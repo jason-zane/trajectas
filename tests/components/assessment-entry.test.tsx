@@ -33,7 +33,7 @@ describe('assessment entry navigation',()=>{
 
 describe('consent save acknowledgement',()=>{
   beforeEach(()=>{saveConsent.mockReset()})
-  const show=()=>render(<ConsentScreen token={token} participantId="participant" content={DEFAULT_PAGE_CONTENT.consent} nextUrl="/assessment-next"/>);
+  const show=()=>render(<ConsentScreen token={token} participantId="participant" content={DEFAULT_PAGE_CONTENT.consent} contentVersion={"b".repeat(64)} nextUrl="/assessment-next"/>);
   const agree=()=>fireEvent.click(screen.getByRole('checkbox'))
   it.each(['returned','thrown'])('stays on the page and allows retry after a %s failure',async kind=>{
     if(kind==='returned')saveConsent.mockResolvedValue({error:'private database detail'});else saveConsent.mockRejectedValue(new Error('private database detail'))
@@ -41,7 +41,7 @@ describe('consent save acknowledgement',()=>{
     await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('We couldn’t save your consent. Please try again.'))
     expect(screen.queryByText('private database detail')).toBeNull();expect(screen.getByRole('button',{name:'Continue'})).toBeEnabled()
     fireEvent.click(screen.getByRole('button',{name:'Continue'}));await waitFor(()=>expect(saveConsent).toHaveBeenCalledTimes(2))
-    expect(saveConsent).toHaveBeenCalledWith(token,'participant')
+    expect(saveConsent).toHaveBeenCalledWith(token,'participant','b'.repeat(64))
   })
   it('keeps experience preview interactive without attempting persistence',async()=>{
     render(<ConsentScreen token="preview" participantId="preview" isPreview content={DEFAULT_PAGE_CONTENT.consent} nextUrl="#"/>);

@@ -1,3 +1,4 @@
+import { isReportRecipientAvailable } from '@/lib/reports/recipient-availability';
 import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -493,7 +494,7 @@ export function canManageClientEntitlements(
   clientPartnerId: string | null | undefined
 ) {
   return (
-    scope.isPlatformAdmin ||
+    isUnconfinedPlatformAdmin(scope) ||
     (clientPartnerId != null &&
       scope.partnerAdminIds.includes(clientPartnerId) &&
       scope.managedClientIds.includes(clientId))
@@ -501,7 +502,7 @@ export function canManageClientEntitlements(
 }
 
 export function canManagePartner(scope: AuthorizedScope, partnerId: string) {
-  return scope.isPlatformAdmin || scope.partnerAdminIds.includes(partnerId);
+  return isUnconfinedPlatformAdmin(scope) || scope.partnerAdminIds.includes(partnerId);
 }
 
 export function canAccessAssessment(
@@ -510,7 +511,7 @@ export function canAccessAssessment(
   assessmentClientId?: string | null
 ) {
   return (
-    scope.isPlatformAdmin ||
+    isUnconfinedPlatformAdmin(scope) ||
     (assessmentPartnerId != null && scope.partnerIds.includes(assessmentPartnerId)) ||
     (assessmentClientId != null && scope.clientIds.includes(assessmentClientId)) ||
     (assessmentPartnerId == null && assessmentClientId == null)
@@ -523,9 +524,9 @@ export function canManageAssessment(
   assessmentClientId?: string | null
 ) {
   return (
-    scope.isPlatformAdmin ||
+    isUnconfinedPlatformAdmin(scope) ||
     (assessmentPartnerId != null && scope.partnerAdminIds.includes(assessmentPartnerId)) ||
-    (assessmentClientId != null && scope.clientAdminIds.includes(assessmentClientId))
+    (assessmentClientId != null && scope.managedClientIds.includes(assessmentClientId))
   );
 }
 
@@ -592,7 +593,7 @@ export function canManageReportTemplate(
   templatePartnerId?: string | null
 ) {
   return (
-    scope.isPlatformAdmin ||
+    isUnconfinedPlatformAdmin(scope) ||
     (templatePartnerId != null && scope.partnerAdminIds.includes(templatePartnerId))
   );
 }
@@ -819,6 +820,9 @@ export async function requireReportSnapshotAccess(snapshotId: string) {
   const participantId = session?.campaign_participant_id
     ? String(session.campaign_participant_id)
     : null;
+  if (participantId && !(await isReportRecipientAvailable(participantId, String(data.campaign_id)))) {
+    throw new AuthorizationError('Report participant is no longer available.');
+  }
   const hasAccess = canAccessCampaign(scope, partnerId, clientId);
 
   if (!hasAccess) {
@@ -848,7 +852,7 @@ export async function requireReportSnapshotReadAccess(snapshotId: string) {
   const access = await requireReportSnapshotAccess(snapshotId);
   assertIndividualResultsAccess(access.scope, access.confidentialityMode);
   if (
-    access.scope.isPlatformAdmin ||
+    isUnconfinedPlatformAdmin(access.scope) ||
     access.scope.isLocalDevelopmentBypass ||
     canManageCampaign(access.scope, access.partnerId, access.clientId)
   ) return access;
@@ -1064,7 +1068,7 @@ export async function requireReportTemplateAccess(
   const partnerId = data.partner_id ? String(data.partner_id) : null;
   const hasAccess = options.forWrite
     ? canManageReportTemplate(scope, partnerId)
-    : scope.isPlatformAdmin ||
+    : isUnconfinedPlatformAdmin(scope) ||
       partnerId == null ||
       (await getAccessiblePartnerIds(scope)).includes(partnerId);
 

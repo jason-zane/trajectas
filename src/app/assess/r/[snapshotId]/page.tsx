@@ -1,3 +1,4 @@
+import { isReportRecipientAvailable } from '@/lib/reports/recipient-availability';
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Download } from "lucide-react";
@@ -53,7 +54,8 @@ export default async function ReportByTokenPage({
 
   if (
     !session?.campaign_participant_id ||
-    String(session.campaign_participant_id) !== payload.participantId
+    String(session.campaign_participant_id) !== payload.participantId ||
+    !(await isReportRecipientAvailable(payload.participantId))
   ) {
     redirect(`/assess/report-expired?snapshotId=${encodeURIComponent(snapshotId)}`);
   }

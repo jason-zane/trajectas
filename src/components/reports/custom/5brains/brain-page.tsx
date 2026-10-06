@@ -96,7 +96,7 @@ export function BrainPage({
               lineHeight: 1,
             }}
           >
-            {brain.score}
+            {Math.round(brain.score)}
           </span>
         </div>
       </div>
@@ -187,7 +187,7 @@ function ContinuumRow({
               letterSpacing: '-0.02em',
             }}
           >
-            {capability.score}
+            {Math.round(capability.score)}
           </span>
         </div>
       </div>
