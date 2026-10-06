@@ -10,11 +10,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { UsageTrendChart } from "@/components/business/usage-trend-chart";
+import { UsagePeriodControls } from "@/components/usage/usage-period-controls";
+import { UsageReportPanel } from "@/components/usage/usage-report-panel";
+import { UsageStatements } from "@/components/usage/usage-statements";
+import { usagePeriodQuery } from "@/lib/usage/period";
+import type { UsageReport } from "@/lib/usage/report";
 import { CreateInvoiceDialog } from "@/app/(dashboard)/business/invoices/create-invoice-dialog";
 import { ConfigureUsageBillingButton } from "@/app/(dashboard)/business/usage/configure-usage-dialog";
 import type { ClientBillingHub } from "@/lib/dal/business-centre";
-import type { Client, InvoiceStatus } from "@/types/database";
+import type { Client, InvoiceStatus, UsageSnapshot } from "@/types/database";
 
 const STATUS_VARIANT: Record<
   InvoiceStatus,
@@ -43,15 +47,29 @@ function money(cents: number, currency = "aud"): string {
 export function ClientBillingPanel({
   client,
   hub,
+  report,
+  statements,
 }: {
   client: Client;
   hub: ClientBillingHub;
+  report: UsageReport;
+  statements: UsageSnapshot[];
 }) {
   const ba = hub.billingAccount;
   const currency = ba?.currency ?? "aud";
   const outstanding = hub.invoices
     .filter((i) => i.status === "open" || i.status === "uncollectible")
     .reduce((sum, i) => sum + i.amountDueCents, 0);
+
+  const savedStatement = statements.find(
+    (statement) =>
+      report.period.start &&
+      report.period.end &&
+      new Date(statement.periodStart).getTime() ===
+        new Date(report.period.start).getTime() &&
+      new Date(statement.periodEnd).getTime() ===
+        new Date(report.period.end).getTime(),
+  );
 
   return (
     <div className="space-y-6">
@@ -82,37 +100,88 @@ export function ClientBillingPanel({
           <p className="mt-1 text-2xl font-semibold tabular-nums">
             {money(outstanding, currency)}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">across open invoices</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            across open invoices
+          </p>
         </div>
         <div className="rounded-xl border p-4">
           <p className="text-caption">Usage billing</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">
-            {ba?.usageBillingEnabled ? money(ba.usageUnitPriceCents, currency) : "Off"}
+            {ba?.usageBillingEnabled
+              ? money(ba.usageUnitPriceCents, currency)
+              : "Off"}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {ba?.usageBillingEnabled ? "per completed assessment" : "not enabled"}
+            {ba?.usageBillingEnabled
+              ? "per completed participant journey"
+              : "not enabled"}
           </p>
         </div>
         <div className="rounded-xl border p-4">
-          <p className="text-caption">Assessments completed</p>
+          <p className="text-caption">Lifetime completed journeys</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">
             {hub.usageTotals.completed}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {hub.usageTotals.invited} invited (all time)
+            {hub.usageTotals.invited} participants (all time)
           </p>
         </div>
       </div>
 
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium">
-          Assessments completed — last 12 months
-        </h3>
-        <UsageTrendChart
-          data={hub.usageMonthly}
-          emptyLabel="No completed assessments yet"
+      <section className="space-y-5">
+        <div>
+          <h3 className="text-section">Usage for a period</h3>
+          <p className="text-caption">
+            Review completed activity and export it for billing reconciliation.
+          </p>
+        </div>
+        <UsagePeriodControls
+          key={usagePeriodQuery(report.period)}
+          period={report.period}
         />
-      </div>
+        {savedStatement ? (
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-caption">Saved statement for this period</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums">
+              {money(savedStatement.amountCents, currency)}
+            </p>
+            <p className="text-caption">
+              {savedStatement.quantity} completed journeys at{" "}
+              {money(savedStatement.unitPriceCents, currency)} each, before tax.{" "}
+              {savedStatement.invoiceId
+                ? "Invoice linked."
+                : savedStatement.quantity === 0
+                  ? "No usage to invoice."
+                  : "No invoice linked — needs reconciliation."}
+            </p>
+          </div>
+        ) : ba?.usageBillingEnabled && report.period.start ? (
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-caption">Live estimate at the current rate</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums">
+              {money(
+                report.totals.completed * ba.usageUnitPriceCents,
+                currency,
+              )}
+            </p>
+            <p className="text-caption">
+              Before tax. Historical rate changes are not reflected; use a saved
+              statement for the billed figure.
+            </p>
+          </div>
+        ) : null}
+        <UsageReportPanel
+          report={report}
+          scopeName={client.name}
+          campaignBasePath="/campaigns"
+        />
+      </section>
+
+      <UsageStatements
+        statements={statements}
+        invoices={hub.invoices}
+        currency={currency}
+      />
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -150,7 +219,9 @@ export function ClientBillingPanel({
                       {KIND_LABEL[inv.kind] ?? inv.kind}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={STATUS_VARIANT[inv.status]}>{inv.status}</Badge>
+                      <Badge variant={STATUS_VARIANT[inv.status]}>
+                        {inv.status}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {money(inv.totalCents, inv.currency)}
