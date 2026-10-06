@@ -23,9 +23,10 @@ This implements the approved follow-on to `docs/superpowers/plans/2026-10-06-wor
 - [x] Require explicit review/application or cancellation for dependencies and preset changes to existing organisations. The server recomputes the proposal. Enabling missing prerequisites only proposes them; a single-field patch remains subject to database validation.
 - [x] Supply the actual client Unified route, loading/error experience and shortcut; preserve exact-experience validation, multi-person rejection for individual trajectory and existing scope checks.
 - [x] Integrate the separate EPP invitation fix without hiding appropriately authorised diagnostic reads or broadening roles. Hide mutation controls and block direct mutations when tenant team/client-management controls are disabled.
-- [ ] Replay the additive migration and execute the local DB integration suite in an authorised local Supabase environment.
+- [x] Replay both additive migrations and all 14 workspace-feature DB/RPC/audit/backlog cases in disposable CI Supabase. Final-head full-suite CI remains required; see current release evidence.
 - [ ] Obtain a passing normal production build and browser acceptance before any release.
 - [x] Add webhook delivery pause with saved events and explicit bounded batch review before release; preserve event IDs and attempt budgets.
+- [x] Keep scoped connection/backlog access independently reachable for existing partner client managers; preserve client-directory and metadata controls when off.
 
 ## Acceptance matrix
 
@@ -45,6 +46,8 @@ This implements the approved follow-on to `docs/superpowers/plans/2026-10-06-wor
 | Overrides / concurrency / audit | One-field patches preserve other switches; expected batch rejects stale edit; history has tenant-filtered previous/next values and provenance | Resolver/RPC mock and component tests: passed. DB transaction, first-insert race, audit/rollback tests added: unrun |
 | Staff reports and exports | Historical report content can remain available while new signed PDF issuance/downloads are disabled; CSV rechecks exact insight or usage availability | `workspace-report-download`, `workspace-usage-export`, export and PDF route regressions: passed |
 | Assistant and integrations | Existing assistant tools also enforce their underlying modules; new credential-authorised integration launches use client settings plus existing allocations/quotas | `workspace-roadmap`, integration confidentiality/routing regressions: passed |
+| Integration inspection without client metadata/directory | Existing scoped managers reach the independent route; selector stays minimal/bounded/partner-owned; original client tabs and metadata writes stay closed | `partner-integration-clients`, actual route/ancestor composition, settings/nav component tests: passed |
+| Synthetic single-host workspace requests | Existing org-admin uses explicit own-client context; partner actor retains its existing memberships; explicit host mappings stay authoritative; empty/foreign contexts do not gain features | Harness routing, resolver, provisioning regressions: passed; actual browser checks awaiting final CI |
 | Team management and EPP inspection | Existing permitted pending/expired diagnostics remain inspectable; unavailable mutation controls disappear; direct staff mutations remain denied | Combined `outstanding-invites` unit/component cases and resolver/provisioning cases: passed |
 | Client Unified | Actual client route accepts explicitly enabled unified, stays off by default, retains tenant scope and individual one-person limit | Production-route, client dashboard and feature-setting regressions: passed; browser rendering unrun |
 | Existing specialist products | 360, diagnostic sessions, role matching, outcome studies/reports, connection management, assistant and commercial reads keep their existing ownership/role restrictions | Source gate inventory, full existing regressions and per-flag availability tests: passed. Not a new specialist product or new ownership model |
