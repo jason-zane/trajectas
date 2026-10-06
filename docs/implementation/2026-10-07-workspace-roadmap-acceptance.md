@@ -1,8 +1,10 @@
 # Workspace selectability: implementation and acceptance
 
+**Current release evidence:** [2026-10-07-workspace-release-evidence.md](2026-10-07-workspace-release-evidence.md) supersedes the historical branch, publication and release statuses below.
+
 This implements the approved follow-on to `docs/superpowers/plans/2026-10-06-workspace-features-and-experience.md`. It extends merged PR424 rather than replacing phase 1. The historical plan’s client Unified prohibition and release boundary describe phase 1; this follow-on supplies the actual client route and permits deliberate activation. Client-to-partner conversion, upgrades and ownership migration remain excluded.
 
-## Baseline and delivery boundary
+## Original implementation boundary (historical)
 
 - Current `origin/main` re-fetched before final validation: `edf762189b6053e5898de814fea1979b8f00d626` (PR424).
 - Branch: `feat/workspace-roadmap` in its isolated `.claude/worktrees/feat/workspace-roadmap` checkout.
@@ -12,7 +14,7 @@ This implements the approved follow-on to `docs/superpowers/plans/2026-10-06-wor
 
 ## Implementation checklist
 
-- [x] Add 32 module capabilities alongside the three independent insight flags and dashboard selector.
+- [x] Add 33 module capabilities alongside the three independent insight flags and dashboard selector.
 - [x] Preserve missing-row and empty-module compatibility defaults: published tools remain enabled, partner-only client controls remain unavailable to client workspaces, and client Unified remains off until explicitly enabled. No preset is applied automatically.
 - [x] Keep phase-1 owning-partner selection, client licensing independence, aggregate intersection, selected/support confinement, empty-context denial and request-local caching. Database errors remain errors.
 - [x] Gate supported pages, actions, exports, navigation, shortcuts and dashboard compositions while retaining existing allocations, quotas, roles, tenant predicates and confidentiality checks.
@@ -23,7 +25,7 @@ This implements the approved follow-on to `docs/superpowers/plans/2026-10-06-wor
 - [x] Integrate the separate EPP invitation fix without hiding appropriately authorised diagnostic reads or broadening roles. Hide mutation controls and block direct mutations when tenant team/client-management controls are disabled.
 - [ ] Replay the additive migration and execute the local DB integration suite in an authorised local Supabase environment.
 - [ ] Obtain a passing normal production build and browser acceptance before any release.
-- [ ] Resolve webhook pause/replay semantics before adding its switch.
+- [x] Add webhook delivery pause with saved events and explicit bounded batch review before release; preserve event IDs and attempt budgets.
 
 ## Acceptance matrix
 
@@ -61,11 +63,11 @@ Already issued self-enrollment links may continue to register people after porta
 
 `reportDownload` stops new staff signed-URL issuance and download operations. It does not revoke already issued URLs, recall previous downloads/browser data, alter storage/token security or change participant-token access. Report processing and valid issued participant continuation remain unchanged.
 
-Webhook delivery is **not implemented or advertised**: decide whether disabling stops new event creation or pauses existing outbox delivery, whether events accumulate during pause, and the explicit re-enable/replay policy. Existing webhook behavior remains unchanged pending that decision.
+Webhook delivery uses the explicitly approved SAVE policy. Disabling holds existing pending/unfinished claims and saves new events. Re-enabling permits fresh delivery but does not drain held events. Authorised client managers review metadata for at most 100 events and explicitly release exactly those IDs. Stale/foreign/exhausted batches reject atomically; successful endpoint deliveries and event IDs are retained for deduplication. Requests already in flight cannot be recalled. See the current release evidence for implementation, migration ordering and tests.
 
 `hiringRoles` and `participantCsvExport` are not offered because the corresponding proposed independent products/export operation do not exist in the current source. Existing role matching is controlled. Partner-owned diagnostic/role/outcome/integration ownership products and client-to-partner conversion are not created. Billing visibility does not change charging, payer or payment settings.
 
-## Validation and release gate
+## Original local validation (historical)
 
 Final command results are recorded in `workspace-validation.md`. Matching lockfile dependencies were copied locally; no dependency manifest was changed.
 

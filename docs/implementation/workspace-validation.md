@@ -1,3 +1,5 @@
+> Historical local run before release integration. Current dependency, publication, CI and webhook evidence is in [2026-10-07-workspace-release-evidence.md](2026-10-07-workspace-release-evidence.md).
+
 # Local workspace roadmap validation
 
 Tested on current `origin/main` `edf762189b6053e5898de814fea1979b8f00d626`, plus separate EPP commits `5e11056d` and `ba0374bb`, plus this roadmap. All inputs and mutations in tests are synthetic. No real invitation or customer operation ran.

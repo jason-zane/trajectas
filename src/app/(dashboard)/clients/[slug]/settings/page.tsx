@@ -1,3 +1,5 @@
+import { getWebhookBacklogReview } from '@/lib/dal/webhook-backlog'
+import { WebhookBacklogReviewPanel } from '@/components/webhook-backlog-review'
 import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { getClientBySlug } from "@/app/actions/clients";
 import { getClientInternalIntegrationSettings } from "@/app/actions/integrations";
@@ -27,13 +29,14 @@ export default async function OrgSettingsPage({
 
   const integrationSettings = await isWorkspaceFeatureEnabled('integrationManagement') ? await getClientInternalIntegrationSettings(client.id) : null;
 
+  const backlog = integrationSettings?.canManage ? await getWebhookBacklogReview(client.id) : null;
   return (
-    <ClientSettingsPanel
+    <div className="space-y-6"><ClientSettingsPanel
       clientId={client.id}
       clientSlug={slug}
       canCustomizeBranding={client.canCustomizeBranding ?? false}
       partnerBrandingDisabled={partnerBrandingDisabled}
       integrationSettings={integrationSettings}
-    />
+    />{backlog && <WebhookBacklogReviewPanel clientId={client.id} initial={backlog} />}</div>
   );
 }

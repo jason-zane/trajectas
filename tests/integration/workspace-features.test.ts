@@ -176,5 +176,29 @@ describe.skipIf(!canRun)('workspace features: real local ownership, RLS and audi
       if (client.error) throw client.error
     }
   })
+  it('saves paused webhook events and releases only the explicitly reviewed tenant batch', async () => {
+    request.scope=platform
+    const tenant={type:'client' as const,id:ids.client}
+    const queued=await db.from('integration_events_outbox').insert({client_id:ids.client,event_type:'integration.launch.created',aggregate_type:'launch',aggregate_id:randomUUID(),payload:{synthetic:true}}).select('id,status,requires_review').single()
+    expect(queued.error).toBeNull();expect(queued.data).toMatchObject({status:'pending',requires_review:false})
+    await setTenantWorkspaceFeature(tenant,{key:'webhookDelivery',value:false})
+    expect((await db.from('integration_events_outbox').select('status,requires_review').eq('id',queued.data!.id).single()).data).toEqual({status:'failed',requires_review:true})
+    const inserted=await db.from('integration_events_outbox').insert({client_id:ids.client,event_type:'integration.launch.created',aggregate_type:'launch',aggregate_id:randomUUID(),payload:{synthetic:true}}).select('id,status,requires_review,attempts').single()
+    expect(inserted.error).toBeNull();expect(inserted.data).toMatchObject({status:'failed',requires_review:true,attempts:0})
+    const eventId=inserted.data!.id
+    const paused=await db.rpc('release_reviewed_webhook_events',{p_client_id:ids.client,p_actor:users[0].userId,p_ids:[eventId]})
+    expect(paused.error?.message).toContain('Enable')
+    await setTenantWorkspaceFeature(tenant,{key:'webhookDelivery',value:true})
+    expect((await db.from('integration_events_outbox').select('status,requires_review').eq('id',eventId).single()).data).toEqual({status:'failed',requires_review:true})
+    const stale=await db.rpc('release_reviewed_webhook_events',{p_client_id:ids.client,p_actor:users[0].userId,p_ids:[eventId,randomUUID()]})
+    expect(stale.error?.message).toContain('changed')
+    expect((await db.from('integration_events_outbox').select('requires_review').eq('id',eventId).single()).data?.requires_review).toBe(true)
+    for(const user of users) expect((await user.client.rpc('release_reviewed_webhook_events',{p_client_id:ids.client,p_actor:user.userId,p_ids:[eventId]})).error?.code).toBe('42501')
+    const released=await db.rpc('release_reviewed_webhook_events',{p_client_id:ids.client,p_actor:users[0].userId,p_ids:[eventId]})
+    expect(released.error).toBeNull();expect(released.data).toBe(1)
+    expect((await db.from('integration_events_outbox').select('status,requires_review,attempts').eq('id',eventId).single()).data).toEqual({status:'pending',requires_review:false,attempts:0})
+    const audit=await db.from('audit_events').select('metadata').eq('event_type','integration.webhook_backlog_released').eq('client_id',ids.client)
+    expect(audit.error).toBeNull();expect(audit.data?.[0].metadata).toEqual({eventIds:[eventId],count:1})
+  })
 
 })

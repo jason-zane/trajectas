@@ -38,6 +38,7 @@ export const MODULE_FEATURES = [
   { key: 'outcomeReports', group: 'Outcomes', label: 'Business outcome reports', description: 'Create and view authorised outcome reports.' },
   { key: 'integrationManagement', group: 'Integrations', label: 'Connection management', description: 'Manage existing approved connections within current credential and role restrictions.' },
   { key: 'integrationLaunches', group: 'Integrations', label: 'External assessment launches', description: 'Create new integration launches using client-allocated content and quotas. Existing launches continue.' },
+  { key: 'webhookDelivery', group: 'Integrations', label: 'Webhook delivery', description: 'Send client-owned integration events. Paused events are saved for explicit backlog review; re-enabling does not release them.' },
   { key: 'workspaceAssistant', group: 'AI', label: 'Workspace assistant', description: 'Use the existing assistant where the current role and portal permit it.' },
   { key: 'billingVisibility', group: 'Business', label: 'Billing visibility', description: 'View currently permitted commercial information; invoices and charging continue.' },
 ] as const
