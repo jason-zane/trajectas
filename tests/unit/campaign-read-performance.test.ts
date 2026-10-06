@@ -10,6 +10,11 @@ function run(scenario: string) {
 }
 
 describe('campaign reads inside real React server renders', () => {
+  it('retains the campaign-viewing denial before the cached scoped read', () => {
+    const result = run('feature-denied')
+    expect(result.results).toEqual([{ denied: true }])
+    expect(result.calls).toMatchObject({ lists: 0, links: 0, scopes: 0 })
+  })
   it('shares the dashboard campaign read and preserves the six displayed campaigns', () => {
     const result = run('dashboard')
     expect(result.calls).toMatchObject({ lists: 1, links: 1, linkRows: 120, access: 1, scopes: 1 })
