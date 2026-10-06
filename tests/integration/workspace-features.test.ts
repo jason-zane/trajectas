@@ -33,15 +33,18 @@ describe.skipIf(!canRun)('workspace features: real local ownership, RLS and audi
   }, 30000)
   afterAll(async () => {
     request.scope = platform
-    await db.from('workspace_feature_settings').delete().in('partner_id', [ids.a, ids.b])
-    await db.from('audit_events').delete().eq('event_type', 'workspace.features_updated').in('partner_id', [ids.a, ids.b])
-    await db.from('clients').delete().eq('id', ids.client)
-    for (const user of users) {
-      await db.from('partner_memberships').delete().eq('profile_id', user.userId)
-      await db.from('profiles').delete().eq('id', user.userId)
-      await db.auth.admin.deleteUser(user.userId)
+    async function clean(result: { error: { message: string } | null }) {
+      if (result.error) throw new Error(result.error.message)
     }
-    await db.from('partners').delete().in('id', [ids.a, ids.b])
+    await clean(await db.from('workspace_feature_settings').delete().in('partner_id', [ids.a, ids.b]))
+    // Audit events are append-only. Owner/profile deletion nulls their foreign keys.
+    await clean(await db.from('clients').delete().eq('id', ids.client))
+    for (const user of users) {
+      await clean(await db.from('partner_memberships').delete().eq('profile_id', user.userId))
+      await clean(await db.from('profiles').delete().eq('id', user.userId))
+      await clean(await db.auth.admin.deleteUser(user.userId))
+    }
+    await clean(await db.from('partners').delete().in('id', [ids.a, ids.b]))
   }, 30000)
   it('keeps legacy defaults without creating a settings row', async () => {
     expect(await getTenantWorkspaceFeatures('partner', ids.a)).toMatchObject({ compare: true, trajectory: true, unifiedTrajectory: true })
