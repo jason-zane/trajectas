@@ -112,7 +112,8 @@
     "basic-ftp": "^6.0.1",
     "ip-address": "^10.2.0",
     "postcss": "^8.5.10",
-    "uuid": "^14.0.0"
+    "uuid": "^14.0.0",
+    "sharp": "0.35.5"
   },
   "browserslist": [
     "Chrome >= 111",
