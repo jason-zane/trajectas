@@ -146,7 +146,7 @@ async function getClientPartnerId(clientId: string) {
   return data.partner_id ? String(data.partner_id) : null
 }
 
-export async function getCampaigns(options?: { clientId?: string }): Promise<CampaignWithMeta[]> {
+const getCampaignsForRequest = cache(async (clientId: string | undefined): Promise<CampaignWithMeta[]> => {
   const scope = await resolveAuthorizedScope()
 
   // Determine effective client filter:
@@ -155,7 +155,7 @@ export async function getCampaigns(options?: { clientId?: string }): Promise<Cam
   //    (defense-in-depth: prevents data leakage if caller forgets to pass clientId)
   // 3. On admin surface as platform admin, no filter (see all)
   // 4. Non-admin users get scoped by accessible campaigns (empty → nothing visible)
-  const effectiveClientId = options?.clientId ??
+  const effectiveClientId = clientId ??
     (scope.requestSurface === 'client' ? (scope.activeContext?.tenantId ?? null) : null)
 
   let scopedCampaignIds: string[] | null = null
@@ -167,6 +167,12 @@ export async function getCampaigns(options?: { clientId?: string }): Promise<Cam
 
   const db = await createClient()
   return listCampaigns(db, { effectiveClientId, scopedCampaignIds })
+})
+
+export async function getCampaigns(options?: { clientId?: string }): Promise<CampaignWithMeta[]> {
+  // Primitive keys share a read across independently constructed options objects.
+  // React cache lives only for this server render; the resolved scope stays inside it.
+  return getCampaignsForRequest(options?.clientId)
 }
 
 async function getCampaignHeaderImpl(id: string): Promise<CampaignHeader | null> {

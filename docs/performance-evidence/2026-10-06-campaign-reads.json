@@ -1,0 +1,137 @@
+{
+  "kind": "synthetic actual React server render, mocked data I/O; not production latency",
+  "baseCommit": "4dc792a283a828065452fa74bae499081a8d49ea",
+  "before": {
+    "calls": {
+      "lists": 2,
+      "links": 1,
+      "linkRows": 120,
+      "access": 1,
+      "scopes": 2
+    },
+    "capturedScopes": [
+      {
+        "effectiveClientId": "client-a",
+        "scopedCampaignIds": null
+      },
+      {
+        "effectiveClientId": "client-a",
+        "scopedCampaignIds": null
+      }
+    ],
+    "results": [
+      {
+        "allCount": 60,
+        "operational": [
+          {
+            "id": "campaign-58",
+            "linkIds": [
+              "campaign-58-link-0",
+              "campaign-58-link-1"
+            ]
+          },
+          {
+            "id": "campaign-54",
+            "linkIds": [
+              "campaign-54-link-0",
+              "campaign-54-link-1"
+            ]
+          },
+          {
+            "id": "campaign-50",
+            "linkIds": [
+              "campaign-50-link-0",
+              "campaign-50-link-1"
+            ]
+          },
+          {
+            "id": "campaign-46",
+            "linkIds": [
+              "campaign-46-link-0",
+              "campaign-46-link-1"
+            ]
+          },
+          {
+            "id": "campaign-42",
+            "linkIds": [
+              "campaign-42-link-0",
+              "campaign-42-link-1"
+            ]
+          },
+          {
+            "id": "campaign-38",
+            "linkIds": [
+              "campaign-38-link-0",
+              "campaign-38-link-1"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "after": {
+    "calls": {
+      "lists": 1,
+      "links": 1,
+      "linkRows": 120,
+      "access": 1,
+      "scopes": 1
+    },
+    "capturedScopes": [
+      {
+        "effectiveClientId": "client-a",
+        "scopedCampaignIds": null
+      }
+    ],
+    "results": [
+      {
+        "allCount": 60,
+        "operational": [
+          {
+            "id": "campaign-58",
+            "linkIds": [
+              "campaign-58-link-0",
+              "campaign-58-link-1"
+            ]
+          },
+          {
+            "id": "campaign-54",
+            "linkIds": [
+              "campaign-54-link-0",
+              "campaign-54-link-1"
+            ]
+          },
+          {
+            "id": "campaign-50",
+            "linkIds": [
+              "campaign-50-link-0",
+              "campaign-50-link-1"
+            ]
+          },
+          {
+            "id": "campaign-46",
+            "linkIds": [
+              "campaign-46-link-0",
+              "campaign-46-link-1"
+            ]
+          },
+          {
+            "id": "campaign-42",
+            "linkIds": [
+              "campaign-42-link-0",
+              "campaign-42-link-1"
+            ]
+          },
+          {
+            "id": "campaign-38",
+            "linkIds": [
+              "campaign-38-link-0",
+              "campaign-38-link-1"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "sameResults": true
+}

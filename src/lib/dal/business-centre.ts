@@ -189,13 +189,17 @@ export async function getFinanceOverview(): Promise<FinanceOverview> {
 async function buildClientHealth(
   db: ReturnType<typeof createAdminClient>,
 ): Promise<Map<string, UsageHealth>> {
+  const now = new Date();
+  const currentMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const firstMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 6, 1));
   const { data, error } = await db
     .from("client_usage_monthly")
-    .select("client_id, month, completed_count");
+    .select("client_id, month, completed_count")
+    .gte("month", firstMonth.toISOString().slice(0, 10))
+    .lt("month", currentMonth.toISOString().slice(0, 10));
   if (error) {
     throwActionError("buildClientHealth", "Unable to load usage history.", error);
   }
-  const now = new Date();
   // Anchor the window on the last *completed* month so an in-progress current
   // month can't skew recent-vs-prior (a steady client looking "declining" early
   // in the month). This evaluates the 6 completed months up to last month.
