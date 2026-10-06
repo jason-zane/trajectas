@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { WebhookBacklogReviewPanel } from '@/components/webhook-backlog-review'
 const calls=vi.hoisted(()=>({release:vi.fn()}))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }))
 vi.mock('@/app/actions/webhook-backlog',()=>({releaseWebhookBacklogAction:calls.release}))
 const initial={deliveryEnabled:true,hasMore:true,events:[{id:'synthetic',eventType:'integration.launch.created',createdAt:'2026-10-07',heldAt:'2026-10-07',attempts:2}]}
 beforeEach(()=>calls.release.mockReset())
