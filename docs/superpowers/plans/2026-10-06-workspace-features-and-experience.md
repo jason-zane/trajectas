@@ -67,7 +67,8 @@ This is the complete proposed catalogue. “Existing” means a working allocati
 | Integrations | External assessment launches / `integrationLaunches` | Start new assessments from integrations | Delivery/allocation/quota prerequisites; existing launches continue | Later |
 | Integrations | Webhook delivery / `webhookDelivery` | Send authorised events to configured endpoints | Turning off pauses new delivery; preserve outbox/history with an explicit replay policy | Later |
 | AI | Workspace assistant / `workspaceAssistant` | Ask questions using authorised workspace data | Every tool independently checks feature and tenant scope | Later |
-| Business | Billing/usage visibility / `billingVisibility` | View permitted billing and usage | Does not stop invoices or change the payer; charging is commercial configuration | Later |
+| Business | Usage reporting / `usageVisibility` | View the workspace’s period-based usage, campaign breakdowns and exports | Separate from billing and assessment quotas; tenant/report scope remains authoritative | Next |
+| Business | Billing visibility / `billingVisibility` | View permitted commercial billing information | Does not stop invoices or change the payer; charging is commercial configuration | Later |
 
 ## Defaults and presets
 
@@ -131,7 +132,7 @@ Add remaining “Later” controls from the catalogue as their owning features m
 
 Test all eight combinations of the three partner insight flags. Include Compare off + Trajectory on and Trajectory off + Unified on. Test no settings, database unavailable, no authorised tenant, selected client, selected partner, aggregate multi-membership, platform admin, tenant-selected admin and support sessions. Test bookmarked global/campaign URLs, saved configurations, direct server action calls, invalid experience strings, multi-person calls disguised as individual and CSV requests. Test cross-tenant participant IDs remain rejected when every feature is enabled.
 
-For presentation, verify menus and shortcuts match enabled features, no empty Insights heading remains, operational dashboard hides portfolio/client-allocation blocks while keeping authorised campaign activity, and light/dark settings pages are keyboard-accessible. Confirm feature updates leave campaigns, participants, responses, membership IDs, branding and billing rows unchanged.
+For presentation, verify menus and shortcuts match enabled features, no empty Insights heading remains, operational dashboard hides portfolio/client-allocation blocks while keeping authorised campaign activity, and settings pages are keyboard-accessible and use the shared theme tokens. The current dashboard theme provider is light-only; a real dark palette must be checked when shared theme support returns. Confirm feature updates leave campaigns, participants, responses, membership IDs, branding and billing rows unchanged.
 
 ## Release boundary
 

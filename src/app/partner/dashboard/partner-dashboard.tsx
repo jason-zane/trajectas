@@ -436,7 +436,7 @@ export function PartnerDashboard({
             size="sm"
             eyebrow="No active campaigns"
             title="Nothing to watch this week."
-            description="Launch a campaign for one of your clients — it'll show up here as soon as invites go out."
+            description={portfolio ? "Launch a campaign for one of your clients — it'll show up here as soon as invites go out." : "Launch a campaign — it'll show up here as soon as invites go out."}
           />
         ) : (
           <ul className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
