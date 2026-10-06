@@ -120,9 +120,12 @@ export async function getUsageReport(
       query = query.in("id", partnerIds);
     return query;
   };
-  const partnerRows = await readUsagePages((offset, end) =>
-    partnerQuery().range(offset, end),
-  );
+  const includeAllPartners =
+    target.kind === "business" && isUnconfinedPlatformAdmin(scope);
+  const partnerRows =
+    includeAllPartners || partnerIds.length
+      ? await readUsagePages((offset, end) => partnerQuery().range(offset, end))
+      : [];
   const partnerOptions: UsagePartnerRef[] = partnerRows.map((row) => ({
     id: String(row.id),
     name: String(row.name),

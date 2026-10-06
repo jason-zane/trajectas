@@ -46,9 +46,7 @@ export function ClientDetailShell({
         title={client.name}
         description={client.industry ?? undefined}
       >
-        {!client.isActive && (
-          <Badge variant="outline">Archived</Badge>
-        )}
+        {!client.isActive && <Badge variant="outline">Archived</Badge>}
       </PageHeader>
 
       <RouteTabs
@@ -61,6 +59,15 @@ export function ClientDetailShell({
           for (const key of ["period", "month", "from", "to"]) {
             const value = searchParams.get(key);
             if (value) query.set(key, value);
+          }
+          if (
+            !query.has("period") &&
+            ["usage", "billing"].includes(activeSegment)
+          ) {
+            query.set(
+              "period",
+              activeSegment === "billing" ? "last-month" : "this-month",
+            );
           }
           return query.size ? `?${query}` : "";
         }}
