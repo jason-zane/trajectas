@@ -21,8 +21,12 @@ results as blockers. A docs-only seeded skip is intentional only when the
 change-scope output says `false`. Record dependency-audit warnings separately;
 a green job does not prove an unavailable audit ran.
 
-Use only permitted reads for Preview/environment/recovery evidence. Require
-the synthetic target and relevant acceptance evidence described in the runbook.
+Use only permitted reads for environment/recovery evidence. Distinguish the
+runbook's approved interim local/disposable-CI and bounded read-only production
+workflow from its future hosted-staging recommendations. Require verified
+synthetic targets for write tests; missing hosted staging alone is not a blanket
+migration-free release blocker. Record unrun live acceptance without claiming it
+passed. Do not turn future setup or protection activation into current gates.
 For database/scoring/billing changes, collect ordered compatibility, migration
 and recovery evidence, preserving delivered forms and report snapshots.
 

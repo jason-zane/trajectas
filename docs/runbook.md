@@ -7,7 +7,8 @@ This process reduces mistakes; it does not promise risk-free releases.
 
 ## What is implemented, and what remains unknown
 
-Repository baseline reconciled on 2026-10-06: main `edf7621` (includes PR424).
+Repository baseline reconciled on 2026-10-06: main `5724f87c` (includes PR424,
+patched Sharp PR427, outstanding-invitation PR428 and performance PR426).
 These are source facts, not proof of current provider settings:
 
 | Item | Evidence / status |
@@ -17,14 +18,34 @@ These are source facts, not proof of current provider settings:
 | Enforcement still pending | The last permitted main-check summary listed only `security`, `quality`, `e2e-smoke` as required. Full protection read was denied; current rules are unverified. Adding `release-gate` as required needs separate owner approval and permitted settings access. Until then, this gate is evidence, not a newly enforced merge protection. |
 | Seeded E2E coverage | Existing campaign states, participant entry/completion routing, partner portal and editor-save journeys. It does **not** prove completing a fresh assessment, generating its report/PDF, or restoring it. Those need explicit synthetic acceptance evidence. |
 | Production target | Last permitted read identified Supabase `rwpfwfcaxoevnvtkdmkx` / main as `ACTIVE_HEALTHY`; its migration metadata was stale. Health and history do not establish schema parity, backups or recovery. |
-| Hosting source | `vercel.json` requests `sin1` and defines cron schedules. Actual plan, deployed region, production branch, deployment policy and environment mapping are unverified. |
-| Hosted staging / recovery | No isolated hosted staging or recovery rehearsal has been verified. Historic Free/Pro statements in older docs are not current billing evidence. |
+| Hosting source | `vercel.json` requests `sin1` and defines cron schedules. GitHub records successful Production deployments of merged main commits `f4f0f179` and `701a111b`; normal main merge must therefore be treated as a production release. Provider-specific READY, configuration, rollback availability, plan and actual region remain unverified. |
+| Hosted staging / recovery | Jason confirmed no Preview Supabase exists and approved the interim workflow below. Isolated hosted staging and recovery rehearsal remain future setup decisions; they are not blanket prerequisites for migration-free releases. Historic Free/Pro statements are not current billing evidence. |
 | Access blocks | Vercel project/environment/deployment detail reads and full GitHub protection reads returned 403 in the prior audit. Do not inspect those through browser/CLI alternatives. Request narrowly scoped read access or owner-provided redacted evidence. |
 
-No new service, credential, migration, account setting, branch rule or production
-deployment is created by this repository change. Journal is a separate project.
+This repository change does not provision services or credentials, apply a
+migration, or change account settings, branch rules or deployment policy.
+Merging uses the existing deployment path. Journal is a separate project.
 
-## Normal change: branch → local → Preview → review → release
+## Current approved interim workflow
+
+Until a separately approved isolated hosted target exists, use synthetic local
+and disposable CI stacks for automated writes, migration replay and browser
+journeys. Jason approved bounded read-only production acceptance and normal
+reviewed releases after applicable exact-head checks. Production is not a test
+fixture: never seed it, send/reissue/revoke invitations, submit assessments,
+change customer settings or invoke side-effecting jobs to obtain acceptance.
+Record unrun acceptance and unavailable provider evidence explicitly for the
+owner's release decision; do not label them passed. Provider denials remain
+blocked and must not be retried through another tool, account or interface.
+
+Missing hosted isolation alone does not block a migration-free release under
+this interim workflow. Database, scoring and billing changes still require the
+ordered compatibility, target/schema and recovery evidence below; a green
+disposable-stack replay is not production schema or recovery verification.
+Creating staging, changing credentials/provider settings and activating new
+branch protections are separate owner decisions, not effects of this PR.
+
+## Normal change: branch → local/CI → acceptance → review → release
 
 1. Inspect status; use `scripts/agent-worktree.sh <branch>` from a permitted
    checkout, or an isolated checkout/worktree in the task workspace. Start from
@@ -46,14 +67,16 @@ deployment is created by this repository change. Journal is a separate project.
    that local stack and local env; do not set `PLAYWRIGHT_BASE_URL` to production
    or an unverified Preview. Keep existing local-host guards when adding tests.
    CI provisions disposable local stacks for both.
-4. Open a PR and fill its evidence template. Preview acceptance uses an isolated
-   non-production database and synthetic fixtures. Verify target mapping and
-   external side effects before visiting authenticated flows. If that mapping
-   is unknown, mark Preview acceptance blocked; do not test against production
-   merely to produce evidence. Ordinary UI changes need appropriate acceptance
-   checks, not an elaborate canary rollout. For docs/CI-only changes with no
-   runtime behavior change, explain Preview N/A and verify the changed automation;
-   hosted isolation still gates subsequent application releases.
+4. Open a PR and fill its evidence template. Under the interim workflow,
+   synthetic acceptance runs only on verified local/disposable CI targets.
+   An unverified Preview must not be used for authenticated write tests.
+   Where authorized, inspect existing production views through bounded read-only
+   acceptance, preserving customer data and normal role/tenant boundaries.
+   Record unavailable or unrun live checks and their limits; absent Preview
+   infrastructure is not by itself a migration-free release blocker. For
+   docs/CI-only changes, explain hosted acceptance N/A and verify automation.
+   Once isolated hosted staging is approved and verified, use that target for
+   synthetic Preview acceptance as described in the future setup checklist.
 5. Review the diff and findings; resolve review conversations. After the last
    edit/rebase, require CI for the **final SHA**. Do not reuse earlier green runs.
    `release-gate` has no workflow path filter and runs with `always()` even if
@@ -65,11 +88,17 @@ deployment is created by this repository change. Journal is a separate project.
 6. Present the evidence and unresolved blockers. Jason explicitly decides
    release for a named SHA, including remaining risks. PR approval alone does
    not authorize production migrations or paid/security settings changes.
-   Confirm whether merging main triggers automatic production deployment
-   **before** asking to merge; provider policy remains unknown until verified.
+   Treat normal main merge as production deployment based on the observed
+   GitHub Production records. Record exact merged SHA, environment and deployment
+   outcome through permitted evidence; do not claim that these records verify
+   provider-specific settings or rollback availability. Changes to deployment
+   policy need separate approval and permitted settings access.
 7. With applicable approval, merge through the normal reviewed PR path and
-   verify the resulting deployed commit, READY state, correct environment,
-   health and relevant synthetic acceptance. Inspect redacted queue/errors and
+   verify the resulting deployed commit and Production environment through
+   permitted GitHub deployment records, plus bounded read-only health/acceptance
+   where available. Record provider-specific READY/rollback and unavailable
+   live checks as unverified; never substitute synthetic CI for live acceptance.
+   Inspect redacted queue/errors and
    real cron invocation evidence where relevant. Record results and owner;
    contain or recover if verification fails. Never invoke billing/deletion/
    reminder jobs on live data simply to test that a route responds.
@@ -93,15 +122,18 @@ an applied migration to imply the live database changed.
   equivalents. New scoring versions must not silently recompute delivered
   evidence. Billing evidence includes test-mode invoices/webhooks, duplicate
   delivery/idempotency and expected amounts; it must not charge a live customer.
-- In staging, demonstrate a fresh synthetic assessment → submission → scoring
+- On an isolated synthetic local/CI target (or separately approved staging),
+  demonstrate a fresh assessment → submission → scoring
   → stored report snapshot → downloadable PDF, plus relevant retry behavior.
   Existing seeded E2E is partial evidence, so record the missing steps explicitly
   until this full journey is automated. Run the Python outcome tests when
   changing the numerical worker (`python -m unittest discover -s tests/outcomes -v`).
 - Prefer expand → compatible app → verify → later contract. Show current app
   with expanded schema, new app with expanded schema, and the rollback app with
-  the schema that will remain. Apply reviewed migrations locally and to approved
-  staging before a PR; **never require a production migration just to open one**.
+  the schema that will remain. Replay reviewed migrations on an isolated local/CI
+  target before a PR, and on hosted staging if such a target is approved and
+  available; **never require a production migration just to open one**. Missing
+  staging does not remove production schema, compatibility or recovery checks.
 - At production action time, obtain explicit approval for the exact migration,
   target, order and side effects. If a compatible additive migration must precede
   the app, apply and verify it only at this approved release stage. If app changes
@@ -114,10 +146,12 @@ an applied migration to imply the live database changed.
   authorized by this guide. Any live read must be permitted; unavailable schema
   evidence remains a blocker, not an invitation to bypass access restrictions.
 
-## Hosted staging setup checklist (pending owner decisions)
+## Future hosted staging setup checklist (separate owner decisions)
 
-Complete in order, recording resource IDs, scope, owner, date and evidence; never
-record values. Each settings mutation needs applicable approval at action time.
+This is a recommended future setup, not an installed prerequisite for the
+approved interim migration-free workflow. Complete in order after owner
+decisions, recording resource IDs, scope, date and evidence; never record values.
+Each settings mutation needs applicable approval at action time.
 
 - [ ] Obtain permitted read evidence of Vercel's linked repository, project,
   production branch/deploy policy, variable **names and target scopes**, Preview
