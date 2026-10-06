@@ -1,3 +1,8 @@
+import { getEffectiveWorkspaceFeatures } from '@/lib/dal/workspace-features'
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { featureForWorkspacePath } from '@/lib/features/workspace-features'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
+import { WorkspaceFeatureVisibility } from '@/components/workspace-feature-visibility'
 import Link from "next/link";
 import {
   Activity,
@@ -110,20 +115,20 @@ function HeaderActions({
   return (
     <div className="flex flex-wrap gap-3">
       {config.primaryAction ? (
-        <Link
+        <WorkspaceFeatureVisibility features={featureForWorkspacePath(config.primaryAction.href) ? [featureForWorkspacePath(config.primaryAction.href)!] : []}><Link
           href={applyRoutePrefix(routePrefix, config.primaryAction.href)}
           className="inline-flex items-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
           {config.primaryAction.label}
-        </Link>
+        </Link></WorkspaceFeatureVisibility>
       ) : null}
       {config.secondaryAction ? (
-        <Link
+        <WorkspaceFeatureVisibility features={featureForWorkspacePath(config.secondaryAction.href) ? [featureForWorkspacePath(config.secondaryAction.href)!] : []}><Link
           href={applyRoutePrefix(routePrefix, config.secondaryAction.href)}
           className="inline-flex items-center rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
         >
           {config.secondaryAction.label}
-        </Link>
+        </Link></WorkspaceFeatureVisibility>
       ) : null}
     </div>
   );
@@ -200,10 +205,11 @@ async function WorkspaceOverview({
   routePrefix: string;
   surface: Extract<WorkspaceSurface, "partner" | "client">;
 }) {
+  const features = await getEffectiveWorkspaceFeatures();
   const [clients, campaigns, diagnostics] = await Promise.all([
-    getClients(),
-    getCampaigns(),
-    getDiagnosticSessions(),
+    surface === "partner" && features.clientDirectory ? getClients() : Promise.resolve([]),
+    features.campaignViewing ? getCampaigns() : Promise.resolve([]),
+    features.orgDiagnostics ? getDiagnosticSessions() : Promise.resolve([]),
   ]);
 
   const participantCount = campaigns.reduce((sum, campaign) => sum + campaign.participantCount, 0);
@@ -1363,16 +1369,17 @@ async function WorkspaceResultsPage({
   diagnosticsOnly?: boolean;
   surface: Extract<WorkspaceSurface, "partner" | "client">;
 }) {
+  const features = await getEffectiveWorkspaceFeatures();
   const [campaigns, diagnostics, completedParticipants] = await Promise.all([
-    diagnosticsOnly ? Promise.resolve([]) : getCampaigns(),
-    getDiagnosticSessions(),
-    diagnosticsOnly
+    diagnosticsOnly || !features.campaignViewing ? Promise.resolve([]) : getCampaigns(),
+    features.orgDiagnostics ? getDiagnosticSessions() : Promise.resolve([]),
+    diagnosticsOnly || !features.campaignViewing
       ? Promise.resolve({ data: [], total: 0 })
       : getParticipants({ status: "completed", perPage: 12 }),
   ]);
 
   const campaignsWithResults = campaigns.filter((campaign) => campaign.completedCount > 0);
-  const showDiagnosticsSection = surface !== "client" && !diagnosticsOnly;
+  const showDiagnosticsSection = features.orgDiagnostics && surface !== "client" && !diagnosticsOnly;
   const completedDiagnostics = showDiagnosticsSection
     ? diagnostics.filter((session) => session.status === "completed")
     : [];
@@ -1658,6 +1665,8 @@ export async function WorkspacePortalLivePage({
   surface,
   pageKey,
 }: WorkspacePortalLivePageProps) {
+  const feature = featureForWorkspacePath(`${routePrefix}/${pageKey}`)
+  if (feature && !(await isWorkspaceFeatureEnabled(feature))) return <WorkspaceFeatureUnavailable feature={feature} />
   const segments = pageKey.split("/").filter(Boolean);
   const supportedKey = (segments[0] ?? "") as SupportedPageKey;
 

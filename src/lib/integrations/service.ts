@@ -1,3 +1,4 @@
+import { requireIntegrationClientFeature } from '@/lib/features/integration-access'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   shouldGenerateIndividualReports,
@@ -309,6 +310,8 @@ export async function createIntegrationCampaign(
     externalRefs?: IntegrationExternalRefInput[]
   }
 ) {
+  await requireIntegrationClientFeature(context.clientId, 'integrationLaunches', 'assessmentDelivery', 'campaignManagement')
+
   const db = createAdminClient()
   const partnerId = await getClientPartnerId(context.clientId)
   const assessmentIds = input.assessmentIds ?? []
@@ -450,6 +453,8 @@ export async function upsertIntegrationParticipant(
     externalRefs?: IntegrationExternalRefInput[]
   }
 ) {
+  await requireIntegrationClientFeature(context.clientId, 'integrationLaunches', 'participantInvitations')
+
   const campaign = await ensureCampaignOwnedByCredential(context, campaignId)
   const db = createAdminClient()
 
@@ -583,6 +588,8 @@ export async function createIntegrationLaunch(
     deliveryMethod: 'link' | 'email'
   }
 ) {
+  await requireIntegrationClientFeature(context.clientId, 'integrationLaunches', 'assessmentDelivery', 'participantInvitations')
+
   const campaign = await ensureCampaignOwnedByCredential(context, campaignId)
   if (campaign.confidentialityMode === 'aggregate_only' && input.deliveryMethod === 'link') {
     throw new IntegrationApiError(403, 'participant_link_protected',

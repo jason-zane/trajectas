@@ -1,5 +1,7 @@
 "use client";
 
+import { WorkspaceTeamControls } from '@/components/workspace-team-controls'
+
 import { useTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -101,7 +103,7 @@ export function ClientPortalPendingInvites({
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
-                    <CopyInviteLinkButton
+                    <WorkspaceTeamControls clientScope={true}><CopyInviteLinkButton
                       iconOnly
                       email={invite.email}
                       label="Copy invite link"
@@ -110,8 +112,8 @@ export function ClientPortalPendingInvites({
                         router.refresh();
                       }}
                       getLink={() => reissueClientInvite(workspaceId, invite.id)}
-                    />
-                    <Button
+                    /></WorkspaceTeamControls>
+                    <WorkspaceTeamControls clientScope={true}><Button
                       variant="ghost"
                       size="icon-sm"
                       onClick={() => setRevokeTarget(invite)}
@@ -119,7 +121,7 @@ export function ClientPortalPendingInvites({
                       className="text-destructive hover:text-destructive"
                     >
                       <X />
-                    </Button>
+                    </Button></WorkspaceTeamControls>
                   </div>
                 </TableCell>
               </TableRow>

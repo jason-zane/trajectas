@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from "next/navigation"
 import { getAssessmentWithFactors } from "@/app/actions/assessments"
 import { getAssessmentTemplates, getReportTemplates } from "@/app/actions/reports"
@@ -8,6 +10,9 @@ export default async function PartnerAssessmentReportsPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature="assessmentAuthoring" />
+
+  if (!await isWorkspaceFeatureEnabled('reportTemplateLibrary')) return <WorkspaceFeatureUnavailable feature="reportTemplateLibrary" />
   const { id } = await params
   const [result, attached, allTemplates] = await Promise.all([
     getAssessmentWithFactors(id),

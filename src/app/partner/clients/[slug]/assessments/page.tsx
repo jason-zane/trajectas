@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { getPartnerAssessmentAssignments } from "@/app/actions/partner-entitlements";
 import {
   getAssessmentAssignments,
@@ -11,6 +13,7 @@ export default async function PartnerClientAssessmentsPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('clientAssessmentAllocation')) return <WorkspaceFeatureUnavailable feature="clientAssessmentAllocation" />
   const { slug } = await params;
   const { client, partnerId } = await requirePartnerClient(slug);
 

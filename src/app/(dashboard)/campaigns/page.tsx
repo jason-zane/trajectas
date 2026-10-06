@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +11,8 @@ import { CampaignsTable } from "./campaigns-table";
 import { QuickLaunchButton } from "@/components/campaigns/quick-launch-button";
 
 export default async function CampaignsPage() {
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   const [campaigns, assessments, clients, actor] = await Promise.all([
     getCampaigns(),
     getActiveAssessments(),

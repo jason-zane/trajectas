@@ -1,5 +1,7 @@
 'use server'
 
+import { requireWorkspaceFeature, requirePartnerWorkspaceFeature } from '@/lib/features/access'
+
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getBrandConfig, getCachedEffectiveBrand, getClientPartnerId } from '@/lib/dal/brand'
@@ -55,7 +57,10 @@ async function assertCanManageBrandOwner(
   ownerType: BrandOwnerType,
   ownerId: string | null
 ): Promise<void> {
+  if (ownerType === 'campaign') await requireWorkspaceFeature('campaignBranding')
+
   if (ownerType === 'client' && ownerId) {
+    await requirePartnerWorkspaceFeature('clientManagement')
     if (!canManageClient(scope, ownerId)) {
       throw new AuthorizationError('Not authorized to manage this client')
     }

@@ -1,3 +1,5 @@
+
+import { requireWorkspaceFeature } from '@/lib/features/access'
 import "server-only";
 
 import {
@@ -77,6 +79,8 @@ export async function getUsageReport(
   clientOptions: UsageClientRef[];
   partnerOptions: UsagePartnerRef[];
 }> {
+  await requireWorkspaceFeature('usageVisibility')
+
   const scope = await authorizeUsageTarget(target);
   const db = createAdminClient();
   const now = new Date();

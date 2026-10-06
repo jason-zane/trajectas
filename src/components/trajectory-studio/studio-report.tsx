@@ -1,7 +1,9 @@
 'use client'
 
+import { authorizeWorkspaceExport } from '@/app/actions/workspace-features'
 import { TrajectasLogo } from "@/components/brand/trajectas-logo";
 
+import { usePortal } from '@/components/portal-context'
 import { useState } from 'react'
 import { Download, FileText, Printer } from 'lucide-react'
 import { toast } from 'sonner'
@@ -12,7 +14,8 @@ import { StudioSnapshot } from './studio-snapshot'
 import { Button } from '@/components/ui/button'
 import styles from './studio.module.css'
 
-export function StudioExport({ dataset, settings, title, open, onOpenChange }: { dataset: StudioDataset; settings: StudioSettings; title: string; open: boolean; onOpenChange: (value: boolean) => void }) {
+export function StudioExport({ dataset, settings, title, experience, open, onOpenChange }: { experience: import('@/lib/trajectory-studio/model').Experience; dataset: StudioDataset; settings: StudioSettings; title: string; open: boolean; onOpenChange: (value: boolean) => void }) {
+  const { features } = usePortal()
   const [anonymize, setAnonymize] = useState(false)
   const rows = exportRows(dataset, settings, anonymize)
   const time = settings.lens === 'time'
@@ -27,14 +30,22 @@ export function StudioExport({ dataset, settings, title, open, onOpenChange }: {
   const chartLines = trajectoryChartLines(dataset, settings).map((line) => ({ ...line,
     label: settings.people.length === 1 ? line.label : nameFor(line.personKey, settings.people.indexOf(line.personKey)),
   }))
-  function downloadCsv() {
+  async function downloadCsv() {
+    if (!dataset.demo) {
+      const result = await authorizeWorkspaceExport(experience, 'csv')
+      if ('error' in result) { toast.error(result.error); return }
+    }
     const url = URL.createObjectURL(new Blob([buildStudioCsv(dataset, settings, anonymize)], { type: 'text/csv;charset=utf-8;' }))
     const link = document.createElement('a'); link.href = url
     link.download = `trajectas-${settings.lens}${dataset.demo ? '-demo' : ''}.csv`
     link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
     toast.success('CSV exported', { description: `${rows.length} result rows, including reference values and source details.` })
   }
-  function printReport() {
+  async function printReport() {
+    if (!dataset.demo) {
+      const result = await authorizeWorkspaceExport(experience, 'pdf')
+      if ('error' in result) { toast.error(result.error); return }
+    }
     onOpenChange(false)
     requestAnimationFrame(() => requestAnimationFrame(() => window.print()))
   }
@@ -43,7 +54,7 @@ export function StudioExport({ dataset, settings, title, open, onOpenChange }: {
       <div className={styles.exportSummary}><FileText size={28} /><div><strong>{displayTitle}</strong><p>{settings.people.length} {settings.people.length === 1 ? 'person' : 'people'} · {scopeName}</p><p>{time ? `${displayDate(settings.from)} – ${displayDate(settings.to)}` : snapshotCaption(dataset.result, settings)}</p><p>Reference: {settings.reference === 'group' ? 'Selected group mean' : reference?.name ?? 'None'}</p></div></div>
       {dataset.demo && <p className={styles.demoNotice}>All demo results and reference values are labelled illustrative.</p>}
       <label className={styles.checkLabel}><input type="checkbox" checked={anonymize} onChange={(e) => setAnonymize(e.target.checked)} /><span><strong>Use anonymous labels</strong><small>Replace names with Person 1, Person 2… and omit session IDs.</small></span></label>
-      <div className={styles.exportActions}><Button variant="outline" disabled={!rows.length} onClick={downloadCsv}><Download size={16} />Download CSV</Button><Button disabled={!rows.length} onClick={printReport}><Printer size={16} />Print / save PDF</Button></div>
+      <div className={styles.exportActions}>{(dataset.demo || features.insightCsvExport) && <Button variant="outline" disabled={!rows.length} onClick={downloadCsv}><Download size={16} />Download CSV</Button>}{(dataset.demo || features.reportDownload) && <Button disabled={!rows.length} onClick={printReport}><Printer size={16} />Print / save PDF</Button>}</div>
       <p className={styles.finePrint}>The PDF includes the current chart and a full results appendix. CSV includes all measured dimensions and factors, scores, reference values, sample sizes, differences and campaign provenance. Missing results are omitted. PDF opens your browser’s print dialog.</p>
     </DialogContent></Dialog>
     <article className={styles.printReport}>

@@ -1,9 +1,13 @@
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { PageHeader } from "@/components/page-header";
 import { getDefaultModelIdForPurpose } from "@/app/actions/model-config";
 import { openRouterProvider } from "@/lib/ai/providers/openrouter";
 import { ChatInterface } from "./chat-interface";
 
 export default async function ChatPage() {
+  if (!await isWorkspaceFeatureEnabled('workspaceAssistant')) return <WorkspaceFeatureUnavailable feature="workspaceAssistant" />
+
   const [defaultModel, defaultDataModel, models] = await Promise.all([
     getDefaultModelIdForPurpose("chat"),
     getDefaultModelIdForPurpose("chat_data"),

@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { toast } from "sonner";
+import { authorizeWorkspaceUsageExport } from "@/app/actions/workspace-features";
+import { WorkspaceFeatureVisibility } from "@/components/workspace-feature-visibility";
 import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -132,7 +135,11 @@ export function UsageReportPanel({
     return result;
   }, [group, query, clientBasePath, campaignBasePath, showAdminLinks, pricing]);
 
-  function exportCsv() {
+  async function exportCsv() {
+    try {
+      const result = await authorizeWorkspaceUsageExport();
+      if ('error' in result) { toast.error(result.error); return; }
+    } catch { toast.error('Unable to authorise export.'); return; }
     const blob = new Blob(
       ["\uFEFF", usageReportCsv(report, group, scopeName)],
       { type: "text/csv;charset=utf-8" },
@@ -151,10 +158,10 @@ export function UsageReportPanel({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Badge variant="outline">Live activity</Badge>
-        <Button variant="outline" onClick={exportCsv}>
+        <WorkspaceFeatureVisibility features={["usageVisibility"]}><Button variant="outline" onClick={exportCsv}>
           <Download className="size-4" />
           Export CSV
-        </Button>
+        </Button></WorkspaceFeatureVisibility>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         {(

@@ -1,3 +1,4 @@
+import { requireWorkspaceFeature } from '@/lib/features/access'
 import {
   AuthenticationRequiredError,
   AuthorizationError,
@@ -48,6 +49,8 @@ export async function GET(
     }
   } else {
     try {
+      await requireWorkspaceFeature('reportViewing')
+      await requireWorkspaceFeature('reportDownload')
       const access = await requireReportSnapshotReadAccess(snapshotId)
       assertIndividualResultsAccess(access.scope, access.confidentialityMode)
     } catch (error) {

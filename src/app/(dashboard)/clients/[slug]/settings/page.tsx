@@ -1,3 +1,4 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { getClientBySlug } from "@/app/actions/clients";
 import { getClientInternalIntegrationSettings } from "@/app/actions/integrations";
 import { notFound } from "next/navigation";
@@ -24,7 +25,7 @@ export default async function OrgSettingsPage({
     partnerBrandingDisabled = partner != null && !partner.can_customize_branding;
   }
 
-  const integrationSettings = await getClientInternalIntegrationSettings(client.id);
+  const integrationSettings = await isWorkspaceFeatureEnabled('integrationManagement') ? await getClientInternalIntegrationSettings(client.id) : null;
 
   return (
     <ClientSettingsPanel

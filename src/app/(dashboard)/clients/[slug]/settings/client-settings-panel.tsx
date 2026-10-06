@@ -15,7 +15,7 @@ interface ClientSettingsPanelProps {
   partnerBrandingDisabled?: boolean;
   /** Shown when the partner's own flag is off. Wording differs by surface. */
   partnerBrandingDisabledMessage?: string;
-  integrationSettings: ClientInternalIntegrationSettings;
+  integrationSettings: ClientInternalIntegrationSettings | null;
 }
 
 export function ClientSettingsPanel({
@@ -92,12 +92,12 @@ export function ClientSettingsPanel({
         </p>
       )}
 
-      <ClientIntegrationsPanel
+      {integrationSettings && <ClientIntegrationsPanel
         clientId={clientId}
         clientSlug={clientSlug}
         settings={integrationSettings}
         disabled={isPending}
-      />
+      />}
     </div>
   );
 }

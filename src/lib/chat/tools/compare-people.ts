@@ -25,6 +25,7 @@ import { searchPeople, searchAssessments, ChatSearchError } from '@/lib/dal/chat
 import { getChatBandScheme } from '@/lib/dal/chat-band-scheme'
 
 export const comparePeopleTool = defineChatTool({
+  requiredFeatures: ['compare'],
   name: 'compare_people',
   description:
     'Compare two or more people side by side on a common assessment, factor by factor. Works without norms — everyone is measured against the same standard. Use for "compare X and Y", "who is stronger on…", "how do these candidates differ". Pass names or emails. The comparison is shown to the user as a card.',

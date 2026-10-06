@@ -1,3 +1,7 @@
+vi.mock('@/lib/dal/workspace-features', async () => {
+  const { defaultWorkspaceFeatures } = await import('@/lib/features/workspace-features')
+  return { getEffectiveWorkspaceFeatures: async () => defaultWorkspaceFeatures('partner') }
+})
 import { AuthorizationError } from '@/lib/auth/authorization'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 

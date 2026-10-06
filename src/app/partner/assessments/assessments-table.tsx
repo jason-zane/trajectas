@@ -1,5 +1,7 @@
 "use client";
 
+import { WorkspaceFeatureVisibility } from '@/components/workspace-feature-visibility'
+
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 
@@ -107,12 +109,12 @@ const columns: ColumnDef<AssessmentLibrarySummary>[] = [
     id: "actions",
     cell: ({ row }) =>
       row.original.canEdit ? (
-        <Link
+        <WorkspaceFeatureVisibility features={["assessmentAuthoring"]}><Link
           href={`/partner/assessments/${row.original.id}/edit`}
           className={buttonVariants({ variant: "ghost", size: "sm" })}
         >
           Edit
-        </Link>
+        </Link></WorkspaceFeatureVisibility>
       ) : (
         <span className="text-xs text-muted-foreground">Read-only</span>
       ),

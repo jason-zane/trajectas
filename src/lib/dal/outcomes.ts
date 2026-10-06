@@ -1,3 +1,5 @@
+
+import { requireWorkspaceFeature } from '@/lib/features/access'
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 import Papa from "papaparse";
@@ -98,6 +100,8 @@ async function studyAccess(id: string) {
   return { study: toStudy(row), scope };
 }
 export async function listOutcomeStudies() {
+  await requireWorkspaceFeature('outcomeStudies')
+
   const scope = await scopeForClient(),
     allowed = resolveTenantClientFilter(scope),
     db = createAdminClient();
@@ -126,6 +130,8 @@ export async function listOutcomeStudies() {
   };
 }
 export async function createOutcomeStudy(input: unknown) {
+  await requireWorkspaceFeature('outcomeStudies')
+
   const parsed = studyCreateSchema.parse(input),
     scope = await scopeForClient(parsed.clientId);
   await requireClientAccess(parsed.clientId);
@@ -156,6 +162,8 @@ export async function saveOutcomeStudy(
   revision: number,
   input: unknown,
 ) {
+  await requireWorkspaceFeature('outcomeStudies')
+
   const { study } = await studyAccess(id),
     config = outcomeConfigSchema.parse(input);
   const { campaigns } = await outcomeSources(study.clientId, []);
@@ -336,6 +344,8 @@ function toRun(r: RunRecord): OutcomeRun {
   };
 }
 export async function getOutcomeRuns(id: string) {
+  await requireWorkspaceFeature('outcomeStudies')
+
   const { study } = await studyAccess(id);
   const result = await createAdminClient()
     .from("outcome_runs")
@@ -348,6 +358,8 @@ export async function getOutcomeRuns(id: string) {
   return (result.data as RunRecord[]).map(toRun);
 }
 export async function getOutcomeWorkspace(id: string) {
+  await requireWorkspaceFeature('outcomeStudies')
+
   const { study } = await studyAccess(id),
     db = createAdminClient();
   const [source, imports, runs, reports, drafts] = await Promise.all([
@@ -405,6 +417,8 @@ export async function importOutcomeData(
   file: File,
   sheet: string,
 ) {
+  await requireWorkspaceFeature('outcomeStudies')
+
   const { study, scope } = await studyAccess(studyId);
   if (!scope.actor) throw new AuthorizationError("Sign in to import data.");
   if (file.size < 1 || file.size > 4 * 1024 * 1024)
@@ -510,6 +524,8 @@ export async function importOutcomeData(
   return toImport(data as ImportRecord);
 }
 export async function getOutcomeRoster(studyId: string) {
+  await requireWorkspaceFeature('outcomeStudies')
+
   const { study } = await studyAccess(studyId);
   const source = await outcomeSources(study.clientId, study.config.campaignIds);
   return [
@@ -522,6 +538,8 @@ export async function getOutcomeRoster(studyId: string) {
   ];
 }
 export async function queueOutcomeRun(studyId: string) {
+  await requireWorkspaceFeature('outcomeStudies')
+
   const { study, scope } = await studyAccess(studyId);
   if (!scope.actor) throw new AuthorizationError("Sign in to run an analysis.");
   if (!study.config.importId || !study.config.campaignIds.length)
@@ -615,6 +633,8 @@ export async function publishOutcomeReport(
   runId: string,
   draftInput: unknown,
 ) {
+  await requireWorkspaceFeature('outcomeReports')
+
   const { study, scope } = await studyAccess(studyId),
     draft = reportDraftSchema.parse(draftInput);
   if (!scope.actor)
@@ -669,6 +689,8 @@ export async function publishOutcomeReport(
   return published.data!.id as string;
 }
 export async function getOutcomeReport(id: string): Promise<OutcomeReport> {
+  await requireWorkspaceFeature('outcomeReports')
+
   const initialScope = await resolveAuthorizedScope(),
     allowedClients = resolveTenantClientFilter(initialScope);
   const db = await createClient();
@@ -694,6 +716,8 @@ export async function getOutcomeReport(id: string): Promise<OutcomeReport> {
   };
 }
 export async function revokeOutcomeReport(studyId: string, reportId: string) {
+  await requireWorkspaceFeature('outcomeReports')
+
   const { study, scope } = await studyAccess(studyId);
   const { error } = await createAdminClient()
     .from("outcome_reports")
@@ -718,6 +742,8 @@ export async function saveOutcomeReportDraft(
   revision: number,
   input: unknown,
 ) {
+  await requireWorkspaceFeature('outcomeReports')
+
   const { study, scope } = await studyAccess(studyId),
     draft = reportDraftSchema.parse(input),
     db = createAdminClient();

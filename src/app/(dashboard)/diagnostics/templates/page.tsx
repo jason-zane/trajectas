@@ -1,3 +1,5 @@
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import Link from "next/link";
 import {
   Plus,
@@ -16,6 +18,8 @@ import { TiltCard } from "@/components/tilt-card";
 import { getDiagnosticTemplates } from "@/app/actions/diagnostics";
 
 export default async function DiagnosticTemplatesPage() {
+  if (!await isWorkspaceFeatureEnabled('orgDiagnostics')) return <WorkspaceFeatureUnavailable feature="orgDiagnostics" />
+
   const templates = await getDiagnosticTemplates();
 
   return (

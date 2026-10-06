@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound, redirect } from 'next/navigation'
 import { getSessionDetail } from '@/app/actions/sessions'
 import { getCampaignSessionReportRows } from '@/app/actions/reports'
@@ -9,6 +11,8 @@ export default async function PartnerCampaignSessionPage({
 }: {
   params: Promise<{ id: string; sessionId: string }>
 }) {
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   const { id: campaignId, sessionId } = await params
 
   const session = await getSessionDetail(sessionId)

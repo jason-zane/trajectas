@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { ClientDetailShell } from "@/app/(dashboard)/clients/[slug]/client-detail-shell";
 import { requirePartnerClient } from "@/lib/auth/resolve-partner-client";
 
@@ -8,6 +10,7 @@ export default async function PartnerClientDetailLayout({
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('clientDirectory')) return <WorkspaceFeatureUnavailable feature="clientDirectory" />
   const { slug } = await params;
   const { client } = await requirePartnerClient(slug);
 

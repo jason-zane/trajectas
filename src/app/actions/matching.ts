@@ -1,5 +1,7 @@
 'use server'
 
+import { requireWorkspaceFeature } from '@/lib/features/access'
+
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -55,6 +57,8 @@ function getRelatedCount(value: unknown) {
 }
 
 export async function getMatchingRuns(): Promise<MatchingRunWithMeta[]> {
+  await requireWorkspaceFeature('roleMatching')
+
   await requireAdminScope()
   const db = await createClient()
   const { data, error } = await db
@@ -83,6 +87,8 @@ export async function getMatchingRuns(): Promise<MatchingRunWithMeta[]> {
 }
 
 export async function getWorkspaceMatchingRuns(): Promise<WorkspaceMatchingRunWithMeta[]> {
+  await requireWorkspaceFeature('roleMatching')
+
   const scope = await resolveAuthorizedScope()
   if (!scope.isPlatformAdmin && scope.clientIds.length === 0) {
     return []
@@ -174,6 +180,8 @@ export async function getWorkspaceMatchingRuns(): Promise<WorkspaceMatchingRunWi
 export type SelectOption = { id: string; name: string }
 
 export async function getClientsForMatchingSelect(): Promise<SelectOption[]> {
+  await requireWorkspaceFeature('roleMatching')
+
   await requireAdminScope()
   const db = await createClient()
   const { data, error } = await db
@@ -193,6 +201,8 @@ export async function getClientsForMatchingSelect(): Promise<SelectOption[]> {
 }
 
 export async function getSessionsForMatchingSelect(clientId?: string): Promise<{ id: string; title: string }[]> {
+  await requireWorkspaceFeature('roleMatching')
+
   const parsed = getSessionsForMatchingSelectSchema.safeParse({ clientId })
   if (!parsed.success) return []
   await requireAdminScope()
@@ -231,6 +241,8 @@ export async function getSessionsForMatchingSelect(clientId?: string): Promise<{
 // ---------------------------------------------------------------------------
 
 export async function bulkDeleteMatchingRuns(ids: string[]): Promise<void> {
+  await requireWorkspaceFeature('roleMatching')
+
   if (ids.length === 0) return
   const parsed = bulkDeleteMatchingRunsSchema.safeParse({ ids })
   if (!parsed.success) throw new Error('Invalid IDs')

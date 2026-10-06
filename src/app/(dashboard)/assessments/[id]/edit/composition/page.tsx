@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import {
@@ -35,6 +37,8 @@ export default async function AssessmentCompositionPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature="assessmentAuthoring" />
+
   const { id } = await params
 
   return (

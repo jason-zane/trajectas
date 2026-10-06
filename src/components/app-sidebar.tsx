@@ -2,7 +2,7 @@
 
 import { isTrajectasName } from "@/lib/brand/identity";
 
-import { featureForInsightPath } from '@/lib/features/workspace-features';
+import { featureForWorkspacePath } from '@/lib/features/workspace-features';
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -233,6 +233,7 @@ const clientNav: NavSection[] = [
     items: [
       { title: "Compare", href: "/participants/compare", icon: Scale },
       { title: "Trajectory", href: "/participants/trajectory", icon: TrendingUp },
+      { title: "Unified Trajectory", href: "/participants/unified", icon: Layers },
     ],
   },
 ];
@@ -298,7 +299,7 @@ export function AppSidebar({ identity }: AppSidebarProps = {}) {
   const PortalIcon = config.icon;
   const navSections = navByPortal[portal].map(section => ({
     ...section, items: section.items.filter(item => {
-      const feature = featureForInsightPath(item.href);
+      const feature = featureForWorkspacePath(item.href);
       return !feature || features[feature];
     }),
   })).filter(section => section.items.length > 0);

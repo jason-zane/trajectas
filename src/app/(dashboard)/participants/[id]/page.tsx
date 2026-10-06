@@ -1,3 +1,4 @@
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { isWorkspaceFeatureEnabled } from "@/lib/features/access";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
@@ -67,6 +68,8 @@ export default async function AdminParticipantDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   const { id } = await params;
 
   const participant = await loadParticipant(id);

@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/page-header'
@@ -18,6 +20,8 @@ interface Props {
 }
 
 export default async function PreviewPage({ params, searchParams }: Props) {
+  if (!await isWorkspaceFeatureEnabled('reportTemplateAuthoring')) return <WorkspaceFeatureUnavailable feature="reportTemplateAuthoring" />
+
   const { id } = await params
   const sp = await searchParams
 

@@ -1,3 +1,4 @@
+import { requireWorkspaceFeature } from '@/lib/features/access'
 import { MultipleTrajectoryPeopleError } from '@/lib/features/workspace-features'
 import { insightExperienceSchema } from '@/lib/validations/workspace-features'
 import { AuthorizationError } from '@/lib/auth/authorization'
@@ -33,6 +34,7 @@ export async function POST(req: Request): Promise<Response> {
   // getComparisonCanvas authorises every participant id internally.
   let result
   try {
+    await requireWorkspaceFeature('insightCsvExport')
     result = await getComparisonCanvas(parsed.data.campaignParticipantIds, parsed.data.experience)
   } catch (error) {
     if (error instanceof MultipleTrajectoryPeopleError) return NextResponse.json({ error: 'individual_trajectory_requires_one_person' }, { status: 400 })

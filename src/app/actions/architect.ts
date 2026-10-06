@@ -1,5 +1,7 @@
 'use server'
 
+import { requireWorkspaceFeature } from '@/lib/features/access'
+
 /**
  * Assessment Architect — server actions.
  *
@@ -37,6 +39,8 @@ const MAX_BRIEF_CHARS = 40000 // truncate over-long role text before extraction 
 export async function extractRoleText(
   formData: FormData,
 ): Promise<{ text: string } | { error: string }> {
+  await requireWorkspaceFeature('roleMatching')
+
   await requireAdminScope()
   const file = formData.get('file')
   if (!(file instanceof File) || file.size === 0) return { error: 'No file provided.' }
@@ -52,6 +56,8 @@ export async function extractBrief(input: {
   rawText: string
   outcomeIntent: string
 }): Promise<Brief> {
+  await requireWorkspaceFeature('roleMatching')
+
   await requireAdminScope()
   // Truncate over-long input (long CVs/JDs) so it's trimmed, not rejected.
   const rawText = (input.rawText ?? '').slice(0, MAX_BRIEF_CHARS)
@@ -71,6 +77,8 @@ export async function extractBrief(input: {
 // ---------------------------------------------------------------------------
 
 export async function runArchitectMatch(input: { brief: Brief; rawText?: string }): Promise<ArchitectMatchResult> {
+  await requireWorkspaceFeature('roleMatching')
+
   await requireAdminScope()
   // Truncate over-long input the same way extractBrief does, before validating.
   const rawText = input.rawText !== undefined ? input.rawText.slice(0, MAX_BRIEF_CHARS) : undefined
@@ -90,6 +98,8 @@ export async function summariseArchitectSelection(input: {
   included: { factorName: string; categoryName: string | null; rank: number }[]
   excluded: { factorName: string; categoryName: string | null; rank: number }[]
 }): Promise<{ summary: string } | { error: string }> {
+  await requireWorkspaceFeature('roleMatching')
+
   await requireAdminScope()
   const parsed = summariseSelectionSchema.safeParse(input)
   if (!parsed.success) return { error: 'Invalid selection.' }
@@ -115,6 +125,8 @@ export async function createArchitectAssessment(input: {
   description?: string
   picks: Array<{ factorId: string; itemCount: number; weight?: number }>
 }) {
+  await requireWorkspaceFeature('roleMatching'); await requireWorkspaceFeature('assessmentAuthoring')
+
   const parsed = createArchitectAssessmentSchema.safeParse(input)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }

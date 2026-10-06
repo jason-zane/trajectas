@@ -1,5 +1,7 @@
 'use server'
 
+import { requireWorkspaceFeature } from '@/lib/features/access'
+
 import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import {
   ParticipantRuntimeAccessError,
@@ -171,6 +173,8 @@ async function assertCanManageExperienceOwner(
   ownerType: ExperienceOwnerType,
   ownerId: string | null
 ): Promise<void> {
+  await requireWorkspaceFeature('participantExperience')
+
   if (ownerType === 'campaign' && ownerId) {
     const db = createAdminClient()
     const { data: campaign } = await db

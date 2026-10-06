@@ -1,13 +1,15 @@
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { canRun, createAdminClient, createTestUser } from './_helpers/rls-fixture'
+import { defaultWorkspaceFeatures, previewFeatureChange } from '@/lib/features/workspace-features'
+import { workspacePreset } from '@/lib/features/workspace-presets'
 import type { AuthorizedScope } from '@/lib/auth/authorization'
 const request = vi.hoisted(() => ({ scope: null as AuthorizedScope | null }))
 vi.mock('@/lib/auth/authorization', async importOriginal => ({
   ...await importOriginal<typeof import('@/lib/auth/authorization')>(), resolveAuthorizedScope: async () => request.scope,
 }))
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient }))
-import { getTenantWorkspaceFeatures, getEffectiveWorkspaceFeatures, setTenantWorkspaceFeature } from '@/lib/dal/workspace-features'
+import { getTenantWorkspaceFeatures, getEffectiveWorkspaceFeatures, setTenantWorkspaceFeature, applyWorkspaceFeatureConfiguration } from '@/lib/dal/workspace-features'
 
 describe.skipIf(!canRun)('workspace features: real local ownership, RLS and audit', () => {
   const db = createAdminClient()
@@ -94,7 +96,9 @@ describe.skipIf(!canRun)('workspace features: real local ownership, RLS and audi
     request.scope = { ...platform, requestSurface: 'partner', isPlatformAdmin: false, partnerIds: [ids.a], activeContext: { surface: 'partner', tenantType: 'partner', tenantId: ids.a } }
     await expect(getTenantWorkspaceFeatures('partner', ids.b)).rejects.toThrow('not accessible')
     request.scope = platform
-    await expect(setTenantWorkspaceFeature({ type: 'client', id: ids.client }, { key: 'unifiedTrajectory', value: true })).rejects.toThrow('partner workspaces only')
+    expect(await setTenantWorkspaceFeature({ type: 'client', id: ids.client }, { key: 'unifiedTrajectory', value: true })).toMatchObject({ unifiedTrajectory: true })
+    await expect(setTenantWorkspaceFeature({ type: 'client', id: ids.client }, { key: 'clientDirectory', value: true })).rejects.toThrow('partner workspaces only')
+    await expect(setTenantWorkspaceFeature({ type: 'client', id: ids.client }, { key: 'dashboardStyle', value: 'portfolio' })).rejects.toThrow('partner workspaces only')
   })
   it('uses the selected client’s owning partner rather than unrelated memberships', async () => {
     request.scope = platform
@@ -105,10 +109,10 @@ describe.skipIf(!canRun)('workspace features: real local ownership, RLS and audi
     await setTenantWorkspaceFeature({ type: 'partner', id: ids.b }, { key: 'dashboardStyle', value: 'portfolio' })
     await setTenantWorkspaceFeature({ type: 'client', id: ids.client }, { key: 'compare', value: false })
     request.scope = { ...platform, requestSurface: 'partner', isPlatformAdmin: false, partnerIds: [ids.a, ids.b], clientIds: [ids.client], activeContext: { surface: 'partner', tenantType: 'client', tenantId: ids.client } }
-    expect(await getEffectiveWorkspaceFeatures()).toEqual({ compare: true, trajectory: true, unifiedTrajectory: true, dashboardStyle: 'operational' })
+    expect(await getEffectiveWorkspaceFeatures()).toEqual({ ...defaultWorkspaceFeatures('partner'), dashboardStyle: 'operational' })
     // The same client's own portal uses its own licence, not the parent's.
     request.scope = { ...request.scope, requestSurface: 'client' }
-    expect(await getEffectiveWorkspaceFeatures()).toMatchObject({ compare: false, trajectory: true, unifiedTrajectory: false })
+    expect(await getEffectiveWorkspaceFeatures()).toMatchObject({ compare: false, trajectory: true, unifiedTrajectory: true })
     request.scope = platform
   })
   it('does not substitute another partner when the selected client has no eligible owner', async () => {
@@ -126,4 +130,51 @@ describe.skipIf(!canRun)('workspace features: real local ownership, RLS and audi
     expect(await getEffectiveWorkspaceFeatures()).toMatchObject({ compare: false, trajectory: false, unifiedTrajectory: false })
     request.scope = platform
   })
+  it('atomically applies a reviewed cascade, rejects stale diffs and audits overrides', async () => {
+    request.scope = platform
+    const tenant = { type: 'partner' as const, id: ids.a }
+    const before = await getTenantWorkspaceFeatures('partner', ids.a)
+    const next = previewFeatureChange(before, 'assessmentAuthoring', false)
+    expect(await applyWorkspaceFeatureConfiguration(tenant, next, before, 'dependency')).toEqual(next)
+    await expect(applyWorkspaceFeatureConfiguration(tenant, before, before, 'dependency')).rejects.toThrow('changed')
+    const events = await db.from('audit_events').select('metadata').eq('partner_id', ids.a).eq('event_type','workspace.features_updated').order('created_at',{ ascending: false }).limit(1)
+    expect(events.error).toBeNull()
+    expect(events.data?.[0].metadata).toMatchObject({ origin: 'dependency', previous: before, next })
+    const preset = workspacePreset('fullPartner','partner')
+    expect(await applyWorkspaceFeatureConfiguration(tenant, preset, next, 'preset:fullPartner:v1')).toEqual(preset)
+    expect(await setTenantWorkspaceFeature(tenant,{ key: 'compare', value: true })).toMatchObject({ ...preset, compare: true })
+  })
+  it('rejects incompatible SQL patches and unauthorized RPC callers', async () => {
+    request.scope = platform
+    const invalid = await db.rpc('patch_workspace_features', { p_tenant_type: 'partner', p_tenant_id: ids.a, p_actor: users[0].userId, p_patch: { assessmentAuthoring: false, assessmentPublishing: true } })
+    expect(invalid.error?.message).toContain('requires')
+    const invalidStyle = await db.rpc('patch_workspace_features', { p_tenant_type: 'partner', p_tenant_id: ids.a, p_actor: users[0].userId, p_patch: { dashboardStyle: null } })
+    expect(invalidStyle.error?.message).toContain('Invalid dashboard')
+    for (const user of users) {
+      const result = await user.client.rpc('patch_workspace_features', { p_tenant_type: 'partner', p_tenant_id: ids.a, p_actor: user.userId, p_patch: { compare: true } })
+      expect(result.error?.code).toBe('42501')
+    }
+  })
+  it('keeps workspace provisioning and its audited configuration atomic', async () => {
+    const slug = `features-provision-${randomUUID()}`
+    const failed = await db.rpc('provision_workspace_with_features', { p_tenant_type:'client', p_record:{ name:'Synthetic rollback', slug, is_active:true }, p_actor:randomUUID(), p_features:workspacePreset('client','client'), p_origin:'preset:client:v1:provisioning' })
+    expect(failed.error).not.toBeNull() // invalid audit actor fails after the owner INSERT
+    const absent = await db.from('clients').select('id').eq('slug',slug)
+    expect(absent.error).toBeNull(); expect(absent.data).toEqual([])
+    const result = await db.rpc('provision_workspace_with_features', { p_tenant_type:'client', p_record:{ name:'Synthetic provision', slug, is_active:true }, p_actor:users[0].userId, p_features:workspacePreset('client','client'), p_origin:'preset:client:v1:provisioning' })
+    expect(result.error).toBeNull(); expect(result.data).toBeTruthy()
+    try {
+      request.scope = platform
+      expect(await getTenantWorkspaceFeatures('client',String(result.data))).toEqual(workspacePreset('client','client'))
+      const audit = await db.from('audit_events').select('metadata').eq('client_id',result.data).eq('event_type','workspace.features_updated')
+      expect(audit.error).toBeNull(); expect(audit.data).toHaveLength(1)
+      expect(audit.data?.[0].metadata).toMatchObject({ origin:'preset:client:v1:provisioning', previous:defaultWorkspaceFeatures('client'), next:workspacePreset('client','client') })
+    } finally {
+      const settings = await db.from('workspace_feature_settings').delete().eq('client_id',result.data)
+      if (settings.error) throw settings.error
+      const client = await db.from('clients').delete().eq('id',result.data)
+      if (client.error) throw client.error
+    }
+  })
+
 })

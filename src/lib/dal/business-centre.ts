@@ -1,3 +1,5 @@
+
+import { requireWorkspaceFeature, isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -25,6 +27,8 @@ type ClientRef = { client_id?: string | null } | null;
 
 /** All invoices for one client (joined through its billing account). */
 export async function listInvoicesForClient(clientId: string): Promise<Invoice[]> {
+  await requireWorkspaceFeature('billingVisibility')
+
   const db = createAdminClient();
   const { data, error } = await db
     .from("invoices")
@@ -39,6 +43,7 @@ export async function listInvoicesForClient(clientId: string): Promise<Invoice[]
 
 /** Last 12 months of completed-assessment counts for a client (gaps filled). */
 export async function getClientUsageMonthly(clientId: string): Promise<SeriesPoint[]> {
+  await requireWorkspaceFeature('usageVisibility')
   const db = createAdminClient();
   const { data, error } = await db
     .from("client_usage_monthly")
@@ -64,11 +69,13 @@ export interface ClientBillingHub {
 
 /** Everything the client Billing tab needs, in one call. */
 export async function getClientBillingHub(clientId: string): Promise<ClientBillingHub> {
+  await requireWorkspaceFeature('billingVisibility')
+
   const db = createAdminClient();
   const [billingAccount, invoices, usageMonthly, totalsRes] = await Promise.all([
     getBillingAccountByClientId(clientId),
     listInvoicesForClient(clientId),
-    getClientUsageMonthly(clientId),
+    (await isWorkspaceFeatureEnabled('usageVisibility')) ? getClientUsageMonthly(clientId) : Promise.resolve([]),
     db
       .from("campaigns_with_counts")
       .select("participant_count, completed_count")

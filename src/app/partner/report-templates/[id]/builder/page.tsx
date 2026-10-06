@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from "next/navigation";
 import {
   getAllCampaigns,
@@ -14,6 +16,8 @@ export default async function PartnerReportTemplateBuilderPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('reportTemplateAuthoring')) return <WorkspaceFeatureUnavailable feature="reportTemplateAuthoring" />
+
   const { id } = await params;
   const [template, usage, campaigns, promptOptions] = await Promise.all([
     getReportTemplate(id),

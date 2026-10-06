@@ -1,3 +1,4 @@
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { isWorkspaceFeatureEnabled } from "@/lib/features/access";
 import Link from "next/link";
 import { TrendingUp } from "lucide-react";
@@ -11,6 +12,8 @@ export default async function ParticipantsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   const trajectoryEnabled = await isWorkspaceFeatureEnabled("trajectory");
   const params = await searchParams;
   const view = params.view === "sessions" ? "sessions" : "participants";

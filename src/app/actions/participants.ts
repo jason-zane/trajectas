@@ -1,5 +1,7 @@
 'use server'
 
+import { requireWorkspaceFeature } from '@/lib/features/access'
+
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -122,6 +124,8 @@ export async function getParticipants(filters?: {
   page?: number
   perPage?: number
 }): Promise<{ data: ParticipantWithMeta[]; total: number }> {
+  await requireWorkspaceFeature('campaignViewing')
+
   const parsed = getParticipantsFiltersSchema.safeParse(filters ?? {})
   if (!parsed.success) return { data: [], total: 0 }
   const scope = await resolveAuthorizedScope()
@@ -163,6 +167,8 @@ export async function getUniqueParticipants(filters?: {
   page?: number
   perPage?: number
 }): Promise<{ data: UniqueParticipant[]; total: number }> {
+  await requireWorkspaceFeature('campaignViewing')
+
   const parsed = getUniqueParticipantsFiltersSchema.safeParse(filters ?? {})
   if (!parsed.success) return { data: [], total: 0 }
   const scope = await resolveAuthorizedScope()
@@ -191,6 +197,8 @@ export async function getUniqueParticipants(filters?: {
 // ---------------------------------------------------------------------------
 
 export async function getParticipant(id: string): Promise<ParticipantDetail | null> {
+  await requireWorkspaceFeature('campaignViewing')
+
   if (!postgresUuid().safeParse(id).success) return null
   let access: Awaited<ReturnType<typeof requireParticipantAccess>>
   try {
@@ -228,6 +236,8 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
 // ---------------------------------------------------------------------------
 
 export async function getParticipantSessions(participantId: string): Promise<ParticipantSession[]> {
+  await requireWorkspaceFeature('campaignViewing')
+
   if (!postgresUuid().safeParse(participantId).success) return []
   let access: Awaited<ReturnType<typeof requireParticipantAccess>>
   try {
@@ -263,6 +273,8 @@ export async function getParticipantSessions(participantId: string): Promise<Par
 // ---------------------------------------------------------------------------
 
 export async function getParticipantActivity(participantId: string): Promise<ActivityEvent[]> {
+  await requireWorkspaceFeature('campaignViewing')
+
   if (!postgresUuid().safeParse(participantId).success) return []
   let access: Awaited<ReturnType<typeof requireParticipantAccess>>
   try {
@@ -298,6 +310,8 @@ export async function getParticipantActivity(participantId: string): Promise<Act
 // ---------------------------------------------------------------------------
 
 export async function getParticipantResponses(sessionId: string): Promise<ParticipantResponseGroup[]> {
+  await requireWorkspaceFeature('campaignViewing')
+
   if (!postgresUuid().safeParse(sessionId).success) return []
   let access: Awaited<ReturnType<typeof requireSessionAccess>>
   try {
@@ -360,6 +374,8 @@ async function assertCanManageParticipants(ids: string[]): Promise<void> {
 }
 
 export async function bulkDeleteParticipants(ids: string[]): Promise<void> {
+  await requireWorkspaceFeature('campaignManagement')
+
   if (ids.length === 0) return
   const parsed = bulkParticipantIdsSchema.safeParse({ ids })
   if (!parsed.success) throw new Error('Invalid input')
@@ -379,6 +395,8 @@ export async function bulkUpdateParticipantStatus(
   ids: string[],
   status: CampaignParticipantStatus
 ): Promise<void> {
+  await requireWorkspaceFeature('campaignManagement')
+
   if (ids.length === 0) return
   const parsed = bulkUpdateParticipantStatusSchema.safeParse({ ids, status })
   if (!parsed.success) throw new Error('Invalid input')

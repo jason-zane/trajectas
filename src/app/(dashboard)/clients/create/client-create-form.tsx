@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/page-header";
+import { ProvisioningFeatureSelection } from '@/components/provisioning-feature-selection';
 import { createClient } from "@/app/actions/clients";
 
 const PLATFORM_OWNED_VALUE = "__platform__";
@@ -37,6 +38,7 @@ function slugify(text: string): string {
 export function ClientCreateForm({
   partnerOptions,
   canAssignPartner,
+  canSelectFeatures = false,
   fixedPartnerId = null,
   fixedPartnerName = null,
   redirectPath = "/directory?tab=clients",
@@ -44,6 +46,7 @@ export function ClientCreateForm({
 }: {
   partnerOptions: Array<{ id: string; name: string }>;
   canAssignPartner: boolean;
+  canSelectFeatures?: boolean;
   fixedPartnerId?: string | null;
   fixedPartnerName?: string | null;
   redirectPath?: string;
@@ -129,6 +132,7 @@ export function ClientCreateForm({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {canSelectFeatures && <ProvisioningFeatureSelection type="client" />}
             {error && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
                 {error}

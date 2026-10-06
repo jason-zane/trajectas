@@ -1,5 +1,6 @@
 "use client";
 
+import { usePortal } from '@/components/portal-context'
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -234,8 +235,10 @@ export function QuickLaunchModal({
   successHrefPrefix = "/campaigns",
   initialAssessmentId,
   creatorEmail,
-  allowLeadership360 = false,
+  allowLeadership360: allowLeadership360Input = false,
 }: QuickLaunchModalProps) {
+  const { features } = usePortal();
+  const allowLeadership360 = allowLeadership360Input && features.feedback360;
   const [stepId, setStepId] = useState<StepId>(
     allowLeadership360 ? "type" : "campaign",
   );

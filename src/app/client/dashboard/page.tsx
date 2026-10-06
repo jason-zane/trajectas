@@ -1,3 +1,4 @@
+import { getEffectiveWorkspaceFeatures } from '@/lib/dal/workspace-features';
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
 import {
   getCampaigns,
@@ -36,6 +37,7 @@ export default async function ClientDashboardPage() {
     );
   }
 
+  const features = await getEffectiveWorkspaceFeatures();
   const [
     campaigns,
     operationalCampaigns,
@@ -44,12 +46,12 @@ export default async function ClientDashboardPage() {
     favoriteCampaignIds,
     completionTimeline,
   ] = await Promise.all([
-    getCampaigns({ clientId }),
-    getOperationalCampaignsForClient(clientId, { limit: 6 }),
-    getRecentClientResults(clientId, { limit: 5 }),
-    getClientAssessmentLibrary(clientId),
-    getFavoriteCampaignIds(),
-    getCompletionTimeline(clientId, { days: 14 }),
+    features.campaignViewing ? getCampaigns({ clientId }) : Promise.resolve([]),
+    features.campaignViewing ? getOperationalCampaignsForClient(clientId, { limit: 6 }) : Promise.resolve([]),
+    features.campaignViewing ? getRecentClientResults(clientId, { limit: 5 }) : Promise.resolve([]),
+    features.assessmentLibrary ? getClientAssessmentLibrary(clientId) : Promise.resolve([]),
+    features.campaignViewing ? getFavoriteCampaignIds() : Promise.resolve([]),
+    features.campaignViewing ? getCompletionTimeline(clientId, { days: 14 }) : Promise.resolve([]),
   ]);
 
   const launchAssessments: CampaignAssessmentOption[] = libraryAssessments.map(

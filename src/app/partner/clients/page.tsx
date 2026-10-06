@@ -1,3 +1,7 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
+
+import { WorkspaceFeatureVisibility } from '@/components/workspace-feature-visibility'
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
@@ -12,6 +16,7 @@ import {
 import { ClientsTable } from "./clients-table";
 
 export default async function PartnerClientsPage() {
+  if (!await isWorkspaceFeatureEnabled('clientDirectory')) return <WorkspaceFeatureUnavailable feature="clientDirectory" />
   const [clients, scope] = await Promise.all([
     getClients(),
     resolveAuthorizedScope(),
@@ -23,7 +28,7 @@ export default async function PartnerClientsPage() {
   const manageableClientIds = clients
     .filter((client) => canManageClient(scope, client.id))
     .map((client) => client.id);
-  const canCreate = canManageClientDirectory(scope);
+  const canCreate = canManageClientDirectory(scope) && await isWorkspaceFeatureEnabled('clientProvisioning');
 
   return (
     <div className="space-y-8 max-w-6xl">
@@ -33,10 +38,10 @@ export default async function PartnerClientsPage() {
         description={`${clients.length} client${clients.length !== 1 ? "s" : ""} in your portfolio.`}
       >
         {canCreate ? (
-          <Link href="/partner/clients/create" className={buttonVariants()}>
+          <WorkspaceFeatureVisibility features={["clientProvisioning"]}><Link href="/partner/clients/create" className={buttonVariants()}>
             <Plus className="size-4" />
             New Client
-          </Link>
+          </Link></WorkspaceFeatureVisibility>
         ) : null}
       </PageHeader>
       {clients.length === 0 ? (

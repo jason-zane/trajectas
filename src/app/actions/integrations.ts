@@ -1,5 +1,7 @@
 'use server'
 
+import { requireWorkspaceFeature } from '@/lib/features/access'
+
 import crypto from 'crypto'
 
 import { revalidatePath } from 'next/cache'
@@ -111,6 +113,8 @@ function generateWebhookSigningSecret() {
 }
 
 async function requireManageableClient(clientId: string) {
+  await requireWorkspaceFeature('integrationManagement')
+
   const access = await requireClientAccess(clientId)
   const canManage = canManageClient(access.scope, access.clientId)
   if (!canManage) {

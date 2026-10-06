@@ -38,6 +38,7 @@ export default async function PartnerDashboardPage() {
     );
   }
 
+  const features = await getEffectiveWorkspaceFeatures();
   const [
     clients,
     campaigns,
@@ -46,16 +47,14 @@ export default async function PartnerDashboardPage() {
     favoriteCampaignIds,
     { completionTimeline, recentResults },
     partnerName,
-    features,
   ] = await Promise.all([
-    getClients(),
-    getCampaigns(),
-    getPartnerAssessmentAssignments(partnerId),
-    getActiveAssessments(),
-    getFavoriteCampaignIds(),
-    getPartnerDashboardData(partnerId),
+    features.clientDirectory ? getClients() : Promise.resolve([]),
+    features.campaignViewing ? getCampaigns() : Promise.resolve([]),
+    features.assessmentLibrary ? getPartnerAssessmentAssignments(partnerId) : Promise.resolve([]),
+    features.assessmentDelivery ? getActiveAssessments() : Promise.resolve([]),
+    features.campaignViewing ? getFavoriteCampaignIds() : Promise.resolve([]),
+    features.campaignViewing ? getPartnerDashboardData(partnerId) : Promise.resolve({ completionTimeline: [], recentResults: [] }),
     getPartnerName(partnerId),
-    getEffectiveWorkspaceFeatures(),
   ]);
 
   return (

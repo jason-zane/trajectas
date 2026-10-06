@@ -1,5 +1,7 @@
 'use client'
 
+import { usePortal } from '@/components/portal-context'
+
 import { useState } from 'react'
 import { Download, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -11,7 +13,7 @@ interface PreviewPdfButtonProps {
   assessmentId: string | null
 }
 
-export function PreviewPdfButton({ templateId, assessmentId }: PreviewPdfButtonProps) {
+function PreviewPdfButtonContent({ templateId, assessmentId }: PreviewPdfButtonProps) {
   const [loading, setLoading] = useState(false)
 
   async function handleClick() {
@@ -51,4 +53,9 @@ export function PreviewPdfButton({ templateId, assessmentId }: PreviewPdfButtonP
       {loading ? 'Preparing…' : 'Download PDF'}
     </Button>
   )
+}
+
+export function PreviewPdfButton(props: PreviewPdfButtonProps) {
+  const { features } = usePortal()
+  return features.reportTemplateAuthoring && features.reportDownload ? <PreviewPdfButtonContent {...props} /> : null
 }

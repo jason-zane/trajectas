@@ -1,5 +1,6 @@
 "use client";
 
+import { usePortal } from '@/components/portal-context';
 import { usePathname, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
@@ -31,12 +32,18 @@ export function ClientDetailShell({
   /** Tab root. Defaults to the admin console; the partner portal passes its own. */
   basePath?: string;
 }) {
+  const { features, portal } = usePortal();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   // Billing is platform-admin only (matches the gate on the billing page).
-  const tabs = isPlatformAdmin
+  const allowedTabs = isPlatformAdmin
     ? ALL_TABS
     : ALL_TABS.filter((t) => t.segment !== "billing" && t.segment !== "features");
+  const tabs = allowedTabs.filter(tab => {
+    const keys = { details: 'clientManagement', settings: 'clientManagement', branding: 'clientManagement', assessments: 'clientAssessmentAllocation', reports: 'clientTemplateAllocation', usage: 'usageVisibility', users: 'teamManagement' } as const;
+    const key = keys[tab.segment as keyof typeof keys];
+    return !key || (portal !== 'partner' && key.startsWith('client')) || features[key];
+  });
   const activeSegment =
     tabs.find((t) => pathname.endsWith(`/${t.segment}`))?.segment ?? "overview";
 

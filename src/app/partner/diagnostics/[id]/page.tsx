@@ -1,3 +1,5 @@
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { WorkspacePortalLivePage } from "@/components/workspace-portal-live";
 import { WorkspacePortalPage } from "@/components/workspace-portal-page";
 import { resolveWorkspaceAccess } from "@/lib/auth/workspace-access";
@@ -9,6 +11,8 @@ export default async function PartnerDiagnosticDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('orgDiagnostics')) return <WorkspaceFeatureUnavailable feature="orgDiagnostics" />
+
   const { id } = await params;
   const config = partnerPortalPages.diagnostics;
 

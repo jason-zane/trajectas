@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { requirePartnerClient } from "@/lib/auth/resolve-partner-client";
 import { UsagePeriodControls } from "@/components/usage/usage-period-controls";
 import { UsageReportPanel } from "@/components/usage/usage-report-panel";
@@ -15,6 +17,7 @@ export default async function PartnerClientUsagePage({
   params: Promise<{ slug: string }>;
   searchParams: Promise<UsageSearchParams>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('usageVisibility')) return <WorkspaceFeatureUnavailable feature="usageVisibility" />
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const { client } = await requirePartnerClient(slug);
   const period = resolveUsagePeriod(query);

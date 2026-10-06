@@ -1,5 +1,8 @@
 "use client";
 
+import { usePortal } from '@/components/portal-context'
+import { WorkspaceTeamControls } from '@/components/workspace-team-controls'
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -51,6 +54,8 @@ export function PartnerUsersTable({
   partnerId: string;
   members: PartnerMember[];
 }) {
+  const { features } = usePortal();
+  const canManageTeam = features.teamManagement;
   const router = useRouter();
   const [removeTarget, setRemoveTarget] = useState<PartnerMember | null>(null);
   const [isRemoving, startRemove] = useTransition();
@@ -138,7 +143,7 @@ export function PartnerUsersTable({
                 handleRoleChange(row.original, value);
               }
             }}
-            disabled={changingRoleId === row.original.membershipId}
+            disabled={changingRoleId === row.original.membershipId || !canManageTeam}
           >
             <SelectTrigger size="sm" className="w-[110px]">
               <SelectValue>
@@ -170,7 +175,7 @@ export function PartnerUsersTable({
       id: "actions",
       enableSorting: false,
       cell: ({ row }) => (
-        <DataTableActionsMenu label={`Open actions for ${row.original.displayName}`}>
+        <WorkspaceTeamControls clientScope={false}><DataTableActionsMenu label={`Open actions for ${row.original.displayName}`}>
           <DropdownMenuItem onClick={() => router.push(`/users/${row.original.userId}`)}>
             <ExternalLink className="size-4" />
             Open user
@@ -184,7 +189,7 @@ export function PartnerUsersTable({
             <UserX className="size-4" />
             Remove member
           </DropdownMenuItem>
-        </DataTableActionsMenu>
+        </DataTableActionsMenu></WorkspaceTeamControls>
       ),
     },
   ];

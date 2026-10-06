@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from "next/navigation"
 
 import { requireAdminScope } from "@/lib/auth/authorization"
@@ -10,6 +12,8 @@ export default async function AssessmentIntroPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature="assessmentAuthoring" />
+
   await requireAdminScope()
   const { id } = await params
 

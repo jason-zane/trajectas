@@ -22,6 +22,7 @@ import { searchPeople, ChatSearchError } from '@/lib/dal/chat-search'
 import { getChatBandScheme } from '@/lib/dal/chat-band-scheme'
 
 export const getSessionScoresTool = defineChatTool({
+  requiredFeatures: ['campaignViewing'],
   name: 'get_session_scores',
   description:
     "Get a person's competency results. Pass person_name_or_email (e.g. \"Jason Hunt\" or their email) to get their MOST RECENT result across every campaign — this is the right choice for \"show me X's latest result\". Pass participant_id for their latest result in one specific campaign, or session_id for one exact sitting. The scores are shown to the user as a card.",

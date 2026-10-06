@@ -1,3 +1,4 @@
+import { requireWorkspaceFeature } from '@/lib/features/access'
 import {
   AuthenticationRequiredError,
   AuthorizationError,
@@ -33,6 +34,8 @@ export async function GET(
         'Only platform or partner administrators can download report previews.',
       )
     }
+    await requireWorkspaceFeature('reportTemplateAuthoring')
+    await requireWorkspaceFeature('reportDownload')
     await requireReportTemplateAccess(templateId)
     await requireAssessmentAccess(assessmentId)
   } catch (error) {

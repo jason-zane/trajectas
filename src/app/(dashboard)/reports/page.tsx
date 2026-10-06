@@ -1,8 +1,12 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { PageHeader } from '@/components/page-header'
 import { getAllReadySnapshots } from '@/app/actions/reports'
 import { ReportsTable } from './reports-table'
 
 export default async function ReportsPage() {
+  if (!await isWorkspaceFeatureEnabled('reportViewing')) return <WorkspaceFeatureUnavailable feature="reportViewing" />
+
   const snapshots = await getAllReadySnapshots()
 
   return (

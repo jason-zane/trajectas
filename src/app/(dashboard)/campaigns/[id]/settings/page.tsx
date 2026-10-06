@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { getCampaignHeader, getCampaignConsultantSettings } from "@/app/actions/campaigns";
 import {
   getCampaignTemplates,
@@ -19,6 +21,10 @@ export default async function CampaignSettingsPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('campaignManagement')) return <WorkspaceFeatureUnavailable feature="campaignManagement" />
+
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   const { id } = await params;
   const [
     campaign,

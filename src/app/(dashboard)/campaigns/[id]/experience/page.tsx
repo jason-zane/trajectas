@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import {
   getExperienceTemplate,
   getPlatformExperienceTemplate,
@@ -12,6 +14,10 @@ export default async function CampaignExperiencePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('participantExperience')) return <WorkspaceFeatureUnavailable feature="participantExperience" />
+
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   const { id } = await params;
 
   const [campaignTemplate, platformTemplate, campaign, campaignAssessments] =

@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { ReportRenderer } from '@/components/reports/report-renderer'
@@ -10,6 +12,8 @@ interface Props {
 }
 
 export default async function ClientReportViewerPage({ params }: Props) {
+  if (!await isWorkspaceFeatureEnabled('reportViewing')) return <WorkspaceFeatureUnavailable feature="reportViewing" />
+
   const { snapshotId } = await params
   const snapshot = await getReportSnapshot(snapshotId)
   if (!snapshot || !snapshot.releasedAt) {

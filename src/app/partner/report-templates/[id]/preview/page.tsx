@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getReportTemplate } from "@/app/actions/reports";
@@ -10,6 +12,8 @@ export default async function PartnerReportTemplatePreviewPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('reportTemplateAuthoring')) return <WorkspaceFeatureUnavailable feature="reportTemplateAuthoring" />
+
   const { id } = await params;
   const template = await getReportTemplate(id);
 

@@ -1,4 +1,5 @@
 'use server'
+import { requireWorkspaceFeature } from '@/lib/features/access'
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
@@ -29,6 +30,8 @@ export async function createStaffInviteAction(
   _state: InviteFormState,
   formData: FormData
 ): Promise<InviteFormState> {
+  await requireWorkspaceFeature('teamManagement')
+
   const scope = await requireAdminScope()
   const result = await createStaffInvite({
     email: String(formData.get('email') ?? ''),
@@ -77,6 +80,8 @@ const inviteActionSchema = z.object({
 })
 
 export async function revokeInviteAction(formData: FormData) {
+  await requireWorkspaceFeature('teamManagement')
+
   const scope = await requireAdminScope()
   const parsed = inviteActionSchema.safeParse({
     inviteId: formData.get('inviteId'),
@@ -91,6 +96,8 @@ export async function revokeInviteAction(formData: FormData) {
 }
 
 export async function revokeInviteById(inviteId: string) {
+  await requireWorkspaceFeature('teamManagement')
+
   try {
     const scope = await requireAdminScope()
     const parsedInviteId = inviteActionSchema.parse({ inviteId })
@@ -115,6 +122,8 @@ export async function revokeInviteById(inviteId: string) {
 export async function reissueInviteLinkById(
   inviteId: string
 ): Promise<{ inviteLink: string } | { error: string }> {
+  await requireWorkspaceFeature('teamManagement')
+
   try {
     const scope = await requireAdminScope()
     const { inviteId: parsedInviteId } = inviteActionSchema.parse({ inviteId })
@@ -138,6 +147,8 @@ const membershipActionSchema = z.object({
 })
 
 export async function revokeMembershipAction(formData: FormData) {
+  await requireWorkspaceFeature('teamManagement')
+
   const scope = await requireAdminScope()
   const parsed = membershipActionSchema.safeParse({
     membershipId: formData.get('membershipId'),
@@ -161,6 +172,8 @@ export async function revokeMembershipById(
   membershipType: 'partner' | 'client',
   profileId: string
 ) {
+  await requireWorkspaceFeature('teamManagement')
+
   try {
     const scope = await requireAdminScope()
     const parsed = membershipActionSchema.parse({
@@ -191,6 +204,8 @@ const activeStateSchema = z.object({
 })
 
 export async function setStaffUserActiveStateAction(formData: FormData) {
+  await requireWorkspaceFeature('teamManagement')
+
   const scope = await requireAdminScope()
   const parsed = activeStateSchema.safeParse({
     profileId: formData.get('profileId'),
@@ -210,6 +225,8 @@ export async function setStaffUserActiveStateAction(formData: FormData) {
 }
 
 export async function toggleUserActiveState(profileId: string, isActive: boolean) {
+  await requireWorkspaceFeature('teamManagement')
+
   try {
     const scope = await requireAdminScope()
     const parsed = activeStateSchema.parse({

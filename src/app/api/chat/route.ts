@@ -1,3 +1,4 @@
+import { requireWorkspaceFeature } from '@/lib/features/access'
 import OpenAI from 'openai'
 import {
   AuthenticationRequiredError,
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
   let scope
   try {
     scope = await requireAdminScope()
+    await requireWorkspaceFeature('workspaceAssistant')
   } catch (error) {
     if (error instanceof AuthenticationRequiredError) {
       return new Response('Authentication is required', { status: 401 })

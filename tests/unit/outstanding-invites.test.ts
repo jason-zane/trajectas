@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const state = vi.hoisted(() => ({
+  features: {} as Record<string, unknown>,
   rows: [] as Record<string, unknown>[],
   profiles: [] as Record<string, unknown>[],
   queries: [] as { source: string; table: string; predicates: [string, string, unknown][]; limit?: number }[],
@@ -12,7 +13,11 @@ const state = vi.hoisted(() => ({
   sendEmail: vi.fn(),
 }))
 
-vi.mock('@/lib/auth/authorization', () => ({
+vi.mock('@/lib/dal/workspace-features', () => ({ getEffectiveWorkspaceFeatures: () => state.features }))
+import { defaultWorkspaceFeatures } from '@/lib/features/workspace-features'
+vi.mock('@/lib/auth/authorization', async original => ({
+  ...await original<typeof import('@/lib/auth/authorization')>(),
+  resolveAuthorizedScope: async () => ({ requestSurface: 'partner', partnerIds: [], activeContext: null, previewContext: null }),
   requireAdminScope: state.requireAdmin,
   requireClientAccess: state.requireClient,
   requirePartnerAccess: state.requirePartner,
@@ -84,6 +89,7 @@ const baseInvite = {
 beforeEach(() => {
   vi.useFakeTimers()
   vi.setSystemTime(now)
+  state.features = defaultWorkspaceFeatures('partner')
   state.rows = [{ ...baseInvite }]
   state.profiles = []
   state.queries = []
@@ -218,3 +224,21 @@ describe('invitation expiry boundary', () => {
     expect(getInviteStatus({ expiresAt: baseInvite.expires_at, revokedAt: now.toISOString() })).toBe('revoked')
   })
 })
+
+ describe('combined workspace features and outstanding diagnostics', () => {
+  it.each([true,false])('preserves permitted client/partner/global outstanding reads with teamManagement=%s', async teamManagement => {
+    state.features = { ...defaultWorkspaceFeatures('partner'),teamManagement }
+    state.rows = [{ ...baseInvite,id:'expired' },{ ...baseInvite,id:'pending',expires_at:'2026-10-07T12:00:00Z' }]
+    expect((await getClientPendingInvites(clientId)).map(invite=>invite.id)).toEqual(['expired','pending'])
+    expect((await listUsersForAdmin()).filter(user=>user.type==='invite').map(invite=>invite.id)).toEqual(['expired','pending'])
+    state.rows = state.rows.map(row=>({ ...row,tenant_type:'partner',tenant_id:partnerId,role:'partner_member' }))
+    expect((await getPartnerPendingInvites(partnerId)).map(invite=>invite.id)).toEqual(['expired','pending'])
+    expect(state.inserts).toBe(0);expect(state.sendEmail).not.toHaveBeenCalled()
+  })
+  it('blocks tenant invitation mutations when team management is disabled before touching records', async () => {
+    state.features = { ...defaultWorkspaceFeatures('partner'),teamManagement:false }
+    await expect(inviteUserToClient(clientId,{email:'synthetic@test.local',role:'member'})).rejects.toThrow('not enabled')
+    await expect(inviteUserToPartner(partnerId,{email:'synthetic@test.local',role:'member'})).rejects.toThrow('not enabled')
+    expect(state.queries).toHaveLength(0);expect(state.inserts).toBe(0);expect(state.sendEmail).not.toHaveBeenCalled()
+  })
+ })

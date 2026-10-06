@@ -1,3 +1,7 @@
+
+import { WorkspaceFeatureVisibility } from '@/components/workspace-feature-visibility'
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
@@ -8,6 +12,8 @@ import { getPartnerAssessmentLibrary } from "@/app/actions/assessments";
 import { AssessmentsTable } from "./assessments-table";
 
 export default async function PartnerAssessmentsPage() {
+  if (!await isWorkspaceFeatureEnabled('assessmentLibrary')) return <WorkspaceFeatureUnavailable feature="assessmentLibrary" />
+
   const assessments = await getPartnerAssessmentLibrary();
   const ownedAssessments = assessments.filter(
     (assessment) => assessment.ownerScope === "partner"
@@ -23,10 +29,10 @@ export default async function PartnerAssessmentsPage() {
         title="Assessment library"
         description="Create partner-owned assessments and reuse platform assessments across client campaigns."
       >
-        <Link href="/partner/assessments/create" className={buttonVariants()}>
+        <WorkspaceFeatureVisibility features={["assessmentAuthoring"]}><Link href="/partner/assessments/create" className={buttonVariants()}>
           <Plus className="size-4" />
           Build Assessment
-        </Link>
+        </Link></WorkspaceFeatureVisibility>
       </PageHeader>
 
       <Tabs defaultValue={ownedAssessments.length > 0 ? "owned" : "platform"}>

@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from "next/navigation"
 import {
   getAssessmentWithFactors,
@@ -10,6 +12,8 @@ export default async function PartnerAssessmentPresentationPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature="assessmentAuthoring" />
+
   const { id } = await params
   const result = await getAssessmentWithFactors(id)
   if (!result) notFound()

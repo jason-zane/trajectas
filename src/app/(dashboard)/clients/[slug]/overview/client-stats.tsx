@@ -1,3 +1,4 @@
+import { WorkspaceFeatureVisibility } from '@/components/workspace-feature-visibility'
 import Link from "next/link";
 import { ClipboardList, FileText, Megaphone, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,10 +18,10 @@ type ClientStatsProps = {
 };
 
 const statCards = [
-  { key: "activeCampaignCount" as const, title: "Active Campaigns", icon: Megaphone, segment: null },
-  { key: "totalParticipants" as const, title: "Participants", icon: Users, segment: null },
-  { key: "assignedAssessmentCount" as const, title: "Assessments Assigned", icon: ClipboardList, segment: "assessments" },
-  { key: "reportsGenerated" as const, title: "Reports Generated", icon: FileText, segment: "reports" },
+  { key: "activeCampaignCount" as const, features: ["campaignViewing"] as const, title: "Active Campaigns", icon: Megaphone, segment: null },
+  { key: "totalParticipants" as const, features: ["campaignViewing"] as const, title: "Participants", icon: Users, segment: null },
+  { key: "assignedAssessmentCount" as const, features: ["assessmentLibrary"] as const, title: "Assessments Assigned", icon: ClipboardList, segment: "assessments" },
+  { key: "reportsGenerated" as const, features: ["reportViewing", "orgDiagnostics"] as const, title: "Reports Generated", icon: FileText, segment: "reports" },
 ];
 
 export function ClientStats(props: ClientStatsProps) {
@@ -61,15 +62,14 @@ export function ClientStats(props: ClientStatsProps) {
 
         if (stat.segment) {
           return (
-            <Link
-              key={stat.key}
+            <WorkspaceFeatureVisibility key={stat.key} features={[...stat.features]}><WorkspaceFeatureVisibility features={[stat.segment === "assessments" ? "clientAssessmentAllocation" : "clientTemplateAllocation"]} fallback={content}><Link
               href={`${props.basePath ?? `/clients/${props.clientSlug}`}/${stat.segment}`}
             >
               {content}
-            </Link>
+            </Link></WorkspaceFeatureVisibility></WorkspaceFeatureVisibility>
           );
         }
-        return <div key={stat.key}>{content}</div>;
+        return <WorkspaceFeatureVisibility key={stat.key} features={[...stat.features]}>{content}</WorkspaceFeatureVisibility>;
       })}
     </div>
   );

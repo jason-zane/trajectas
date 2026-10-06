@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from "next/navigation";
 
 import { getPartnerBrandingEnabled } from "@/app/actions/partner-entitlements";
@@ -9,6 +11,10 @@ export default async function PartnerCampaignBrandingPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('campaignBranding')) return <WorkspaceFeatureUnavailable feature="campaignBranding" />
+
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   const { id } = await params;
 
   // The layout only hides the Branding tab when the partner's flag is off; this

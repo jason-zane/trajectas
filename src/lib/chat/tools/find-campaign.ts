@@ -17,6 +17,7 @@ import {
 } from '@/lib/dal/chat-search'
 
 export const findCampaignTool = defineChatTool({
+  requiredFeatures: ['campaignViewing'],
   name: 'find_campaign',
   description:
     'Find assessment campaigns by title, optionally narrowed by status. Returns campaign ids needed by other tools. Call with no query to list the campaigns visible to the user.',

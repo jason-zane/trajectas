@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
 import { getParticipantsForClient, getUniqueParticipantsForClientPaginated, getCampaigns } from "@/app/actions/campaigns";
 import { GlobalParticipants } from "./global-participants";
@@ -12,6 +14,8 @@ export default async function ClientParticipantsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   const { clientId } = await resolveClientOrg("/client/participants");
 
   if (!clientId) {

@@ -1,3 +1,5 @@
+
+import { requireWorkspaceFeature } from '@/lib/features/access'
 import "server-only";
 import {
   requireAdminScope,
@@ -12,6 +14,8 @@ import type { UsageSnapshot } from "@/types/database";
 export async function listClientUsageStatements(
   clientId: string,
 ): Promise<UsageSnapshot[]> {
+  await requireWorkspaceFeature('usageVisibility')
+
   await requireAdminScope();
   await requireClientAccess(clientId, { includeArchived: true });
   const db = createAdminClient();

@@ -1,4 +1,5 @@
 "use server";
+import { requireWorkspaceFeature } from '@/lib/features/access';
 
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
@@ -594,6 +595,8 @@ export async function updateUserRole(
   profileId: string,
   role: StaffProfileRole
 ): Promise<MutationResult> {
+  await requireWorkspaceFeature('teamManagement')
+
   try {
     const scope = await requireAdminScope();
     const parsedProfileId = profileIdSchema.parse(profileId);
@@ -656,6 +659,8 @@ export async function addMembership(
   tenantId: string,
   role: MembershipRole
 ): Promise<MutationResult> {
+  await requireWorkspaceFeature('teamManagement')
+
   try {
     const scope = await requireAdminScope();
     const parsedProfileId = profileIdSchema.parse(profileId);
@@ -747,6 +752,8 @@ export async function updateMembershipRole(
   tenantType: "partner" | "client",
   role: MembershipRole
 ): Promise<MutationResult> {
+  await requireWorkspaceFeature('teamManagement')
+
   try {
     const scope = await requireAdminScope();
     const parsedMembershipId = membershipIdSchema.parse(membershipId);
@@ -831,6 +838,8 @@ export async function resendInvite(inviteId: string): Promise<
       error: string;
     }
 > {
+  await requireWorkspaceFeature('teamManagement')
+
   try {
     const scope = await requireAdminScope();
     const parsedInviteId = inviteIdSchema.parse(inviteId);
@@ -927,6 +936,8 @@ export async function resendInvite(inviteId: string): Promise<
  * actual schema and the scheduled-deletion flow.
  */
 export async function bulkDeleteUsers(ids: string[]): Promise<void> {
+  await requireWorkspaceFeature('teamManagement')
+
   if (ids.length === 0) return
   const scope = await requireAdminScope()
   const db = createAdminClient()
@@ -968,6 +979,8 @@ export async function bulkUpdateUserStatus(
   ids: string[],
   status: 'active' | 'inactive',
 ): Promise<void> {
+  await requireWorkspaceFeature('teamManagement')
+
   if (ids.length === 0) return
   const scope = await requireAdminScope()
   const db = createAdminClient()

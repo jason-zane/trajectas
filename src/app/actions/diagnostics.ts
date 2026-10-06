@@ -1,5 +1,7 @@
 'use server'
 
+import { requireWorkspaceFeature } from '@/lib/features/access'
+
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -82,6 +84,8 @@ function getDiagnosticSessionTitle(
 // =============================================================================
 
 export async function getDiagnosticTemplates(): Promise<DiagnosticTemplateWithCounts[]> {
+  await requireWorkspaceFeature('orgDiagnostics')
+
   await requireAdminScope()
   const db = await createClient()
   const { data, error } = await db
@@ -115,6 +119,8 @@ export async function getDiagnosticTemplates(): Promise<DiagnosticTemplateWithCo
 }
 
 export async function getDiagnosticTemplateById(id: string): Promise<DiagnosticTemplate | null> {
+  await requireWorkspaceFeature('orgDiagnostics')
+
   await requireAdminScope()
   const db = await createClient()
   const { data, error } = await db
@@ -137,6 +143,8 @@ export async function getDiagnosticTemplateById(id: string): Promise<DiagnosticT
 }
 
 export async function createDiagnosticTemplate(formData: FormData) {
+  await requireWorkspaceFeature('orgDiagnostics')
+
   const scope = await requireAdminScope()
   const raw = {
     name: formData.get('name') as string,
@@ -179,6 +187,8 @@ export async function createDiagnosticTemplate(formData: FormData) {
 }
 
 export async function updateDiagnosticTemplate(id: string, formData: FormData) {
+  await requireWorkspaceFeature('orgDiagnostics')
+
   const scope = await requireAdminScope()
   const raw = {
     name: formData.get('name') as string,
@@ -220,6 +230,8 @@ export async function updateDiagnosticTemplate(id: string, formData: FormData) {
 }
 
 export async function deleteDiagnosticTemplate(id: string) {
+  await requireWorkspaceFeature('orgDiagnostics')
+
   const scope = await requireAdminScope()
   const db = createAdminClient()
   const { error } = await db.from('diagnostic_templates').delete().eq('id', id)
@@ -242,6 +254,8 @@ export async function deleteDiagnosticTemplate(id: string) {
 // =============================================================================
 
 export async function getDiagnosticSessions(): Promise<DiagnosticSessionWithMeta[]> {
+  await requireWorkspaceFeature('orgDiagnostics')
+
   const scope = await resolveAuthorizedScope()
   if (!scope.isPlatformAdmin && scope.clientIds.length === 0) {
     return []
@@ -303,6 +317,8 @@ async function isInWorkspace(clientId: string | null | undefined) {
 }
 
 export async function getDiagnosticSessionById(id: string): Promise<DiagnosticSession | null> {
+  await requireWorkspaceFeature('orgDiagnostics')
+
   const db = await createClient()
   const { data, error } = await db
     .from('diagnostic_sessions')
@@ -331,6 +347,8 @@ export async function getDiagnosticSessionById(id: string): Promise<DiagnosticSe
 export async function getDiagnosticSessionDetail(
   id: string
 ): Promise<DiagnosticSessionDetail | null> {
+  await requireWorkspaceFeature('orgDiagnostics')
+
   const db = await createClient()
   const { data, error } = await db
     .from('diagnostic_sessions')
@@ -367,6 +385,8 @@ export async function getDiagnosticSessionDetail(
 export async function getDiagnosticRespondents(
   sessionId: string
 ): Promise<DiagnosticRespondentWithMeta[]> {
+  await requireWorkspaceFeature('orgDiagnostics')
+
   const db = await createClient()
   const { data: session, error: sessionError } = await db
     .from('diagnostic_sessions')
@@ -446,6 +466,8 @@ export async function getDiagnosticRespondents(
 }
 
 export async function createDiagnosticSession(formData: FormData) {
+  await requireWorkspaceFeature('orgDiagnostics')
+
   const raw = {
     clientId: formData.get('clientId') as string,
     templateId: formData.get('templateId') as string,
@@ -497,6 +519,8 @@ export async function createDiagnosticSession(formData: FormData) {
 }
 
 export async function deleteDiagnosticSession(id: string) {
+  await requireWorkspaceFeature('orgDiagnostics')
+
   const db = createAdminClient()
   const { data: session, error: fetchError } = await db
     .from('diagnostic_sessions')
@@ -530,6 +554,8 @@ export async function deleteDiagnosticSession(id: string) {
 // =============================================================================
 
 export async function getClientsForDiagnosticSelect(): Promise<SelectOption[]> {
+  await requireWorkspaceFeature('orgDiagnostics')
+
   const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
   let query = db
@@ -549,6 +575,8 @@ export async function getClientsForDiagnosticSelect(): Promise<SelectOption[]> {
 }
 
 export async function getTemplatesForSelect(): Promise<SelectOption[]> {
+  await requireWorkspaceFeature('orgDiagnostics')
+
   await resolveAuthorizedScope()
   const db = createAdminClient()
   const { data, error } = await db
@@ -566,6 +594,8 @@ export async function getTemplatesForSelect(): Promise<SelectOption[]> {
 // ---------------------------------------------------------------------------
 
 export async function bulkDeleteDiagnosticSessions(ids: string[]): Promise<void> {
+  await requireWorkspaceFeature('orgDiagnostics')
+
   if (ids.length === 0) return
   const scope = await resolveAuthorizedScope()
   if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
@@ -579,6 +609,8 @@ export async function bulkDeleteDiagnosticSessions(ids: string[]): Promise<void>
 }
 
 export async function bulkUpdateDiagnosticSessionStatus(ids: string[], status: string): Promise<void> {
+  await requireWorkspaceFeature('orgDiagnostics')
+
   if (ids.length === 0) return
   const scope = await resolveAuthorizedScope()
   if (!scope.isPlatformAdmin) throw new Error('Unauthorized')

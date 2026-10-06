@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from "next/navigation";
 import {
   canManageClient,
@@ -19,6 +21,8 @@ export default async function PartnerUsagePage({
 }: {
   searchParams: Promise<UsageSearchParams>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('usageVisibility')) return <WorkspaceFeatureUnavailable feature="usageVisibility" />
+
   const [{ partnerId }, query] = await Promise.all([
     resolvePartnerOrg("/partner/usage"),
     searchParams,

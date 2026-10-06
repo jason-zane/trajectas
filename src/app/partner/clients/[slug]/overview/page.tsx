@@ -1,3 +1,4 @@
+import { getEffectiveWorkspaceFeatures } from '@/lib/dal/workspace-features'
 import { getClientStats, getRecentClientCampaigns } from "@/app/actions/clients";
 import { ClientOverview } from "@/app/(dashboard)/clients/[slug]/overview/client-overview";
 import { getPartnerName } from "@/lib/dal/partners";
@@ -11,9 +12,10 @@ export default async function PartnerClientOverviewPage({
   const { slug } = await params;
   const { client, partnerId } = await requirePartnerClient(slug);
 
+  const features = await getEffectiveWorkspaceFeatures();
   const [stats, recentCampaigns, partnerName] = await Promise.all([
     getClientStats(client.id),
-    getRecentClientCampaigns(client.id),
+    features.campaignViewing ? getRecentClientCampaigns(client.id) : Promise.resolve([]),
     getPartnerName(partnerId),
   ]);
 

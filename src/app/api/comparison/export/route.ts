@@ -1,3 +1,4 @@
+import { requireWorkspaceFeature } from '@/lib/features/access'
 import { AuthorizationError } from '@/lib/auth/authorization'
 import { NextResponse, after } from 'next/server'
 import { z } from 'zod'
@@ -40,6 +41,7 @@ export async function POST(req: Request): Promise<Response> {
 
   let result
   try {
+    await requireWorkspaceFeature('insightCsvExport')
     result = await getComparisonMatrix({
       entries: parsed.data.entries,
       assessmentIds: parsed.data.assessmentIds,

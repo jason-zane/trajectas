@@ -24,6 +24,8 @@ vi.mock('@/components/copy-invite-link-button', () => ({
   CopyInviteLinkButton: ({ getLink }: { getLink: () => void }) => <button onClick={getLink}>Copy invite link</button>,
 }))
 
+import { PortalProvider } from '@/components/portal-context'
+import { defaultWorkspaceFeatures } from '@/lib/features/workspace-features'
 import { PendingInvitesSection } from '@/app/(dashboard)/clients/[slug]/users/pending-invites-section'
 import { PartnerPendingInvitesSection } from '@/app/(dashboard)/partners/[slug]/users/partner-pending-invites-section'
 import { ClientPortalPendingInvites } from '@/app/client/settings/users/pending-invites-section'
@@ -139,3 +141,31 @@ describe('global administrator invitation visibility', () => {
     expect(screen.getByText(status)).toBeInTheDocument()
   })
 })
+
+ describe('combined availability and invitation diagnostics', () => {
+  it.each(['client','partner'] as const)('keeps %s pending/expired diagnostics visible while disabling self-service mutations',async portal=>{
+    const featureConfig={...defaultWorkspaceFeatures(portal),teamManagement:false}
+    render(<PortalProvider initialPortal={portal} features={featureConfig}>{portal==='client'?<ClientPortalPendingInvites workspaceId="synthetic" invites={invites}/>:<PartnerPortalPendingInvites workspaceId="synthetic" invites={invites}/>}</PortalProvider>)
+    expect(screen.getByText('expired@example.com')).toBeInTheDocument()
+    expect(screen.getByText('pending@example.com')).toBeInTheDocument()
+    expect(screen.queryByRole('button',{name:'Copy invite link'})).not.toBeInTheDocument()
+    expect(screen.queryByRole('button',{name:'Revoke invite'})).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button',{name:'Expired (1)'}))
+    expect(screen.queryByText('pending@example.com')).not.toBeInTheDocument()
+    expect(calls.reissue).not.toHaveBeenCalled();expect(calls.revoke).not.toHaveBeenCalled()
+  })
+  it('keeps unconfined administrator diagnostics visible irrespective of the tenant team-management licence',()=>{
+    // The resolver test verifies this admin configuration is independent of a tenant's disabled flag.
+    render(<PortalProvider initialPortal="admin" features={defaultWorkspaceFeatures('admin')}><PendingInvitesSection clientId="synthetic" invites={invites}/></PortalProvider>)
+    expect(screen.getByText('expired@example.com')).toBeInTheDocument()
+    expect(screen.getByText('pending@example.com')).toBeInTheDocument()
+    expect(screen.getAllByRole('button',{name:'Copy invite link'})).toHaveLength(2)
+    expect(calls.reissue).not.toHaveBeenCalled();expect(calls.revoke).not.toHaveBeenCalled()
+  })
+  it('keeps assigned-client diagnostics but hides team mutations when partner client management is off',()=>{
+    render(<PortalProvider initialPortal="partner" features={{...defaultWorkspaceFeatures('partner'),clientManagement:false}}><ClientPortalPendingInvites workspaceId="synthetic" invites={invites}/></PortalProvider>)
+    expect(screen.getByText('expired@example.com')).toBeInTheDocument()
+    expect(screen.queryByRole('button',{name:'Revoke invite'})).not.toBeInTheDocument()
+    expect(screen.queryByRole('button',{name:'Copy invite link'})).not.toBeInTheDocument()
+  })
+ })
