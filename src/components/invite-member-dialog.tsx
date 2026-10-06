@@ -10,7 +10,7 @@ import {
   ActionDialogBody,
   ActionDialogFooter,
 } from "@/components/action-dialog";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InviteLinkField } from "@/components/invite-link-field";
 import { Label } from "@/components/ui/label";
@@ -24,11 +24,12 @@ import {
 } from "@/components/ui/select";
 import { getSelectLabel } from "@/lib/select-display";
 
+import { EXISTING_INVITE_ERROR, PENDING_INVITE_ERROR } from "@/lib/invite-status";
+
 type MembershipRole = "admin" | "member";
-const DUPLICATE_INVITE_ERROR = "An invite is already pending for this email address";
 
 type InviteResult =
-  | { error?: string; inviteLink?: string; emailDelivered?: boolean }
+  | { error?: string; inviteLink?: string; emailDelivered?: boolean; duplicate?: { inviteId: string } }
   | void;
 
 interface InviteMemberDialogProps {
@@ -94,7 +95,7 @@ export function InviteMemberDialog({
       if (result && "error" in result && result.error) {
         setError(result.error);
         toast.error(result.error);
-        if (result.error === DUPLICATE_INVITE_ERROR) {
+        if (result.error === PENDING_INVITE_ERROR || result.error === EXISTING_INVITE_ERROR) {
           // The server found an existing invite. Refresh the Users page so a
           // list rendered before that invite existed can display it as well.
           router.refresh();
@@ -221,10 +222,21 @@ export function InviteMemberDialog({
           {error ? (
             <div className="space-y-1">
               <p className="text-sm text-destructive">{error}</p>
-              {error === DUPLICATE_INVITE_ERROR ? (
-                <p className="text-caption">
-                  Close this dialog to view existing invitations in Pending Invites below.
-                </p>
+              {error === PENDING_INVITE_ERROR || error === EXISTING_INVITE_ERROR ? (
+                <div className="space-y-2">
+                  <p className="text-caption">
+                    {error === PENDING_INVITE_ERROR
+                      ? "This person has an unexpired invitation in this workspace."
+                      : "An outstanding invitation for this role still exists, even if it has expired. Expiry does not cancel an invitation."}
+                  </p>
+                  <a
+                    className={buttonVariants({ variant: "outline" })}
+                    href="#outstanding-invites"
+                    onClick={() => handleOpenChange(false)}
+                  >
+                    View outstanding invitations
+                  </a>
+                </div>
               ) : null}
             </div>
           ) : null}

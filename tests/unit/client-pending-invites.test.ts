@@ -25,6 +25,7 @@ vi.mock('@/lib/supabase/admin', () => ({
           return query
         },
         order: () => query,
+        limit: (count: number) => { rows = rows.slice(0, count); return query },
         then: (resolve: (value: unknown) => unknown) => {
           state.reads++
           return Promise.resolve({ data: rows, error: null }).then(resolve)
@@ -61,11 +62,13 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe('existing client account invitation visibility', () => {
-  it('returns only unaccepted, unrevoked, unexpired invitations for the requested client', async () => {
-    expect(await getClientPendingInvites('client-a')).toEqual([{
+  it('includes expired outstanding invitations while excluding accepted, revoked and other tenants', async () => {
+    const invites = await getClientPendingInvites('client-a')
+    expect(invites[0]).toEqual({
       id: 'pending-a', email: 'pending-a@example.com', role: 'client_member',
       createdAt: '2026-10-05T12:00:00Z', expiresAt: '2026-10-12T12:00:00Z',
-    }])
+    })
+    expect(invites.map(invite => invite.id)).toEqual(['pending-a', 'expired', 'expires-now'])
     expect(state.requireAccess).toHaveBeenCalledWith('client-a')
     expect(state.reads).toBe(1)
   })

@@ -23,6 +23,7 @@ import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { partnerSchema } from '@/lib/validations/partners'
 import type { Partner } from '@/types/database'
 import type { BandScheme } from '@/lib/reports/band-scheme'
+import { OUTSTANDING_INVITE_LIMIT } from '@/lib/invite-status'
 import { isSchemeValid } from '@/lib/reports/band-scheme-validation'
 
 export type PartnerWithCounts = Partner & {
@@ -478,6 +479,7 @@ export async function getPartnerMembers(partnerId: string): Promise<PartnerMembe
   })
 }
 
+/** Outstanding account invites, including expired records that still block a new invite. */
 export async function getPartnerPendingInvites(partnerId: string): Promise<PartnerPendingInvite[]> {
   const access = await requirePartnerAccess(partnerId)
   if (!access.scope.isPlatformAdmin && !access.scope.partnerAdminIds.includes(partnerId)) {
@@ -492,8 +494,8 @@ export async function getPartnerPendingInvites(partnerId: string): Promise<Partn
     .eq('tenant_id', partnerId)
     .is('accepted_at', null)
     .is('revoked_at', null)
-    .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
+    .limit(OUTSTANDING_INVITE_LIMIT)
 
   if (error) {
     throwActionError(
@@ -554,7 +556,10 @@ export async function inviteUserToPartner(
   }
 
   if (existing) {
-    return { error: 'An invite is already pending for this email address' }
+    return {
+      error: 'An invite is already pending for this email address',
+      duplicate: { inviteId: String(existing.id) },
+    }
   }
 
   const inviteRole: InviteRole = input.role === 'admin' ? 'partner_admin' : 'partner_member'
@@ -570,7 +575,10 @@ export async function inviteUserToPartner(
 
   if ('error' in result) {
     const formErrors = result.error._form
-    return { error: formErrors?.[0] ?? 'Failed to create invite' }
+    return {
+      error: formErrors?.[0] ?? 'Failed to create invite',
+      ...(result.duplicate ? { duplicate: result.duplicate } : {}),
+    }
   }
 
   const { inviteLink, emailDelivered } = await sendStaffInviteEmail({

@@ -24,6 +24,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/formatting";
+import { getInviteStatus } from "@/lib/invite-status";
+import { OutstandingInvitesHeader, type OutstandingInviteFilter } from "@/components/workspace-users/outstanding-invites-header";
+import { EmptyState } from "@/components/empty-state";
 
 
 function formatRole(role: string) {
@@ -41,6 +44,8 @@ export function PartnerPortalPendingInvites({
   invites: PartnerPendingInvite[];
 }) {
   const router = useRouter();
+  const [filter, setFilter] = useState<OutstandingInviteFilter>("all");
+  const visibleInvites = invites.filter(invite => filter === "all" || getInviteStatus(invite) === filter);
   const [revokeTarget, setRevokeTarget] =
     useState<PartnerPendingInvite | null>(null);
   const [isRevoking, startRevoke] = useTransition();
@@ -60,25 +65,31 @@ export function PartnerPortalPendingInvites({
   }
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-section">Pending invites</h3>
+    <div id="outstanding-invites" className="space-y-3 scroll-mt-6">
+      <OutstandingInvitesHeader invites={invites} filter={filter} onFilterChange={setFilter} />
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Invited</TableHead>
               <TableHead>Expires</TableHead>
               <TableHead className="w-[112px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {invites.map((invite) => (
-              <TableRow key={invite.id}>
+            {visibleInvites.map((invite) => (
+              <TableRow key={invite.id} id={`invite-${invite.id}`}>
                 <TableCell className="font-medium">{invite.email}</TableCell>
                 <TableCell>
                   <Badge variant="outline">{formatRole(invite.role)}</Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline">
+                    {getInviteStatus(invite) === "expired" ? "Expired" : "Pending"}
+                  </Badge>
                 </TableCell>
                 <TableCell className="text-caption tabular-nums">
                   {formatDate(invite.createdAt)}
@@ -107,6 +118,17 @@ export function PartnerPortalPendingInvites({
                 </TableCell>
               </TableRow>
             ))}
+            {visibleInvites.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6}>
+                  <EmptyState
+                    size="sm"
+                    title={`No ${filter === "all" ? "outstanding" : filter} invitations`}
+                    description="Choose All to view every outstanding invitation in this workspace."
+                  />
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>

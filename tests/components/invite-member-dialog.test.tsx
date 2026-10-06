@@ -27,8 +27,9 @@ describe('pending workspace invitation visibility', () => {
     await submitInvite(scope)
 
     await screen.findByText(error)
-    expect(screen.getByText(/Close this dialog to view existing invitations in Pending Invites below/))
+    expect(screen.getByText(/This person has an unexpired invitation in this workspace/))
       .toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View outstanding invitations' })).toHaveAttribute('href', '#outstanding-invites')
     expect(calls.refresh).toHaveBeenCalledOnce()
     expect(calls.invite).toHaveBeenCalledOnce()
     expect(calls.invite).toHaveBeenCalledWith({ email: 'person@example.com', role: 'member' })
@@ -42,7 +43,7 @@ describe('pending workspace invitation visibility', () => {
 
     await screen.findByText('You do not have permission to invite users to this client')
     expect(calls.refresh).not.toHaveBeenCalled()
-    expect(screen.queryByText(/Close this dialog to view existing invitations/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'View outstanding invitations' })).not.toBeInTheDocument()
     expect(calls.invite).toHaveBeenCalledOnce()
   })
 
@@ -54,5 +55,20 @@ describe('pending workspace invitation visibility', () => {
     expect(calls.refresh).toHaveBeenCalledOnce()
     expect(calls.invite).toHaveBeenCalledOnce()
     expect(calls.error).not.toHaveBeenCalled()
+  })
+
+  it('refreshes and explains an outstanding collision without claiming it is unexpired', async () => {
+    const error = 'An active invite already exists for this person with this role. Resend it or revoke it before sending a new one.'
+    calls.invite.mockResolvedValue({ error, duplicate: { inviteId: 'expired-invite' } })
+    await submitInvite()
+
+    await screen.findByText(error)
+    expect(screen.getByText(/even if it has expired/)).toBeInTheDocument()
+    expect(screen.queryByText(/This person has an unexpired/)).not.toBeInTheDocument()
+    expect(calls.refresh).toHaveBeenCalledOnce()
+    expect(calls.invite).toHaveBeenCalledOnce()
+    await userEvent.setup().click(screen.getByRole('link', { name: 'View outstanding invitations' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(calls.invite).toHaveBeenCalledOnce()
   })
 })
