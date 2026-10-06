@@ -108,6 +108,9 @@ async function Root() {
       actions.getCampaigns({ clientId: 'client-a' }), actions.getCampaigns({ clientId: 'client-a' }),
     ])
     results.push({ actors: [a[0].actor, b[0].actor] })
+  } else if (scenario === 'context-isolation') {
+    const [a, b] = await Promise.all([actions.getCampaigns(), actions.getCampaigns()])
+    results.push({ clients: [a[0].clientId, b[0].clientId] })
   } else if (scenario === 'client-isolation') {
     const [a, b] = await Promise.all([
       actions.getCampaigns({ clientId: 'client-a' }), actions.getCampaigns({ clientId: 'client-b' }),
@@ -128,11 +131,17 @@ async function Root() {
 }
 
 async function run() {
+  if (scenario === 'context-isolation') {
+    scope = { requestSurface: 'client', activeContext: { tenantId: 'client-a' },
+      supportSession: { clientId: 'client-a' }, allowedCampaignIds: [] }
+  }
   const start = performance.now()
   const stream = renderToReadableStream(React.createElement(Root), {}, { onError: error => { throw error } })
   await new Response(stream).text()
-  if (scenario === 'request-isolation') {
-    actor = 'actor-b'
+  if (scenario === 'request-isolation' || scenario === 'context-isolation') {
+    if (scenario === 'request-isolation') actor = 'actor-b'
+    else scope = { requestSurface: 'client', activeContext: { tenantId: 'client-b' },
+      supportSession: { clientId: 'client-b' }, allowedCampaignIds: [] }
     const next = renderToReadableStream(React.createElement(Root), {})
     await new Response(next).text()
   }

@@ -31,6 +31,18 @@ describe('campaign reads inside real React server renders', () => {
     expect(result.results).toEqual([{ actors: ['actor-a', 'actor-a'] }, { actors: ['actor-b', 'actor-b'] }])
   })
 
+  it('resolves a new tenant/support context on each render with the same implicit cache key', () => {
+    const result = run('context-isolation')
+    expect(result.calls.lists).toBe(2)
+    expect(result.results).toEqual([
+      { clients: ['client-a', 'client-a'] }, { clients: ['client-b', 'client-b'] },
+    ])
+    expect(result.capturedScopes).toEqual([
+      { effectiveClientId: 'client-a', scopedCampaignIds: null },
+      { effectiveClientId: 'client-b', scopedCampaignIds: null },
+    ])
+  })
+
   it('keeps different client keys separate within one render', () => {
     const result = run('client-isolation')
     expect(result.calls.lists).toBe(2)

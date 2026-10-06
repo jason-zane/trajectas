@@ -58,7 +58,7 @@ worker. Scheduling and Chromium/provider startup can affect a newly queued
 report; no end-to-end generation timing was measured and no job was triggered.
 
 GitHub confirms PR #423 merged at 06:33:52 UTC into
-`4dc792a283a828065452fa74bae499081a8d49ea`, this branch's base. A successful
+`4dc792a283a828065452fa74bae499081a8d49ea`, the original diagnosis base. A successful
 Vercel commit status does not verify the SHA serving production. PR #422 remains
 draft/unmerged. Neither pending work nor this patch is credited as a live
 performance improvement. Vercel project/environment/deployment reads returned
@@ -106,6 +106,15 @@ unconfined platform administrator; an active workspace/support/preview context
 can narrow visible IDs to none. The visible admin sidebar does not expose this
 scope. This is a source-supported candidate, not a confirmed root cause.
 
+That candidate needs qualification: the reviewed `getDashboardStats` confined
+branch returns zero taxonomy counts, while the observed live dashboard showed
+6/29/29/623. If production serves that implementation, a shared empty workspace
+scope alone does not fit both observed routes. Deployment SHA, datasource and
+session mapping remain unverified. The directory's mapper maps each returned
+row and does not discard rows. Its embedded assessment filter uses no `!inner`;
+under [Supabase's documented left-join semantics](https://supabase.com/docs/guides/database/joins-and-nesting#join-types-and-join-modifiers),
+that filter alone should not remove parent clients when related rows do not match.
+
 Source review confirms normal sign-out clears active and preview context
 cookies, and successful admin sign-in clears them again. Signing in without
 first signing out may preserve an existing context. A normal sign-out/sign-in
@@ -150,6 +159,26 @@ copy, reproduced both Webpack errors. This establishes that the Webpack failure
 predates the patch; it does not establish why Turbopack stalled or validate a
 normal release build. No build/configuration repair is included. Verify the
 normal build in the release environment before merging.
+
+## Draft publication reconciliation
+
+With approval to publish a separate draft PR, the patch was rebased cleanly onto
+main `edf762189b6053e5898de814fea1979b8f00d626`, which includes merged PR #424.
+Its new shared-shell feature read runs alongside sidebar identity. The resolver
+returns defaults without a settings query for an unconfined admin, and narrows
+feature reads from the existing resolved scope; it does not change that scope or
+the directory query. The additive settings migration changes no existing client
+records or policies. Its application time, actor, approval and zero-row claim
+were not independently verified: a subsequent bounded read returned Supabase
+FGA Authentication Error / Unauthorized. No alternate access was attempted.
+
+An additional real-RSC regression verifies two successive tenant/support
+contexts on the same implicit cache key are resolved separately, while duplicate
+reads within each render share a result. After reconciliation, full local lint,
+typecheck and all unit/component/architecture tests pass: 283 files, 3,342 tests,
+including 16 focused regressions. Exact-head CI outcomes for the published draft
+are recorded in the PR handoff. The historical samples above are not post-release
+measurements.
 
 Merge/deploy requires explicit release approval. After an approved release,
 verify the serving SHA, repeat several ordinary signed-in reloads and navigation
