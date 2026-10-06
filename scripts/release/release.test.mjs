@@ -7,6 +7,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { needsSeededE2E, changedPaths } from "./change-scope.mjs";
 import { gateFailures } from "./check-gate.mjs";
+import { localCheckEnvironment } from "./local-environment.mjs";
 
 function evidence(scope = "true", result = "success") {
   return {
@@ -84,9 +85,33 @@ test("local runner refuses env files and inherited provider values without print
     assert.ok(!result.stdout.includes("Running"));
     assert.ok(!result.stderr.includes("fixture-private-value"));
     rmSync(join(cwd, ".env.local"));
-    result = spawnSync(process.execPath, [script], { cwd, env: { ...env, STRIPE_SECRET_KEY: "fixture-private-value" }, encoding: "utf8" });
-    assert.equal(result.status, 1);
-    assert.ok(!result.stdout.includes("Running"));
+    for (const name of ["STRIPE_SECRET_KEY", "PUBLIC_BUILDS_MODE", "OUTCOMES_WORKER_URL", "VERCEL", "VERCEL_ENV", "VERCEL_URL", "VERCEL_AUTOMATION_BYPASS_SECRET", "CSP_ENFORCE", "CHROMIUM_MIN_PACK_URL"]) {
+      result = spawnSync(process.execPath, [script], { cwd, env: { ...env, [name]: "fixture-private-value" }, encoding: "utf8" });
+      assert.equal(result.status, 1, name);
+      assert.ok(!result.stdout.includes("Running"), name);
+      assert.ok(!result.stderr.includes("fixture-private-value"), name);
+    }
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
+test("local check environment keeps system paths/locale and strips unknown inputs", () => {
+  const source = { PATH: "/synthetic/bin", HOME: "/synthetic/home", TMPDIR: "/synthetic/tmp", LANG: "C", LC_ALL: "C", LC_FUTURE_PROVIDER_SECRET: "fixture-private-value", TZ: "UTC", SystemRoot: "C:\\Windows", NODE_OPTIONS: "fixture-injection", npm_config_registry: "fixture-endpoint", FUTURE_PROVIDER_SECRET: "fixture-private-value", CI: "false", NEXT_TELEMETRY_DISABLED: "0" };
+  assert.deepEqual(localCheckEnvironment(source), { PATH: source.PATH, HOME: source.HOME, TMPDIR: source.TMPDIR, LANG: "C", LC_ALL: "C", TZ: "UTC", SystemRoot: source.SystemRoot, CI: "true", NEXT_TELEMETRY_DISABLED: "1" });
+  assert.equal(source.CI, "false");
+});
+
+test("every validation child receives the isolated environment and all checks still run", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "release-child-env-"));
+  const script = fileURLToPath(new URL("./validate-local.mjs", import.meta.url));
+  const commands = ["test:release", "lint", "typecheck", "test:unit", "test:component", "test:architecture", "build", "test:e2e:smoke"];
+  try {
+    // Only synthetic scripts run here: no application server, provider or DB.
+    writeFileSync(join(cwd, "check.cjs"), 'if (process.env.FUTURE_PROVIDER_SECRET || process.env.NODE_OPTIONS || process.env.CI !== "true" || process.env.NEXT_TELEMETRY_DISABLED !== "1") process.exit(19);');
+    writeFileSync(join(cwd, "package.json"), JSON.stringify({ scripts: Object.fromEntries(commands.map((name) => [name, "node check.cjs"])) }));
+    const result = spawnSync(process.execPath, [script], { cwd, env: { PATH: process.env.PATH, FUTURE_PROVIDER_SECRET: "fixture-private-value", NODE_OPTIONS: "--no-warnings", CI: "false", NEXT_TELEMETRY_DISABLED: "0" }, encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    for (const command of commands) assert.ok(result.stdout.includes(`Running ${command}`), command);
+    assert.ok(!result.stdout.includes("fixture-private-value"));
     assert.ok(!result.stderr.includes("fixture-private-value"));
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
