@@ -25,8 +25,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/formatting";
 import { getInviteStatus } from "@/lib/invite-status";
-import { OutstandingInvitesHeader, type OutstandingInviteFilter } from "@/components/workspace-users/outstanding-invites-header";
+import { OutstandingInvitesHeader } from "@/components/workspace-users/outstanding-invites-header";
 import { EmptyState } from "@/components/empty-state";
+import { useOutstandingInviteFilter } from "@/components/workspace-users/use-outstanding-invite-filter";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -58,7 +59,7 @@ export function PartnerPendingInvitesSection({
   invites,
 }: PartnerPendingInvitesSectionProps) {
   const router = useRouter();
-  const [filter, setFilter] = useState<OutstandingInviteFilter>("all");
+  const [filter, setFilter] = useOutstandingInviteFilter();
   const visibleInvites = invites.filter(invite => filter === "all" || getInviteStatus(invite) === filter);
   const [revokeTarget, setRevokeTarget] = useState<PartnerPendingInvite | null>(
     null
@@ -124,6 +125,10 @@ export function PartnerPendingInvitesSection({
                       iconOnly
                       email={invite.email}
                       label="Copy invite link"
+                      onClose={() => {
+                        setFilter("all");
+                        router.refresh();
+                      }}
                       getLink={() => reissuePartnerInvite(partnerId, invite.id)}
                     />
                     <Button

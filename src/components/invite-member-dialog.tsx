@@ -25,6 +25,7 @@ import {
 import { getSelectLabel } from "@/lib/select-display";
 
 import { EXISTING_INVITE_ERROR, PENDING_INVITE_ERROR } from "@/lib/invite-status";
+import { revealOutstandingInvites } from "@/components/workspace-users/use-outstanding-invite-filter";
 
 type MembershipRole = "admin" | "member";
 
@@ -232,7 +233,10 @@ export function InviteMemberDialog({
                   <a
                     className={buttonVariants({ variant: "outline" })}
                     href="#outstanding-invites"
-                    onClick={() => handleOpenChange(false)}
+                    onClick={() => {
+                      revealOutstandingInvites();
+                      handleOpenChange(false);
+                    }}
                   >
                     View outstanding invitations
                   </a>
