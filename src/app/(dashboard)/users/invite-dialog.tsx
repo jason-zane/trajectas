@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { createStaffInviteAction, revokeInviteById } from "@/app/actions/staff-users";
 import { resendInvite } from "@/app/actions/user-management";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { InviteLinkField } from "@/components/invite-link-field";
 import {
   Command,
@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { getSelectLabel } from "@/lib/select-display";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 type InviteTenantType = "platform" | "partner" | "client";
 type InviteRole =
@@ -236,6 +237,7 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
     }
 
     if (nextResult.error) {
+      if (nextResult.duplicate) router.refresh();
       // A duplicate keeps the dialog open so the inline resolution banner
       // (resend / revoke & send) can be acted on; other errors just toast.
       if (!nextResult.duplicate) {
@@ -465,7 +467,16 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
                 {result.error ??
                   "An active invite already exists for this person with this role."}
               </p>
+              <p className="text-caption">
+                An expired invitation still remains outstanding. View its status and expiry before choosing an action.
+              </p>
               <div className="flex flex-wrap gap-2">
+                <Link
+                  className={buttonVariants({ size: "sm", variant: "outline" })}
+                  href={`/users/invite/${result.duplicate.inviteId}`}
+                >
+                  View existing invitation
+                </Link>
                 <Button
                   type="button"
                   size="sm"

@@ -24,6 +24,8 @@ interface CopyInviteLinkButtonProps {
   label?: string;
   /** Render as a compact icon-only button (for table rows). */
   iconOnly?: boolean;
+  /** Refresh changed invitation metadata after the generated link is usable. */
+  onClose?: () => void;
 }
 
 /**
@@ -36,9 +38,16 @@ export function CopyInviteLinkButton({
   email,
   label = "Copy link",
   iconOnly = false,
+  onClose,
 }: CopyInviteLinkButtonProps) {
   const [link, setLink] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  function handleClose() {
+    if (!link) return;
+    setLink(null);
+    onClose?.();
+  }
 
   function handleClick() {
     startTransition(async () => {
@@ -80,7 +89,7 @@ export function CopyInviteLinkButton({
       <ActionDialog
         open={link !== null}
         onOpenChange={(open) => {
-          if (!open) setLink(null);
+          if (!open) handleClose();
         }}
         eyebrow="Invite"
         title="Share invite link"
@@ -92,7 +101,7 @@ export function CopyInviteLinkButton({
           {link ? <InviteLinkField link={link} /> : null}
         </ActionDialogBody>
         <ActionDialogFooter>
-          <Button type="button" onClick={() => setLink(null)}>
+          <Button type="button" onClick={handleClose}>
             Done
           </Button>
         </ActionDialogFooter>

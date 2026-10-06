@@ -25,6 +25,7 @@ import { sendStaffInviteEmail } from '@/lib/auth/staff-invite-email'
 import { throwActionError } from '@/lib/security/action-errors'
 import { clientSchema } from '@/lib/validations/clients'
 import type { Client } from '@/types/database'
+import { OUTSTANDING_INVITE_LIMIT } from '@/lib/invite-status'
 
 export type ClientWithCounts = Client & {
   assessmentCount: number
@@ -563,6 +564,7 @@ export async function getClientMembers(clientId: string): Promise<ClientMember[]
   })
 }
 
+/** Outstanding account invites, including expired records that still block a new invite. */
 export async function getClientPendingInvites(clientId: string): Promise<ClientPendingInvite[]> {
   const access = await requireClientAccess(clientId)
   if (!canManageClient(access.scope, clientId)) {
@@ -579,8 +581,8 @@ export async function getClientPendingInvites(clientId: string): Promise<ClientP
     .eq('tenant_id', clientId)
     .is('accepted_at', null)
     .is('revoked_at', null)
-    .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
+    .limit(OUTSTANDING_INVITE_LIMIT)
 
   if (error) {
     throwActionError(
@@ -638,7 +640,10 @@ export async function inviteUserToClient(
   if (existingError) return { error: existingError.message }
 
   if (existing) {
-    return { error: 'An invite is already pending for this email address' }
+    return {
+      error: 'An invite is already pending for this email address',
+      duplicate: { inviteId: String(existing.id) },
+    }
   }
 
   const inviteRole: InviteRole = input.role === 'admin' ? 'client_admin' : 'client_member'
@@ -654,7 +659,10 @@ export async function inviteUserToClient(
 
   if ('error' in result) {
     const formErrors = result.error._form
-    return { error: formErrors?.[0] ?? 'Failed to create invite' }
+    return {
+      error: formErrors?.[0] ?? 'Failed to create invite',
+      ...(result.duplicate ? { duplicate: result.duplicate } : {}),
+    }
   }
 
   const { inviteLink, emailDelivered } = await sendStaffInviteEmail({

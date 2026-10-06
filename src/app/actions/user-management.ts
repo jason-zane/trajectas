@@ -15,6 +15,7 @@ import type { MembershipRole } from "@/lib/auth/types";
 import { logAuditEvent } from "@/lib/auth/support-sessions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { UserRole } from "@/types/database";
+import { OUTSTANDING_INVITE_LIMIT } from '@/lib/invite-status'
 
 const profileIdSchema = z.uuid();
 const inviteIdSchema = z.uuid();
@@ -262,7 +263,6 @@ export async function listUsersForAdmin(): Promise<UserListItem[]> {
   await requireAdminScope();
 
   const db = createAdminClient();
-  const nowIso = new Date().toISOString();
   const [profilesResult, partnerMembershipsResult, clientMembershipsResult, invitesResult] =
     await Promise.all([
       db
@@ -283,7 +283,8 @@ export async function listUsersForAdmin(): Promise<UserListItem[]> {
         .select("id, email, tenant_type, tenant_id, role, expires_at, created_at, accepted_at, revoked_at")
         .is("accepted_at", null)
         .is("revoked_at", null)
-        .gt("expires_at", nowIso),
+        .order("created_at", { ascending: false })
+        .limit(OUTSTANDING_INVITE_LIMIT),
     ]);
 
   if (profilesResult.error) {

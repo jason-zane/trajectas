@@ -33,9 +33,10 @@ import { InviteLinkField } from "@/components/invite-link-field";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { getInviteStatus, OUTSTANDING_INVITE_LIMIT } from "@/lib/invite-status";
 
 type TabKey = "all" | "platform" | "partner" | "client";
-type StatusKey = "active" | "inactive" | "pending" | "pending_deletion";
+type StatusKey = "active" | "inactive" | "pending" | "expired" | "pending_deletion";
 
 type UserTableRow = UserListItem & {
   displayName: string;
@@ -65,6 +66,7 @@ const STATUS_LABELS: Record<StatusKey, string> = {
   active: "Active",
   inactive: "Inactive",
   pending: "Pending",
+  expired: "Expired",
   pending_deletion: "Pending deletion",
 };
 
@@ -72,6 +74,7 @@ const STATUS_DOT_CLASSES: Record<StatusKey, string> = {
   active: "bg-emerald-500",
   inactive: "bg-muted-foreground/50",
   pending: "bg-amber-500",
+  expired: "bg-muted-foreground/50",
   pending_deletion: "bg-destructive",
 };
 
@@ -109,7 +112,7 @@ function getInitials(value: string | null, fallbackEmail: string) {
 
 function getItemStatus(item: UserListItem): StatusKey {
   if (item.type === "invite") {
-    return "pending";
+    return getInviteStatus(item) === "expired" ? "expired" : "pending";
   }
   if (item.scheduledDeletionAt) {
     return "pending_deletion";
@@ -330,6 +333,16 @@ const columns: ColumnDef<UserTableRow>[] = [
     ),
   },
   {
+    id: "expiresAt",
+    accessorFn: row => row.type === "invite" ? row.expiresAt : "",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Invite expires" />
+    ),
+    cell: ({ row }) => row.original.type === "invite"
+      ? <span className="text-caption tabular-nums">{formatAbsoluteDate(row.original.expiresAt)}</span>
+      : <span className="text-caption">—</span>,
+  },
+  {
     id: "actions",
     enableSorting: false,
     cell: ({ row }) => <UserRowActions user={row.original} />,
@@ -356,7 +369,7 @@ function UserRowActions({ user }: { user: UserTableRow }) {
         : "Reactivate user?";
   const confirmDescription =
     user.type === "invite"
-      ? `This will cancel the pending invite for ${user.email}. They will no longer be able to accept it.`
+      ? `This will cancel the outstanding invite for ${user.email}.`
       : user.isActive
         ? `Deactivate "${user.displayName}". They will lose access until reactivated.`
         : `Reactivate "${user.displayName}" and restore their access.`;
@@ -531,6 +544,15 @@ export function UsersTable({ users }: { users: UserListItem[] }) {
 
   return (
     <div className="space-y-5">
+      <p className="text-caption">
+        Outstanding invitations include Pending and Expired records. Use the Status filter to view either.
+        Expired invitations cannot be accepted but can still block a new invitation for the same role.
+      </p>
+      {users.filter(user => user.type === "invite").length >= OUTSTANDING_INVITE_LIMIT && (
+        <p className="text-caption">
+          Showing the most recent {OUTSTANDING_INVITE_LIMIT.toLocaleString()} outstanding invitations.
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {(Object.keys(TAB_LABELS) as TabKey[]).map((tab) => {
           const isActive = activeTab === tab;

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { getInviteDetail } from "@/app/actions/user-management";
 import { formatDateTimeMedium, formatExpiryStatus } from "@/lib/formatting";
+import { getInviteStatus } from "@/lib/invite-status";
 import { InviteDetailClient } from "./invite-detail-client";
 
 function getRoleLabel(role: string) {
@@ -48,6 +49,7 @@ export default async function InviteDetailPage({
   if (!invite) {
     notFound();
   }
+  const status = getInviteStatus(invite);
 
   return (
     <div className="space-y-8 max-w-3xl">
@@ -62,7 +64,7 @@ export default async function InviteDetailPage({
       <PageHeader
         eyebrow="People"
         title={invite.email}
-        description="Pending invite details, including expiry, intended role, and tenant scope."
+        description="Invitation details, including status, expiry, intended role, and tenant scope."
       >
         <div className="flex items-center gap-2">
           <Badge variant="outline">{getRoleLabel(invite.role)}</Badge>
@@ -78,7 +80,9 @@ export default async function InviteDetailPage({
             </div>
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-sm font-medium text-foreground">Invite status</p>
-              <p className="text-sm text-muted-foreground">Pending</p>
+              <p className="text-sm text-muted-foreground">
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </p>
               <p className="text-sm text-muted-foreground">
                 {formatExpiryStatus(invite.expiresAt)}
               </p>
