@@ -37,7 +37,7 @@ These changes remain unmerged. EPP visibility is first priority and is distinct 
 | Focused route/harness/composition and architecture checks | Passed: 28 files / 139 tests before owner correction; 25 files / 129 tests after owner correction, including actual-page multi-partner and foreign-owner denial |
 | Typecheck / max-warnings-zero lint | Passed |
 | Actual DB migration/RPC/RLS cases | Both migrations and all 14 workspace-feature cases passed in earlier draft CI; corrected final-head whole integration suite awaiting disposable-stack CI. Not run on this Mac because local CLI/Docker access was denied |
-| Combined normal build / seeded / smoke / release-gate | Normal build/quality, security and smoke passed at reviewed `72663950`; integration and seeded failed. Final-head CI must pass independently |
+| Combined normal build / seeded / smoke / release-gate | `199dae69` passed normal build/quality, security, full integration and seeded; one Public Site smoke fixture expected Public at a localhost admin route, so smoke/release-gate failed. Fixture now uses loopback `public.localhost` with all assertions retained. Final-head CI must pass independently |
 | Local release:validate / local smoke | Unrun as a combined runner: previous local process/server restrictions remain; no denied operation retried |
 | Hosted authenticated acceptance / recovery rehearsal | Blocked; no synthetic seeding or writes against production |
 

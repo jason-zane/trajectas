@@ -16,6 +16,7 @@ describe('single-host synthetic workspace routing', () => {
     for (const [pathname, surface] of [['/campaigns', 'admin'], ['/partner/clients', 'partner'], ['/client/reports', 'client'], ['/assess/seed-token', 'assess']]) {
       expect(inferSurfaceFromRequest({ host: '127.0.0.1:3101', pathname })).toBe(surface)
     }
+    expect(inferSurfaceFromRequest({ host:'public.localhost:3101', pathname:'/surface-coming-soon' })).toBe('public')
   })
   it('retains explicit environment mappings ahead of file mappings', () => {
     const environment = testSurfaceEnv({ PUBLIC_APP_URL: 'https://public.synthetic.test' }, { PUBLIC_APP_URL: 'https://ignored.synthetic.test', PARTNER_APP_URL: 'https://partner.synthetic.test' }) as Record<string, string>
