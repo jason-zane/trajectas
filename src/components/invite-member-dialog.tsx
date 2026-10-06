@@ -25,6 +25,7 @@ import {
 import { getSelectLabel } from "@/lib/select-display";
 
 type MembershipRole = "admin" | "member";
+const DUPLICATE_INVITE_ERROR = "An invite is already pending for this email address";
 
 type InviteResult =
   | { error?: string; inviteLink?: string; emailDelivered?: boolean }
@@ -93,6 +94,11 @@ export function InviteMemberDialog({
       if (result && "error" in result && result.error) {
         setError(result.error);
         toast.error(result.error);
+        if (result.error === DUPLICATE_INVITE_ERROR) {
+          // The server found an existing invite. Refresh the Users page so a
+          // list rendered before that invite existed can display it as well.
+          router.refresh();
+        }
         return;
       }
 
@@ -212,7 +218,16 @@ export function InviteMemberDialog({
             </p>
           </div>
 
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? (
+            <div className="space-y-1">
+              <p className="text-sm text-destructive">{error}</p>
+              {error === DUPLICATE_INVITE_ERROR ? (
+                <p className="text-caption">
+                  Close this dialog to view existing invitations in Pending Invites below.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </ActionDialogBody>
         <ActionDialogFooter>
           <Button
