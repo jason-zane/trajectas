@@ -13,11 +13,11 @@ import { getTenantWorkspaceFeatures, getEffectiveWorkspaceFeatures, setTenantWor
 
 describe.skipIf(!canRun)('workspace features: real local ownership, RLS and audit', () => {
   const db = createAdminClient()
-  const ids = { a: randomUUID(), b: randomUUID(), client: randomUUID() }
+  const ids = { a: randomUUID(), b: randomUUID(), client: randomUUID(), recovery: randomUUID() }
   const users: Awaited<ReturnType<typeof createTestUser>>[] = []
   let platform: AuthorizedScope
   beforeAll(async () => {
-    const p = await db.from('partners').insert([{ id: ids.a, name: 'Features A', slug: ids.a }, { id: ids.b, name: 'Features B', slug: ids.b }])
+    const p = await db.from('partners').insert([{ id: ids.a, name: 'Features A', slug: ids.a }, { id: ids.b, name: 'Features B', slug: ids.b }, { id: ids.recovery, name: 'Synthetic compatibility', slug: ids.recovery }])
     if (p.error) throw p.error
     const c = await db.from('clients').insert({ id: ids.client, name: 'Features client', slug: ids.client, partner_id: ids.a })
     if (c.error) throw c.error
@@ -38,7 +38,7 @@ describe.skipIf(!canRun)('workspace features: real local ownership, RLS and audi
     async function clean(result: { error: { message: string } | null }) {
       if (result.error) throw new Error(result.error.message)
     }
-    await clean(await db.from('workspace_feature_settings').delete().in('partner_id', [ids.a, ids.b]))
+    await clean(await db.from('workspace_feature_settings').delete().in('partner_id', [ids.a, ids.b, ids.recovery]))
     // Audit events are append-only. Owner/profile deletion nulls their foreign keys.
     await clean(await db.from('clients').delete().eq('id', ids.client))
     for (const user of users) {
@@ -46,7 +46,7 @@ describe.skipIf(!canRun)('workspace features: real local ownership, RLS and audi
       await clean(await db.from('profiles').delete().eq('id', user.userId))
       await clean(await db.auth.admin.deleteUser(user.userId))
     }
-    await clean(await db.from('partners').delete().in('id', [ids.a, ids.b]))
+    await clean(await db.from('partners').delete().in('id', [ids.a, ids.b, ids.recovery]))
   }, 30000)
   it('keeps legacy defaults without creating a settings row', async () => {
     expect(await getTenantWorkspaceFeatures('partner', ids.a)).toMatchObject({ compare: true, trajectory: true, unifiedTrajectory: true })
@@ -199,6 +199,92 @@ describe.skipIf(!canRun)('workspace features: real local ownership, RLS and audi
     expect((await db.from('integration_events_outbox').select('status,requires_review,attempts').eq('id',eventId).single()).data).toEqual({status:'pending',requires_review:false,attempts:0})
     const audit=await db.from('audit_events').select('metadata').eq('event_type','integration.webhook_backlog_released').eq('client_id',ids.client)
     expect(audit.error).toBeNull();expect(audit.data?.[0].metadata).toEqual({eventIds:[eventId],count:1})
+  })
+
+  it('preserves legacy settings writes before activation and leaves a failed forward fix atomic', async () => {
+    request.scope = platform
+    // This is the exact four-column read/write contract of the deployed phase-one DAL.
+    const legacyColumns = 'compare_enabled,trajectory_enabled,unified_trajectory_enabled,dashboard_style'
+    const inserted = await db.from('workspace_feature_settings').insert({
+      partner_id: ids.recovery, compare_enabled: false, trajectory_enabled: true,
+      unified_trajectory_enabled: true, dashboard_style: 'default', updated_by: users[0].userId,
+    }).select(legacyColumns).single()
+    expect(inserted.error).toBeNull()
+    expect(inserted.data).toEqual({ compare_enabled: false, trajectory_enabled: true, unified_trajectory_enabled: true, dashboard_style: 'default' })
+    const updated = await db.from('workspace_feature_settings').update({ trajectory_enabled: false, updated_by: users[0].userId })
+      .eq('partner_id', ids.recovery).select(legacyColumns).single()
+    expect(updated.error).toBeNull()
+    const stored = await db.from('workspace_feature_settings').select(`${legacyColumns},module_flags,change_origin`)
+      .eq('partner_id', ids.recovery).single()
+    expect(stored.error).toBeNull()
+    expect(stored.data).toEqual({ ...updated.data, module_flags: {}, change_origin: 'override' })
+    const beforeAudit = await db.from('audit_events').select('id', { count: 'exact', head: true })
+      .eq('partner_id', ids.recovery).eq('event_type', 'workspace.features_updated')
+    expect(beforeAudit.error).toBeNull()
+    expect(beforeAudit.count).toBe(2)
+
+    const invalid = await db.rpc('patch_workspace_features', {
+      p_tenant_type: 'partner', p_tenant_id: ids.recovery, p_actor: users[0].userId,
+      p_patch: { assessmentAuthoring: false, assessmentPublishing: true },
+    })
+    expect(invalid.error?.message).toContain('requires')
+    const unchanged = await db.from('workspace_feature_settings').select(`${legacyColumns},module_flags,change_origin`)
+      .eq('partner_id', ids.recovery).single()
+    expect(unchanged.error).toBeNull()
+    expect(unchanged.data).toEqual(stored.data)
+    const afterFailureAudit = await db.from('audit_events').select('id', { count: 'exact', head: true })
+      .eq('partner_id', ids.recovery).eq('event_type', 'workspace.features_updated')
+    expect(afterFailureAudit.error).toBeNull()
+    expect(afterFailureAudit.count).toBe(beforeAudit.count)
+
+    const corrected = await db.rpc('patch_workspace_features', {
+      p_tenant_type: 'partner', p_tenant_id: ids.recovery, p_actor: users[0].userId,
+      p_patch: { assessmentAuthoring: false, assessmentPublishing: false }, p_origin: 'dependency',
+    })
+    expect(corrected.error).toBeNull()
+    expect(corrected.data).toMatchObject({ compare: false, trajectory: false, unifiedTrajectory: true, assessmentAuthoring: false, assessmentPublishing: false })
+    const legacyRead = await db.from('workspace_feature_settings').select(legacyColumns).eq('partner_id', ids.recovery).single()
+    expect(legacyRead.error).toBeNull()
+    expect(legacyRead.data).toEqual(updated.data)
+    const afterFixAudit = await db.from('audit_events').select('id', { count: 'exact', head: true })
+      .eq('partner_id', ids.recovery).eq('event_type', 'workspace.features_updated')
+    expect(afterFixAudit.error).toBeNull()
+    expect(afterFixAudit.count).toBe(beforeAudit.count! + 1)
+    // The old app can read the old fields, but cannot enforce newly activated module overrides.
+    // Therefore this corrected configuration requires the compatible roadmap app/forward fix.
+  })
+
+  it('keeps held events out of legacy pending scans and rejects unreviewed legacy retries', async () => {
+    request.scope = platform
+    const tenant = { type: 'client' as const, id: ids.client }
+    await setTenantWorkspaceFeature(tenant, { key: 'webhookDelivery', value: false })
+    const event = await db.from('integration_events_outbox').insert({
+      client_id: ids.client, event_type: 'integration.launch.created', aggregate_type: 'launch',
+      aggregate_id: randomUUID(), payload: { synthetic: true }, attempts: 2,
+    }).select('id,status,requires_review,attempts,available_at').single()
+    expect(event.error).toBeNull()
+    expect(event.data).toMatchObject({ status: 'failed', requires_review: true, attempts: 2 })
+    await setTenantWorkspaceFeature(tenant, { key: 'webhookDelivery', value: true })
+    const legacyScan = () => db.from('integration_events_outbox').select('id,status,attempts')
+      .eq('status', 'pending').eq('id', event.data!.id)
+    const held = await legacyScan()
+    expect(held.error).toBeNull()
+    expect(held.data).toEqual([])
+    // An older failed-event retry writes pending without knowing the review marker.
+    const unreviewed = await db.from('integration_events_outbox').update({ status: 'pending', available_at: new Date().toISOString() })
+      .eq('id', event.data!.id)
+    expect(unreviewed.error?.code).toBe('23514')
+    const unchanged = await db.from('integration_events_outbox').select('status,requires_review,attempts,available_at').eq('id', event.data!.id).single()
+    expect(unchanged.error).toBeNull()
+    expect(unchanged.data).toEqual({ status: 'failed', requires_review: true, attempts: 2, available_at: event.data!.available_at })
+    const reviewed = await db.rpc('release_reviewed_webhook_events', {
+      p_client_id: ids.client, p_actor: users[0].userId, p_ids: [event.data!.id],
+    })
+    expect(reviewed.error).toBeNull()
+    expect(reviewed.data).toBe(1)
+    const ready = await legacyScan()
+    expect(ready.error).toBeNull()
+    expect(ready.data).toEqual([{ id: event.data!.id, status: 'pending', attempts: 2 }])
   })
 
 })
