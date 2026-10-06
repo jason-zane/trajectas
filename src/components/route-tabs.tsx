@@ -16,9 +16,10 @@ interface RouteTabsProps {
   basePath: string
   activeSegment: string
   className?: string
+  queryForSegment?: (segment: string) => string
 }
 
-export function RouteTabs({ tabs, basePath, activeSegment, className }: RouteTabsProps) {
+export function RouteTabs({ tabs, basePath, activeSegment, className, queryForSegment }: RouteTabsProps) {
   const tabRefs = useRef<(HTMLAnchorElement | null)[]>([])
 
   function handleKeyDown(e: KeyboardEvent<HTMLAnchorElement>, index: number) {
@@ -48,7 +49,7 @@ export function RouteTabs({ tabs, basePath, activeSegment, className }: RouteTab
           <Link
             key={tab.segment}
             ref={(el) => { tabRefs.current[i] = el }}
-            href={`${basePath}/${tab.segment}`}
+            href={`${basePath}/${tab.segment}${queryForSegment?.(tab.segment) ?? ""}`}
             role="tab"
             aria-current={isActive ? "page" : undefined}
             aria-selected={isActive}

@@ -62,7 +62,7 @@ export function ConfigureUsageBillingButton({
         onOpenChange={setOpen}
         eyebrow="Usage billing"
         title={`Usage billing — ${clientName}`}
-        description="Bill this client per completed assessment, invoiced monthly."
+        description="Bill this client per completed participant journey, invoiced monthly."
       >
         <ActionDialogBody className="space-y-5">
           <label className="flex items-start gap-3">
@@ -79,14 +79,14 @@ export function ConfigureUsageBillingButton({
               </span>
               <span className="block text-xs text-muted-foreground">
                 On the 1st of each month, the prior month&rsquo;s completed
-                assessments are invoiced automatically.
+                participant journeys are invoiced automatically.
               </span>
             </span>
           </label>
 
           <div className="space-y-2">
             <Label htmlFor="usage-price">
-              Price per completed assessment (AUD)
+              Price per completed participant journey (AUD)
             </Label>
             <Input
               id="usage-price"
@@ -99,7 +99,7 @@ export function ConfigureUsageBillingButton({
               disabled={isPending}
             />
             <p className="text-xs text-muted-foreground">
-              GST-exclusive; GST is applied by Stripe when the invoice is sent.
+              Rates exclude tax.
             </p>
           </div>
         </ActionDialogBody>

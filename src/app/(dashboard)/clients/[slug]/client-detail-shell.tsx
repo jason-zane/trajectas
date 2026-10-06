@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { RouteTabs } from "@/components/route-tabs";
@@ -11,6 +11,7 @@ const ALL_TABS = [
   { label: "Details", segment: "details" },
   { label: "Assessments", segment: "assessments" },
   { label: "Reports", segment: "reports" },
+  { label: "Usage", segment: "usage" },
   { label: "Users", segment: "users" },
   { label: "Branding", segment: "branding" },
   { label: "Billing", segment: "billing" },
@@ -30,6 +31,7 @@ export function ClientDetailShell({
   basePath?: string;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   // Billing is platform-admin only (matches the gate on the billing page).
   const tabs = isPlatformAdmin
     ? ALL_TABS
@@ -53,6 +55,15 @@ export function ClientDetailShell({
         tabs={tabs}
         basePath={basePath ?? `/clients/${client.slug}`}
         activeSegment={activeSegment}
+        queryForSegment={(segment) => {
+          if (!["usage", "billing"].includes(segment)) return "";
+          const query = new URLSearchParams();
+          for (const key of ["period", "month", "from", "to"]) {
+            const value = searchParams.get(key);
+            if (value) query.set(key, value);
+          }
+          return query.size ? `?${query}` : "";
+        }}
       />
 
       {children}

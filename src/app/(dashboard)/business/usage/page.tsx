@@ -1,25 +1,62 @@
 import { PageHeader } from "@/components/page-header";
-import { requireAdminScope } from "@/lib/auth/authorization";
-import { getClientUsageSummary } from "@/lib/dal/usage";
+import { UsagePeriodControls } from "@/components/usage/usage-period-controls";
+import { UsageReportPanel } from "@/components/usage/usage-report-panel";
+import { getUsageReport } from "@/lib/dal/usage-report";
 import { listClientUsagePricing } from "@/lib/dal/usage-billing";
+import {
+  resolveUsagePeriod,
+  singleParam,
+  usagePeriodQuery,
+  type UsageSearchParams,
+} from "@/lib/usage/period";
+import { requireAdminScope } from "@/lib/auth/authorization";
 
-import { UsageTable } from "./usage-table";
-
-export default async function UsagePage() {
+export default async function UsagePage({
+  searchParams,
+}: {
+  searchParams: Promise<UsageSearchParams>;
+}) {
   await requireAdminScope();
-  const [rows, pricing] = await Promise.all([
-    getClientUsageSummary(),
-    listClientUsagePricing(),
-  ]);
-
+  const query = await searchParams;
+  const period = resolveUsagePeriod(query);
+  const clientId = singleParam(query.client);
+  const partnerId = singleParam(query.partner);
+  const [{ report, clientOptions, partnerOptions }, pricing] =
+    await Promise.all([
+      getUsageReport({ kind: "business", clientId, partnerId }, period),
+      listClientUsagePricing(),
+    ]);
+  const scopeName =
+    clientOptions.find((client) => client.id === clientId)?.name ??
+    partnerOptions.find((partner) => partner.id === partnerId)?.name ??
+    "Business usage";
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="max-w-6xl space-y-6">
       <PageHeader
         eyebrow="Business"
         title="Usage"
-        description="Actual product usage by client, and per-client usage billing. Enabled clients are invoiced monthly for assessments completed."
+        description="Activity by period across clients and partners. Review usage and export it for reconciliation. Configure rates in each client’s Billing tab."
       />
-      <UsageTable rows={rows} pricing={pricing} />
+      <UsagePeriodControls
+        key={`${usagePeriodQuery(period)}:${clientId}:${partnerId}`}
+        period={period}
+        clientOptions={clientOptions}
+        partnerOptions={partnerOptions}
+        selectedClient={clientId}
+        selectedPartner={partnerId}
+      />
+      <UsageReportPanel
+        report={report}
+        scopeName={scopeName}
+        defaultGroup="clients"
+        allowGrouping
+        showAdminLinks
+        clientBasePath="/clients"
+        campaignBasePath="/campaigns"
+        pricing={pricing.filter((price) =>
+          report.clients.some((client) => client.clientId === price.clientId),
+        )}
+      />
     </div>
   );
 }

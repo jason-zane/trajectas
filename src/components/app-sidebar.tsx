@@ -176,7 +176,10 @@ const adminNav: NavSection[] = [
 const partnerNav: NavSection[] = [
   {
     label: "Overview",
-    items: [{ title: "Dashboard", href: "/dashboard", icon: Home }],
+    items: [
+      { title: "Dashboard", href: "/dashboard", icon: Home },
+      { title: "Usage", href: "/usage", icon: BarChart3 },
+    ],
   },
   {
     label: "Clients",
@@ -211,7 +214,10 @@ const partnerNav: NavSection[] = [
 const clientNav: NavSection[] = [
   {
     label: "Overview",
-    items: [{ title: "Dashboard", href: "/dashboard", icon: Home }],
+    items: [
+      { title: "Dashboard", href: "/dashboard", icon: Home },
+      { title: "Usage", href: "/usage", icon: BarChart3 },
+    ],
   },
   {
     label: "Assessments",
