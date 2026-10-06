@@ -60,7 +60,7 @@ async function assertCanManageBrandOwner(
   if (ownerType === 'campaign') await requireWorkspaceFeature('campaignBranding')
 
   if (ownerType === 'client' && ownerId) {
-    await requirePartnerWorkspaceFeature('clientManagement')
+    await requirePartnerWorkspaceFeature('clientManagement', ownerId)
     if (!canManageClient(scope, ownerId)) {
       throw new AuthorizationError('Not authorized to manage this client')
     }

@@ -25,12 +25,19 @@ export async function isWorkspaceFeatureEnabled(feature: WorkspaceFeature): Prom
 }
 
 /** Partner controls do not disable a client's own administrative operations. */
-export async function requirePartnerWorkspaceFeature(feature: import('./workspace-features').ModuleFeature) {
+export async function requirePartnerWorkspaceFeature(feature: import('./workspace-features').ModuleFeature, targetClientId?: string) {
   const { resolveAuthorizedScope } = await import('@/lib/auth/authorization')
   const scope = await resolveAuthorizedScope()
   const context = scope.activeContext ?? scope.previewContext
-  if (scope.requestSurface === 'admin' && !scope.isPlatformAdmin) {
+  if (scope.requestSurface === 'public' || scope.requestSurface === 'assess' || (scope.requestSurface === 'admin' && !scope.isPlatformAdmin)) {
     throw new AuthorizationError('Partner controls are unavailable from this request surface.')
   }
+  if (scope.requestSurface === 'client' && feature === 'clientManagement') {
+    // This exception preserves existing own-client administration, not the
+    // partner-derived managed set. Every mutation supplies its actual target.
+    if (targetClientId && scope.clientIds.includes(targetClientId) && scope.clientAdminIds.includes(targetClientId)) return
+    throw new AuthorizationError('You do not administer this client directly.')
+  }
+  if (scope.requestSurface === 'client') return requireWorkspaceFeature(feature)
   if (feature === 'clientProvisioning' || scope.requestSurface === 'partner' || (scope.requestSurface === 'admin' && context?.tenantType === 'partner')) await requireWorkspaceFeature(feature)
 }

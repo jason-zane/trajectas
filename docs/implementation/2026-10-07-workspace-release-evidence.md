@@ -29,11 +29,11 @@ These changes remain unmerged. EPP visibility is first priority and is distinct 
 
 | Check | Result |
 | --- | --- |
-| Unit suite | Passed: 247 files, 3,258 tests |
+| Unit suite | Passed: 247 files, 3,258 tests before target-aware follow-up; five additional target/surface regressions passed within full coverage |
 | Component suite | Passed: 41 files, 216 tests |
 | Architecture suite | Passed: 20 files, 97 tests |
 | Release orchestration | Passed: six tests |
-| Full coverage | Passed: 317 files / 3,630 tests; 65 files / 504 local DB/environment skips |
+| Full coverage | Passed: 317 files / 3,635 tests; 65 files / 504 local DB/environment skips |
 | Focused route/harness/composition and architecture checks | Passed: 28 files / 139 tests before owner correction; 25 files / 129 tests after owner correction, including actual-page multi-partner and foreign-owner denial |
 | Typecheck / max-warnings-zero lint | Passed |
 | Actual DB migration/RPC/RLS cases | Both migrations and all 14 workspace-feature cases passed in earlier draft CI; corrected final-head whole integration suite awaiting disposable-stack CI. Not run on this Mac because local CLI/Docker access was denied |

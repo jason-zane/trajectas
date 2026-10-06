@@ -244,7 +244,7 @@ export async function createClient(formData: FormData) {
 }
 
 export async function updateClient(id: string, formData: FormData) {
-  await requirePartnerWorkspaceFeature('clientManagement')
+  await requirePartnerWorkspaceFeature('clientManagement', id)
 
   const raw = {
     partnerId: (formData.get('partnerId') as string) || undefined,
@@ -326,7 +326,7 @@ export async function updateClient(id: string, formData: FormData) {
 }
 
 export async function deleteClient(id: string) {
-  await requirePartnerWorkspaceFeature('clientManagement')
+  await requirePartnerWorkspaceFeature('clientManagement', id)
 
   let access
   try {
@@ -490,7 +490,7 @@ export async function getRecentClientCampaigns(clientId: string): Promise<
 }
 
 export async function restoreClient(id: string) {
-  await requirePartnerWorkspaceFeature('clientManagement')
+  await requirePartnerWorkspaceFeature('clientManagement', id)
 
   let access
   try {
@@ -625,7 +625,7 @@ export async function inviteUserToClient(
   clientId: string,
   input: { email: string; role: 'admin' | 'member' }
 ) {
-  await requirePartnerWorkspaceFeature('clientManagement'); await requireWorkspaceFeature('teamManagement')
+  await requirePartnerWorkspaceFeature('clientManagement', clientId); await requireWorkspaceFeature('teamManagement')
 
   let access
   try {
@@ -709,7 +709,7 @@ export async function reissueClientInvite(
   clientId: string,
   inviteId: string
 ): Promise<{ inviteLink: string } | { error: string }> {
-  await requirePartnerWorkspaceFeature('clientManagement'); await requireWorkspaceFeature('teamManagement')
+  await requirePartnerWorkspaceFeature('clientManagement', clientId); await requireWorkspaceFeature('teamManagement')
 
   let access
   try {
@@ -736,7 +736,7 @@ export async function changeClientMemberRole(
   membershipId: string,
   role: 'admin' | 'member'
 ) {
-  await requirePartnerWorkspaceFeature('clientManagement'); await requireWorkspaceFeature('teamManagement')
+  await requirePartnerWorkspaceFeature('clientManagement', clientId); await requireWorkspaceFeature('teamManagement')
 
   let access
   try {
@@ -781,7 +781,7 @@ export async function removeClientMember(
   clientId: string,
   membershipId: string
 ) {
-  await requirePartnerWorkspaceFeature('clientManagement'); await requireWorkspaceFeature('teamManagement')
+  await requirePartnerWorkspaceFeature('clientManagement', clientId); await requireWorkspaceFeature('teamManagement')
 
   let access
   try {
@@ -829,7 +829,7 @@ export async function revokeClientInvite(
   clientId: string,
   inviteId: string
 ) {
-  await requirePartnerWorkspaceFeature('clientManagement'); await requireWorkspaceFeature('teamManagement')
+  await requirePartnerWorkspaceFeature('clientManagement', clientId); await requireWorkspaceFeature('teamManagement')
 
   let access
   try {

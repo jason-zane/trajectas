@@ -18,7 +18,8 @@ vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({ rpc: mocks.
 } }) }))
 vi.mock('@/lib/auth/support-sessions', () => ({ logAuditEvent: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), unstable_cache: (fn: unknown) => fn }))
-import { createClient, updateClient } from '@/app/actions/clients'
+import { createClient, updateClient, inviteUserToClient } from '@/app/actions/clients'
+import { requirePartnerWorkspaceFeature } from '@/lib/features/access'
 import { provisionWorkspaceWithFeatures } from '@/lib/dal/workspace-provisioning'
 const partnerScope: AuthorizedScope = {
   actor: { id: actor, email: 'synthetic@test.local', role: 'partner_admin', isActive: true, partnerMemberships: [], clientMemberships: [], activeContext: null },
@@ -66,6 +67,28 @@ describe('provisioning preserves existing partner authority and defaults', () =>
     expect(await updateClient(client, form())).toMatchObject({ success: true })
     expect(mocks.update).toHaveBeenCalledOnce()
     expect(mocks.insert).not.toHaveBeenCalled()
+  })
+  it.each(['public','assess','client'] as const)('does not let a partner-only manager evade disabled client editing from %s',async requestSurface=>{
+    mocks.scope.mockResolvedValue({...partnerScope,requestSurface,activeContext:{surface:'client',tenantType:'client',tenantId:client},clientIds:[client],managedClientIds:[client],clientAdminIds:[]})
+    mocks.features.mockResolvedValue({...defaultWorkspaceFeatures('partner'),clientManagement:false})
+    await expect(updateClient(client,form())).rejects.toThrow()
+    expect(mocks.update).not.toHaveBeenCalled();expect(mocks.insert).not.toHaveBeenCalled()
+  })
+  it('requires the actual own-client target even when another client is partner-managed',async()=>{
+    const foreign='55555555-5555-4555-8555-555555555555'
+    mocks.scope.mockResolvedValue({...partnerScope,requestSurface:'client',clientIds:[client,foreign],clientAdminIds:[client],managedClientIds:[client,foreign],activeContext:{surface:'client',tenantType:'client',tenantId:client}})
+    mocks.features.mockResolvedValue(defaultWorkspaceFeatures('client'))
+    await expect(requirePartnerWorkspaceFeature('clientManagement',client)).resolves.toBeUndefined()
+    await expect(updateClient(foreign,form())).rejects.toThrow('directly')
+    await expect(requirePartnerWorkspaceFeature('clientManagement')).rejects.toThrow('directly')
+    await expect(createClient(form())).rejects.toThrow('not enabled')
+    expect(mocks.update).not.toHaveBeenCalled();expect(mocks.insert).not.toHaveBeenCalled()
+  })
+  it('keeps own-client team operations subject to the independent team-management feature',async()=>{
+    mocks.scope.mockResolvedValue({...partnerScope,requestSurface:'client',clientIds:[client],clientAdminIds:[client],managedClientIds:[client],activeContext:{surface:'client',tenantType:'client',tenantId:client}})
+    mocks.features.mockResolvedValue({...defaultWorkspaceFeatures('client'),teamManagement:false})
+    await expect(inviteUserToClient(client,{email:'synthetic@example.test',role:'member'})).rejects.toThrow('not enabled')
+    expect(mocks.update).not.toHaveBeenCalled();expect(mocks.insert).not.toHaveBeenCalled();expect(mocks.rpc).not.toHaveBeenCalled()
   })
   it('rejects partner-supplied preset selection without writing a client or settings', async () => {
     expect(await createClient(form(true))).toMatchObject({ error: { _form: [expect.stringContaining('Only unrestricted')] } })
