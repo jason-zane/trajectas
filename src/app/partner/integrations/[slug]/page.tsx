@@ -1,5 +1,4 @@
-import { resolvePartnerOrg } from '@/lib/auth/resolve-partner-org'
-import { getPartnerIntegrationClient } from '@/lib/dal/partner-integration-clients'
+import { resolvePartnerIntegrationOrg, getPartnerIntegrationClient } from '@/lib/dal/partner-integration-clients'
 import { getClientInternalIntegrationSettings } from '@/app/actions/integrations'
 import { getWebhookBacklogReview } from '@/lib/dal/webhook-backlog'
 import { ClientIntegrationsPanel } from '@/app/(dashboard)/clients/[slug]/settings/client-integrations-panel'
@@ -9,7 +8,7 @@ import { AuthorizationError } from '@/lib/auth/authorization'
 
 export default async function PartnerIntegrationClientPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const { partnerId } = await resolvePartnerOrg(`/partner/integrations/${slug}`)
+  const { partnerId } = await resolvePartnerIntegrationOrg(`/partner/integrations/${slug}`)
   if (!partnerId) throw new AuthorizationError('Partner workspace unavailable.')
   const client = await getPartnerIntegrationClient(partnerId, slug)
   const settings = await getClientInternalIntegrationSettings(client.id)

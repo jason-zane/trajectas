@@ -1,13 +1,12 @@
 import Link from 'next/link'
-import { resolvePartnerOrg } from '@/lib/auth/resolve-partner-org'
-import { listPartnerIntegrationClients } from '@/lib/dal/partner-integration-clients'
+import { resolvePartnerIntegrationOrg, listPartnerIntegrationClients } from '@/lib/dal/partner-integration-clients'
 import { PartnerIntegrationClientsTable } from './clients-table'
 import { PageHeader } from '@/components/page-header'
 import { EmptyState } from '@/components/empty-state'
 import { buttonVariants } from '@/components/ui/button-variants'
 
 export default async function PartnerIntegrationsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
-  const { partnerId } = await resolvePartnerOrg('/partner/integrations')
+  const { partnerId } = await resolvePartnerIntegrationOrg('/partner/integrations')
   if (!partnerId) throw new Error('Partner workspace unavailable.')
   const requested = Number((await searchParams).page ?? 0)
   const page = Number.isInteger(requested) && requested >= 0 && requested <= 10000 ? requested : 0

@@ -23,18 +23,18 @@ These changes remain unmerged. EPP visibility is first priority and is distinct 
 - Client Unified route and dashboard entry; default off, exact experience validation and individual single-person limit retained.
 - Previously issued participant continuation/self-enrollment preserved; new issuance/reactivation denied when delivery is off. Staff download denial stops new URLs, not previously issued URLs.
 - SAVE webhook policy: paused events remain saved and held after re-enabling; authorised managers explicitly review/release a bounded exact-ID batch. No new specialist product, owner migration or credential access.
-- Independent partner integrations route: existing managers can inspect connections/backlogs with `integrationManagement` enabled while `clientDirectory` and `clientManagement` are off. The selector exposes only client ID/name/slug, bounded to 100 rows plus a next-page sentinel, with existing managed-client and owning-partner predicates. Existing client tabs stay gated by their unchanged ancestor; metadata/branding controls remain hidden and direct metadata mutations denied.
+- Independent partner integrations route: existing managers can inspect connections/backlogs with `integrationManagement` enabled while `clientDirectory` and `clientManagement` are off. The selector exposes only client ID/name/slug, bounded to 100 rows plus a next-page sentinel, with existing managed-client and owning-partner predicates. A selected manageable client resolves its current eligible owning partner, even for multiple partner memberships; absent/foreign ownership fails without unrelated membership fallback. Existing client tabs stay gated by their unchanged ancestor; metadata/branding controls remain hidden and direct metadata mutations denied.
 
 ## Synthetic validation
 
 | Check | Result |
 | --- | --- |
-| Unit suite | Passed: 246 files, 3,248 tests |
-| Component suite | Passed within full coverage; final standalone repeat recorded in PR |
+| Unit suite | Passed: 247 files, 3,258 tests |
+| Component suite | Passed: 41 files, 216 tests |
 | Architecture suite | Passed: 20 files, 97 tests |
 | Release orchestration | Passed: six tests |
-| Full coverage | Passed: 316 files / 3,620 tests; 65 files / 504 local DB/environment skips |
-| Focused route/harness/composition and architecture checks | Passed: 28 files, 139 tests |
+| Full coverage | Passed: 317 files / 3,630 tests; 65 files / 504 local DB/environment skips |
+| Focused route/harness/composition and architecture checks | Passed: 28 files / 139 tests before owner correction; 25 files / 129 tests after owner correction, including actual-page multi-partner and foreign-owner denial |
 | Typecheck / max-warnings-zero lint | Passed |
 | Actual DB migration/RPC/RLS cases | Both migrations and all 14 workspace-feature cases passed in earlier draft CI; corrected final-head whole integration suite awaiting disposable-stack CI. Not run on this Mac because local CLI/Docker access was denied |
 | Combined normal build / seeded / smoke / release-gate | Normal build/quality, security and smoke passed at reviewed `72663950`; integration and seeded failed. Final-head CI must pass independently |

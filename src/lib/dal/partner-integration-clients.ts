@@ -1,11 +1,35 @@
 import 'server-only'
 import { z } from 'zod'
-import { AuthorizationError, canManageClient, requirePartnerAccess } from '@/lib/auth/authorization'
+import { AuthorizationError, canManageClient, requirePartnerAccess, resolveAuthorizedScope } from '@/lib/auth/authorization'
+import { resolvePartnerOrg } from '@/lib/auth/resolve-partner-org'
 import { requireWorkspaceFeature } from '@/lib/features/access'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { postgresUuid } from '@/lib/validations/uuid'
 
 export type PartnerIntegrationClient = { id: string; name: string; slug: string }
+
+/** A selected client licenses its current eligible owner, never the actor's
+ * first unrelated partner membership. Do not fall back if ownership is absent. */
+export async function resolvePartnerIntegrationOrg(redirectPath: string): Promise<{ partnerId: string | null }> {
+  const scope = await resolveAuthorizedScope()
+  const context = scope.activeContext ?? scope.previewContext
+  if (context?.tenantType !== 'client') return resolvePartnerOrg(redirectPath)
+  await requireWorkspaceFeature('integrationManagement')
+  const clientId = context.tenantId
+  if (!clientId || !scope.clientIds.includes(clientId) || !scope.managedClientIds.includes(clientId) || !scope.partnerIds.length) {
+    throw new AuthorizationError('Client not found or inaccessible.')
+  }
+  const { data, error } = await createAdminClient().from('clients')
+    .select('partner_id').eq('id', clientId).in('id', scope.managedClientIds)
+    .in('partner_id', scope.partnerIds).is('deleted_at', null).maybeSingle()
+  if (error) throw new Error('Unable to resolve integration workspace.')
+  if (!data?.partner_id || !scope.partnerIds.includes(String(data.partner_id))) {
+    throw new AuthorizationError('Client not found or inaccessible.')
+  }
+  const partnerId = String(data.partner_id)
+  await requirePartnerAccess(partnerId)
+  return { partnerId }
+}
 
 async function requireIntegrationScope(partnerId: string) {
   postgresUuid().parse(partnerId)
