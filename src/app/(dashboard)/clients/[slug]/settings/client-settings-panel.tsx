@@ -9,6 +9,7 @@ import type { ClientInternalIntegrationSettings } from "@/app/actions/integratio
 import { ClientIntegrationsPanel } from "./client-integrations-panel";
 
 interface ClientSettingsPanelProps {
+  canManageMetadata?: boolean;
   clientId: string;
   clientSlug: string;
   canCustomizeBranding: boolean;
@@ -19,6 +20,7 @@ interface ClientSettingsPanelProps {
 }
 
 export function ClientSettingsPanel({
+  canManageMetadata = true,
   clientId,
   clientSlug,
   canCustomizeBranding: initialValue,
@@ -51,7 +53,7 @@ export function ClientSettingsPanel({
 
   return (
     <div className="space-y-6">
-      <div
+      {canManageMetadata && <div
         className="rounded-xl bg-card p-6 shadow-sm ring-1 ring-foreground/[0.06] space-y-6 transition-opacity"
         style={{ opacity: isPending ? 0.6 : 1 }}
       >
@@ -76,7 +78,7 @@ export function ClientSettingsPanel({
             disabled={isPending || partnerBrandingDisabled}
           />
         </div>
-      </div>
+      </div>}
 
       {/*
         The toggle above governs whether the CLIENT may self-serve branding —
@@ -85,7 +87,7 @@ export function ClientSettingsPanel({
         off: then the Branding tab is empty for everyone but Trajectas, so the
         reassurance would be a lie.
       */}
-      {!partnerBrandingDisabled && (
+      {canManageMetadata && !partnerBrandingDisabled && (
         <p className="text-sm text-muted-foreground">
           Even when disabled, you can still configure branding for this client
           on the Branding tab.

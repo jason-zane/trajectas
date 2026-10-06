@@ -8,7 +8,7 @@ vi.mock('@/lib/auth/resolve-partner-client', () => ({ requirePartnerClient: stat
 vi.mock('@/app/actions/integrations', () => ({ getClientInternalIntegrationSettings: state.integration }))
 vi.mock('@/app/actions/partner-entitlements', () => ({ getPartnerBrandingEnabled: async () => true }))
 vi.mock('@/lib/dal/webhook-backlog', () => ({ getWebhookBacklogReview: state.backlog }))
-vi.mock('@/app/(dashboard)/clients/[slug]/settings/client-settings-panel', () => ({ ClientSettingsPanel: () => <div>Client settings</div> }))
+vi.mock('@/app/(dashboard)/clients/[slug]/settings/client-settings-panel', () => ({ ClientSettingsPanel: ({ canManageMetadata }: { canManageMetadata: boolean }) => <div>{canManageMetadata ? 'Client metadata controls' : 'Integration controls only'}</div> }))
 vi.mock('@/components/webhook-backlog-review', () => ({ WebhookBacklogReviewPanel: ({ clientId }: { clientId: string }) => <div>Review backlog {clientId}</div> }))
 import PartnerClientSettingsPage from '@/app/partner/clients/[slug]/settings/page'
 
@@ -26,6 +26,13 @@ describe('actual partner client settings exposes only the existing manager backl
     expect(html).toContain('Review backlog scoped-client')
     expect(state.client).toHaveBeenCalledWith('scoped')
     expect(state.backlog).toHaveBeenCalledExactlyOnceWith('scoped-client')
+  })
+  it('keeps integration/backlog inspection while client metadata editing is disabled', async () => {
+    state.features.clientManagement = false
+    const html = renderToStaticMarkup(await PartnerClientSettingsPage({ params: Promise.resolve({ slug: 'scoped' }) }))
+    expect(html).toContain('Review backlog scoped-client')
+    expect(html).toContain('Integration controls only')
+    expect(html).not.toContain('Client metadata controls')
   })
   it('does not read or render backlog for a non-manager', async () => {
     state.integration.mockResolvedValue({ canManage: false })

@@ -138,6 +138,7 @@ export function featureForWorkspacePath(path: string): WorkspaceFeature | null {
   if (/^\/report-templates\/[^/]+\/(builder|preview)(\/|$)/.test(normalized)) return 'reportTemplateAuthoring'
   if (/^\/report-templates(\/|$)/.test(normalized)) return 'reportTemplateLibrary'
   if (/^\/reports(\/|$)/.test(normalized)) return 'reportViewing'
+  if (/^\/integrations(\/|$)/.test(normalized)) return 'integrationManagement'
   if (/^\/clients\/create(\/|$)/.test(normalized)) return 'clientProvisioning'
   if (/^\/clients(\/|$)/.test(normalized)) return 'clientDirectory'
   if (/^\/diagnostics(\/|$)/.test(normalized)) return 'orgDiagnostics'

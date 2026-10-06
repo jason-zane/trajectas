@@ -65,6 +65,7 @@ vi.mock("@/lib/auth/authorization", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/auth/authorization")>();
   return {
     ...actual,
+    resolveAuthorizedScope: async () => ({ requestSurface: 'partner', isPlatformAdmin: false, activeContext: null }),
     requireClientAccess: auth.requireClientAccess,
   };
 });

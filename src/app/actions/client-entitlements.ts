@@ -1,6 +1,6 @@
 'use server'
 
-import { requireWorkspaceFeature } from '@/lib/features/access'
+import { requireWorkspaceFeature, requirePartnerWorkspaceFeature } from '@/lib/features/access'
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -1141,6 +1141,7 @@ export async function toggleClientBranding(
   clientId: string,
   canCustomize: boolean,
 ): Promise<{ success: true; id: string } | { error: string }> {
+  await requirePartnerWorkspaceFeature('clientManagement')
   const parsed = toggleClientBrandingSchema.safeParse({ clientId, canCustomize })
   if (!parsed.success) return { error: 'Invalid input' }
   const { scope, partnerId } = await requireClientAccess(clientId)

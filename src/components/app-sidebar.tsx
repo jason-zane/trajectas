@@ -36,6 +36,7 @@ import {
   Scale,
   Receipt,
   Wand2,
+  Cable,
   type LucideIcon,
 } from "lucide-react";
 import Image from "next/image";
@@ -186,6 +187,7 @@ const partnerNav: NavSection[] = [
     label: "Clients",
     items: [
       { title: "Clients", href: "/clients", icon: Building2 },
+      { title: "Integrations", href: "/integrations", icon: Cable },
     ],
   },
   {

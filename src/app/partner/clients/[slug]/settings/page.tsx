@@ -12,7 +12,8 @@ export default async function PartnerClientSettingsPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  if (!await isWorkspaceFeatureEnabled('clientManagement')) return <WorkspaceFeatureUnavailable feature="clientManagement" />
+  const canManageMetadata = await isWorkspaceFeatureEnabled('clientManagement');
+  if (!canManageMetadata && !await isWorkspaceFeatureEnabled('integrationManagement')) return <WorkspaceFeatureUnavailable feature="clientManagement" />
   const { slug } = await params;
   const { client, partnerId } = await requirePartnerClient(slug);
 
@@ -24,6 +25,7 @@ export default async function PartnerClientSettingsPage({
   const backlog = integrationSettings?.canManage ? await getWebhookBacklogReview(client.id) : null;
   return (
     <div className="space-y-6"><ClientSettingsPanel
+      canManageMetadata={canManageMetadata}
       clientId={client.id}
       clientSlug={slug}
       canCustomizeBranding={client.canCustomizeBranding ?? false}
