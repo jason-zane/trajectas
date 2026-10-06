@@ -1,27 +1,13 @@
 name: Seeded E2E
 
 on:
-  pull_request:
-    paths:
-      - "src/app/assess/**"
-      - "src/app/actions/assess.ts"
-      - "src/components/assess/**"
-      - "src/lib/assess/**"
-      - "src/lib/auth/**"
-      - "src/lib/scoring/**"
-      - "src/lib/reports/**"
-      - "src/lib/dal/**"
-      - "src/app/api/assess/**"
-      - "src/app/api/reports/**"
-      - "src/app/actions/campaigns.ts"
-      - "src/app/actions/assessments.ts"
-      - "src/app/actions/items.ts"
-      - "supabase/migrations/**"
-      - "tests/e2e/seeded/**"
-      - ".github/workflows/e2e-seeded.yml"
+  workflow_call:
   workflow_dispatch:
   schedule:
     - cron: "0 16 * * 1"
+
+permissions:
+  contents: read
 
 env:
   CI: true

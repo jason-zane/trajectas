@@ -12,6 +12,23 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  change-scope:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      seeded: ${{ steps.scope.outputs.seeded }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Decide seeded E2E scope from the complete diff
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/release/change-scope.mjs "$BASE_SHA" "$HEAD_SHA"
+
   security:
     runs-on: ubuntu-latest
     # 20 rather than 15: the audit step now retries a slow registry instead of
@@ -50,7 +67,7 @@ jobs:
       # Wraps `npm audit --omit=dev --audit-level=high`. Same threshold — the
       # wrapper exists to tell a high-severity advisory (fail) apart from an
       # unreachable registry (retry, then warn), which npm's exit code alone
-      # cannot. See the script header and AGENTS.md.
+      # cannot. See the script header and docs/ci-npm-audit.md.
       - name: Audit production dependencies
         run: node scripts/audit-production-deps.mjs
 
@@ -76,6 +93,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify release orchestration
+        run: npm run test:release
 
       - name: Lint
         run: npm run lint
@@ -183,3 +203,25 @@ jobs:
             playwright-report
             test-results
           if-no-files-found: ignore
+
+  seeded-e2e:
+    needs: [change-scope, security]
+    if: needs.change-scope.outputs.seeded == 'true'
+    uses: ./.github/workflows/e2e-seeded.yml
+    permissions:
+      contents: read
+
+  # Stable check on every PR; always runs even when upstream jobs fail/skip.
+  # Requiring this in branch protection is a separate owner-approved setup step.
+  release-gate:
+    if: ${{ always() }}
+    needs: [change-scope, security, quality, integration, e2e-smoke, seeded-e2e]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require all applicable CI results
+        env:
+          JOB_RESULTS: ${{ toJSON(needs) }}
+        run: printf '%s' "$JOB_RESULTS" | node scripts/release/check-gate.mjs
