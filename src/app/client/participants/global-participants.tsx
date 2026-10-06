@@ -1,5 +1,7 @@
 "use client";
 
+import { usePortal } from "@/components/portal-context";
+
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -393,6 +395,7 @@ export function GlobalParticipants({
     router.replace(`/client/participants?${qs.toString()}`);
   }
 
+  const { features } = usePortal();
   const sessionsBulkActions: BulkAction<SessionTableRow>[] = [
     {
       label: "Compare selected",
@@ -480,7 +483,7 @@ export function GlobalParticipants({
             pageSize={25}
             enableRowSelection
             getRowId={(row) => row.id}
-            bulkActions={sessionsBulkActions}
+            bulkActions={sessionsBulkActions.filter(action => action.label !== "Compare selected" || features.compare)}
             rowHref={(row) =>
               row.latestSessionId
                 ? `/client/campaigns/${row.campaignId}/sessions/${row.latestSessionId}`

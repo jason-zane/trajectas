@@ -1,5 +1,6 @@
 "use client";
 
+import { usePortal } from "@/components/portal-context";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
@@ -51,6 +52,7 @@ export function SessionHeaderActions({
   compareParticipantId,
   comparePath,
 }: SessionHeaderActionsProps) {
+  const { features } = usePortal();
   const router = useRouter();
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -107,7 +109,7 @@ export function SessionHeaderActions({
             <User className="size-4" />
             Open participant
           </DropdownMenuItem>
-          {compareParticipantId && comparePath ? (
+          {features.compare && compareParticipantId && comparePath ? (
             <DropdownMenuItem
               onClick={() => {
                 const entries = encodeURIComponent(

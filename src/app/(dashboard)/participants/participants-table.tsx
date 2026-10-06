@@ -1,5 +1,6 @@
 "use client";
 
+import { usePortal } from "@/components/portal-context";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ExternalLink, GitCompare, Trash2 } from "lucide-react";
@@ -249,6 +250,7 @@ export function ParticipantsTable({
   participants: UniqueParticipant[];
 }) {
   const router = useRouter();
+  const { features } = usePortal();
 
   function handleViewChange(newView: string | null) {
     if (!newView) return;
@@ -319,7 +321,7 @@ export function ParticipantsTable({
           pageSize={20}
           enableRowSelection
           getRowId={(row) => row.id}
-          bulkActions={sessionsBulkActionsWithCompare}
+          bulkActions={sessionsBulkActionsWithCompare.filter(action => action.label !== "Compare selected" || features.compare)}
         />
       </div>
     );

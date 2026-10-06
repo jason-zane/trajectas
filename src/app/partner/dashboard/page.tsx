@@ -1,3 +1,4 @@
+import { getEffectiveWorkspaceFeatures } from '@/lib/dal/workspace-features';
 import { Building2 } from "lucide-react";
 
 import {
@@ -45,6 +46,7 @@ export default async function PartnerDashboardPage() {
     favoriteCampaignIds,
     { completionTimeline, recentResults },
     partnerName,
+    features,
   ] = await Promise.all([
     getClients(),
     getCampaigns(),
@@ -53,10 +55,12 @@ export default async function PartnerDashboardPage() {
     getFavoriteCampaignIds(),
     getPartnerDashboardData(partnerId),
     getPartnerName(partnerId),
+    getEffectiveWorkspaceFeatures(),
   ]);
 
   return (
     <PartnerDashboard
+      dashboardStyle={features.dashboardStyle}
       partnerName={partnerName ?? "your partner organisation"}
       clients={clients}
       campaigns={campaigns}

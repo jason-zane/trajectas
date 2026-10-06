@@ -1,3 +1,4 @@
+vi.mock('@/lib/features/access', () => ({ requireWorkspaceFeature: vi.fn(), requireAnyInsightFeature: vi.fn() }))
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const requireParticipantAccess = vi.fn()

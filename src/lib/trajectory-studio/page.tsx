@@ -1,4 +1,8 @@
 import 'server-only'
+import { MultipleTrajectoryPeopleError } from '@/lib/features/workspace-features'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
+import { EXPERIENCE_FEATURE } from '@/lib/features/workspace-features'
+import { requireInsightExperience, isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { headers } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 import { getComparisonCanvas } from '@/app/actions/canvas'
@@ -20,12 +24,24 @@ export async function renderTrajectoryPage(params: TrajectoryPageParams, experie
   else if (portal === 'partner') await resolvePartnerOrg(`/partner/participants/${route}`)
   else await resolveClientOrg(`/client/participants/${route}`)
 
+  if (!await isWorkspaceFeatureEnabled(EXPERIENCE_FEATURE[experience])) return <WorkspaceFeatureUnavailable feature={EXPERIENCE_FEATURE[experience]} />
+  await requireInsightExperience(experience)
   const ids = [...new Set((params.ids ?? params.id ?? '').split(',').filter(Boolean))]
   if (ids.length > CANVAS_MAX_PEOPLE) throw new Error(`Choose up to ${CANVAS_MAX_PEOPLE} participants.`)
-  const initial: CanvasResult = ids.length ? await getComparisonCanvas(ids) : { people: [], series: [], entities: [], clientId: null }
+  let initial: CanvasResult = { people: [], series: [], entities: [], clientId: null }
+  if (ids.length) {
+    try { initial = await getComparisonCanvas(ids, experience) }
+    catch (error) {
+      if (!(error instanceof MultipleTrajectoryPeopleError) || portal === 'client') throw error
+      await requireInsightExperience('unified')
+      const query = new URLSearchParams({ ids: ids.join(','), lens: 'time' })
+      redirect(`${portal === 'partner' ? '/partner' : ''}/participants/unified?${query}`)
+    }
+  }
   // Existing admin links can carry several distinct people. Keep that history
   // comparison intact while the standalone Trajectory stays individual.
   if (experience === 'individual' && portal !== 'client' && initial.people.length > 1) {
+    await requireInsightExperience('unified')
     const query = new URLSearchParams({ ids: ids.join(','), lens: 'time' })
     redirect(`${portal === 'partner' ? '/partner' : ''}/participants/unified?${query}`)
   }

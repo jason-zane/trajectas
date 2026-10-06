@@ -1,5 +1,7 @@
 "use client";
 
+import { usePortal } from "@/components/portal-context";
+
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ExternalLink, GitCompare } from "lucide-react";
@@ -267,6 +269,7 @@ export function ParticipantsTable({
     }
   }
 
+  const { features } = usePortal();
   const sessionsBulkActions: BulkAction<SessionTableRow>[] = [
     {
       label: "Compare selected",
@@ -302,7 +305,7 @@ export function ParticipantsTable({
           data={rows}
           enableRowSelection
           getRowId={(row) => row.id}
-          bulkActions={sessionsBulkActions}
+          bulkActions={sessionsBulkActions.filter(action => action.label !== "Compare selected" || features.compare)}
           searchableColumns={["displayName", "email"]}
           searchPlaceholder="Search participants"
           filterableColumns={[

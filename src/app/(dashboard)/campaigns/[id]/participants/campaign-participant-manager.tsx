@@ -62,7 +62,7 @@ export function CampaignParticipantManager({
   const router = useRouter();
   const params = useSearchParams();
   const view = params.get("view") === "participants" ? "participants" : "sessions";
-  const { href } = usePortal();
+  const { href, features } = usePortal();
   const [, startTransition] = useTransition();
   const [optimisticParticipants, addOptimisticParticipant] = useOptimistic(
     participants,
@@ -601,7 +601,7 @@ export function CampaignParticipantManager({
           pageSize={20}
           enableRowSelection
           getRowId={(row) => row.id}
-          bulkActions={bulkActions}
+          bulkActions={bulkActions.filter(action => action.label !== "Compare selected" || features.compare)}
           rowHref={(row) => href(`/campaigns/${campaignId}/participants/${row.id}`)}
         />
       )}

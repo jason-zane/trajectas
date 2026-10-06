@@ -1,3 +1,5 @@
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { renderTrajectoryPage } from '@/lib/trajectory-studio/page'
 import { ComparisonWorkspace } from '@/components/comparison/comparison-workspace'
 import {
@@ -35,6 +37,7 @@ export default async function PartnerComparePage({
     saved?: string
   }>
 }) {
+  if (!await isWorkspaceFeatureEnabled('compare')) return <WorkspaceFeatureUnavailable feature="compare" />
   const { partnerId } = await resolvePartnerOrg(BASE_PATH)
   const sp = await searchParams
 

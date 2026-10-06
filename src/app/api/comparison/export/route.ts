@@ -1,3 +1,4 @@
+import { AuthorizationError } from '@/lib/auth/authorization'
 import { NextResponse, after } from 'next/server'
 import { z } from 'zod'
 import { getComparisonMatrix } from '@/app/actions/comparison'
@@ -37,11 +38,17 @@ export async function POST(req: Request): Promise<Response> {
     )
   }
 
-  const result = await getComparisonMatrix({
-    entries: parsed.data.entries,
-    assessmentIds: parsed.data.assessmentIds,
-    visibleLevels: parsed.data.visibleLevels,
-  })
+  let result
+  try {
+    result = await getComparisonMatrix({
+      entries: parsed.data.entries,
+      assessmentIds: parsed.data.assessmentIds,
+      visibleLevels: parsed.data.visibleLevels,
+    })
+  } catch (error) {
+    if (error instanceof AuthorizationError) return NextResponse.json({ error: 'feature_or_participant_access_denied' }, { status: 403 })
+    throw error
+  }
   const csv = buildComparisonCsv(result)
   const filename = parsed.data.campaignSlug
     ? `trajectas-comparison-${parsed.data.campaignSlug}-${todayUtcYyyymmdd()}.csv`
@@ -72,6 +79,7 @@ export async function POST(req: Request): Promise<Response> {
   return new Response(csv, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
+      'Cache-Control': 'no-store',
       'Content-Disposition': `attachment; filename="${filename}"`,
     },
   })

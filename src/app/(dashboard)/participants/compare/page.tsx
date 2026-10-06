@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { renderTrajectoryPage } from '@/lib/trajectory-studio/page'
 import { ComparisonWorkspace } from '@/components/comparison/comparison-workspace'
 import {
@@ -33,6 +35,7 @@ export default async function ComparePage({
     saved?: string
   }>
 }) {
+  if (!await isWorkspaceFeatureEnabled('compare')) return <WorkspaceFeatureUnavailable feature="compare" />
   const sp = await searchParams
 
   // Keep saved assessment/session configurations on the existing comparison route.

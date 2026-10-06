@@ -1,3 +1,4 @@
+import { AuthorizationError } from '@/lib/auth/authorization'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const getComparisonMatrix = vi.fn()
@@ -60,6 +61,12 @@ describe('POST /api/comparison/export', () => {
     )
   })
 
+  it('returns 403 when the insight or participant is unavailable', async () => {
+    getComparisonMatrix.mockRejectedValueOnce(new AuthorizationError('Compare is not enabled'))
+    const res = await POST(new Request('http://localhost/x', { method: 'POST', body: JSON.stringify(VALID_BODY) }))
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ error: 'feature_or_participant_access_denied' })
+  })
   it('uses the participants filename when no campaignSlug is supplied', async () => {
     const res = await POST(
       new Request('http://localhost/x', {

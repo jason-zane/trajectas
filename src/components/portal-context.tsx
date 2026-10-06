@@ -13,9 +13,12 @@ import {
   type WorkspaceSurface,
 } from "@/lib/surfaces";
 
+import { defaultWorkspaceFeatures, type WorkspaceFeatures } from '@/lib/features/workspace-features';
+
 export type PortalType = WorkspaceSurface;
 
 interface PortalContextValue {
+  features: WorkspaceFeatures;
   portal: PortalType;
   setPortal: (portal: PortalType) => void;
   portalLabel: string;
@@ -25,6 +28,7 @@ interface PortalContextValue {
 }
 
 const PortalContext = createContext<PortalContextValue>({
+  features: defaultWorkspaceFeatures("admin"),
   portal: "admin",
   setPortal: () => {},
   portalLabel: workspaceSurfaceLabels.admin,
@@ -38,7 +42,9 @@ export function PortalProvider({
   initialPortal = "admin",
   routePrefix = "",
   canSwitchPortal = false,
+  features = defaultWorkspaceFeatures(initialPortal),
 }: {
+  features?: WorkspaceFeatures;
   children: React.ReactNode;
   initialPortal?: PortalType;
   routePrefix?: string;
@@ -62,6 +68,7 @@ export function PortalProvider({
   return (
     <PortalContext.Provider
       value={{
+        features,
         portal,
         setPortal,
         portalLabel: workspaceSurfaceLabels[portal],

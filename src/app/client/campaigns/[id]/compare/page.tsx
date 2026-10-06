@@ -1,3 +1,5 @@
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { requireClientCampaignOwnership } from '@/lib/auth/resolve-client-org'
 import { getCampaignById } from '@/app/actions/campaigns'
 import { CampaignComparePageComponent } from '@/components/campaigns/pages/campaign-compare-page'
@@ -16,6 +18,7 @@ export default async function ClientCompareCampaignPage({
     saved?: string
   }>
 }) {
+  if (!await isWorkspaceFeatureEnabled('compare')) return <WorkspaceFeatureUnavailable feature="compare" />
   const { id: campaignId } = await params
   const sp = await searchParams
 

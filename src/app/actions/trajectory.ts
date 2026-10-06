@@ -1,4 +1,5 @@
 'use server'
+import { requireWorkspaceFeature } from '@/lib/features/access'
 
 /**
  * Server actions for the Trajectory feature.
@@ -130,6 +131,7 @@ function pickDisplayName(row: {
 export async function getLinkedParticipants(
   campaignParticipantId: string,
 ): Promise<LinkedParticipant[]> {
+  await requireWorkspaceFeature('trajectory')
   await requireParticipantAccess(campaignParticipantId)
   const identity = await loadParticipantIdentity(campaignParticipantId)
 
@@ -194,6 +196,7 @@ export async function getLinkedParticipants(
 export async function searchPersons(
   query: string,
 ): Promise<PersonSearchResult[]> {
+  await requireWorkspaceFeature('trajectory')
   const trimmed = query.trim()
   if (trimmed.length < 2) return []
 
@@ -278,6 +281,7 @@ export async function searchPersons(
 export async function getTrajectoryLandingData(
   recentLimit: number = 10,
 ): Promise<TrajectoryLandingData> {
+  await requireWorkspaceFeature('trajectory')
   const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
 
@@ -413,6 +417,7 @@ export async function linkParticipantsToSamePerson(
   targetCampaignParticipantId: string,
   reason?: string,
 ): Promise<{ targetPersonKey: string; mergedCount: number }> {
+  await requireWorkspaceFeature('trajectory')
   if (sourceCampaignParticipantIds.length === 0) {
     return { targetPersonKey: '', mergedCount: 0 }
   }
@@ -500,6 +505,7 @@ export async function unlinkParticipant(
   campaignParticipantId: string,
   reason?: string,
 ): Promise<{ newPersonKey: string }> {
+  await requireWorkspaceFeature('trajectory')
   await requireParticipantAccess(campaignParticipantId)
   const scope = await resolveAuthorizedScope()
   const identity = await loadParticipantIdentity(campaignParticipantId)

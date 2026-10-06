@@ -1,4 +1,5 @@
 'use server'
+import { requireWorkspaceFeature, requireAnyInsightFeature } from '@/lib/features/access'
 
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -47,6 +48,7 @@ function unwrapEmbedded<T>(value: T | T[] | null | undefined): T | null {
 export async function getEligibleAssessmentsForParticipants(
   campaignParticipantIds: string[],
 ): Promise<EligibleAssessment[]> {
+  await requireWorkspaceFeature('compare')
   if (campaignParticipantIds.length === 0) return []
 
   const parsed = eligibleAssessmentsSchema.safeParse({ campaignParticipantIds })
@@ -104,6 +106,7 @@ export async function getSessionOptionsForRow(
   campaignParticipantId: string,
   assessmentIds: string[],
 ): Promise<SessionOption[]> {
+  await requireWorkspaceFeature('compare')
   if (assessmentIds.length === 0) return []
   const parsed = sessionOptionsForRowSchema.safeParse({ campaignParticipantId, assessmentIds })
   if (!parsed.success) throw new Error('Invalid input.')
@@ -219,6 +222,7 @@ export async function searchCampaignParticipants(
   campaignId: string,
   query: string,
 ): Promise<ParticipantSearchHit[]> {
+  await requireWorkspaceFeature('compare')
   const parsed = searchCampaignParticipantsSchema.safeParse({ campaignId, query })
   if (!parsed.success) return []
   // The campaign id arrives from the client, so establish access here rather
@@ -265,6 +269,7 @@ export async function searchCampaignParticipants(
 export async function searchWorkspaceParticipants(
   query: string,
 ): Promise<ParticipantSearchHit[]> {
+  await requireAnyInsightFeature()
   const parsed = searchAllParticipantsSchema.safeParse({ query })
   if (!parsed.success) return []
   const supabase = await createClient()
@@ -357,6 +362,7 @@ type ParticipantScoreRow = {
 export async function getComparisonMatrix(
   req: ComparisonRequest,
 ): Promise<ComparisonResult> {
+  await requireWorkspaceFeature('compare')
   const parsed = comparisonRequestSchema.safeParse(req)
   if (!parsed.success) return { columns: [], rows: [] }
 

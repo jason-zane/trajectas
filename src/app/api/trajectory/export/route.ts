@@ -1,3 +1,6 @@
+import { MultipleTrajectoryPeopleError } from '@/lib/features/workspace-features'
+import { insightExperienceSchema } from '@/lib/validations/workspace-features'
+import { AuthorizationError } from '@/lib/auth/authorization'
 import { NextResponse, after } from 'next/server'
 import { getComparisonCanvas } from '@/app/actions/canvas'
 import { buildCanvasCsv } from '@/lib/canvas/build-csv'
@@ -7,7 +10,7 @@ import { canvasRequestSchema } from '@/lib/validations/canvas'
 
 export const maxDuration = 60
 
-const Body = canvasRequestSchema
+const Body = canvasRequestSchema.extend({ experience: insightExperienceSchema.default('compare') })
 
 function todayUtcYyyymmdd(): string {
   const d = new Date()
@@ -28,7 +31,14 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   // getComparisonCanvas authorises every participant id internally.
-  const result = await getComparisonCanvas(parsed.data.campaignParticipantIds)
+  let result
+  try {
+    result = await getComparisonCanvas(parsed.data.campaignParticipantIds, parsed.data.experience)
+  } catch (error) {
+    if (error instanceof MultipleTrajectoryPeopleError) return NextResponse.json({ error: 'individual_trajectory_requires_one_person' }, { status: 400 })
+    if (error instanceof AuthorizationError) return NextResponse.json({ error: 'feature_or_participant_access_denied' }, { status: 403 })
+    throw error
+  }
   const csv = buildCanvasCsv(result)
   const filename = `trajectas-trajectory-${todayUtcYyyymmdd()}.csv`
 

@@ -1,3 +1,4 @@
+import { isWorkspaceFeatureEnabled } from "@/lib/features/access";
 import { notFound } from "next/navigation";
 import {
   getParticipant,
@@ -18,6 +19,7 @@ async function loadParticipant(participantId: string) {
 }
 
 async function loadParticipantAuxiliaryData(participantId: string) {
+  const trajectoryEnabled = await isWorkspaceFeatureEnabled("trajectory");
   const [sessions, activity, snapshots, trajectory] = await Promise.all([
     getParticipantSessions(participantId).catch((error) => {
       console.error("[campaign-participant-detail] Failed to load sessions:", error);
@@ -31,10 +33,10 @@ async function loadParticipantAuxiliaryData(participantId: string) {
       console.error("[campaign-participant-detail] Failed to load report snapshots:", error);
       return [];
     }),
-    getComparisonCanvas([participantId]).catch((error) => {
+    trajectoryEnabled ? getComparisonCanvas([participantId], "individual").catch((error) => {
       console.error("[campaign-participant-detail] Failed to load trajectory canvas:", error);
       return null;
-    }),
+    }) : Promise.resolve(null),
   ]);
 
   return { sessions, activity, snapshots, trajectory };

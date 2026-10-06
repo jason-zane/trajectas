@@ -1,5 +1,7 @@
 'use client'
 
+import type { InsightExperience } from '@/lib/features/workspace-features'
+
 import { useState } from 'react'
 import { Download, FileText } from 'lucide-react'
 import { toast } from 'sonner'
@@ -15,11 +17,13 @@ import type { CanvasViewState } from '@/lib/canvas/types'
  */
 export function CanvasExportBar({
   campaignParticipantIds,
+  experience = 'compare',
   viewState,
   peopleCount,
   sessionCount,
 }: {
   campaignParticipantIds: string[]
+  experience?: InsightExperience
   viewState: CanvasViewState
   peopleCount: number
   sessionCount: number
@@ -33,7 +37,7 @@ export function CanvasExportBar({
       const res = await fetchWithTimeout('/api/trajectory/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaignParticipantIds }),
+        body: JSON.stringify({ campaignParticipantIds, experience }),
         timeoutMs: 30_000,
       })
       if (!res.ok) throw new Error(await res.text())
@@ -61,6 +65,7 @@ export function CanvasExportBar({
     try {
       const { snapshotId } = await createTrajectorySnapshot({
         campaignParticipantIds,
+        experience,
         viewState,
       })
       const res = await fetchWithTimeout(`/api/trajectory/snapshots/${snapshotId}/pdf`, {

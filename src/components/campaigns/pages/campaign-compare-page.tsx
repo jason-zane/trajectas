@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { redirect } from 'next/navigation'
 import { ComparisonWorkspace } from '@/components/comparison/comparison-workspace'
 import {
@@ -44,6 +46,7 @@ export async function CampaignComparePageComponent({
   basePath,
   fallbackPath,
 }: CampaignComparePageProps) {
+  if (!await isWorkspaceFeatureEnabled('compare')) return <WorkspaceFeatureUnavailable feature="compare" />
   const campaign = await getCampaignById(campaignId)
   if (!campaign) redirect(fallbackPath)
 

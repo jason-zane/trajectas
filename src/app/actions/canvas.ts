@@ -13,6 +13,8 @@
  * every (people × time) setup; see the v4 spec.
  */
 
+import { requireInsightExperience } from '@/lib/features/access'
+import { MultipleTrajectoryPeopleError, type InsightExperience } from '@/lib/features/workspace-features'
 import { createClient } from '@/lib/supabase/server'
 import { requireParticipantAccess } from '@/lib/auth/authorization'
 import { getAggregateOnlyCampaignIdSet } from '@/lib/dal/campaigns'
@@ -92,7 +94,9 @@ function numericOrNull(v: number | string | null): number | null {
 
 export async function getComparisonCanvas(
   campaignParticipantIds: string[],
+  experience: InsightExperience = 'compare',
 ): Promise<CanvasResult> {
+  await requireInsightExperience(experience)
   const parsed = canvasRequestSchema.safeParse({ campaignParticipantIds })
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message ?? 'Invalid canvas request.')
@@ -124,6 +128,9 @@ export async function getComparisonCanvas(
       lastCompletedAt: null,
     })
     clientByPerson.set(personKey, unwrap(row.campaigns)?.client_id ?? null)
+  }
+  if (experience === 'individual' && people.length > 1) {
+    throw new MultipleTrajectoryPeopleError()
   }
   if (people.length === 0) {
     return { people: [], entities: [], series: [], clientId: null }
@@ -268,6 +275,7 @@ export async function getComparisonCanvas(
 export async function createTrajectorySnapshot(input: {
   campaignParticipantIds: string[]
   viewState?: CanvasViewState
+  experience?: InsightExperience
 }): Promise<{ snapshotId: string; title: string }> {
   const parsed = canvasRequestSchema.safeParse({
     campaignParticipantIds: input.campaignParticipantIds,
@@ -279,7 +287,7 @@ export async function createTrajectorySnapshot(input: {
   const viewState = viewParsed.success ? viewParsed.data : {}
 
   // Authorisation happens inside getComparisonCanvas (per participant id).
-  const canvas = await getComparisonCanvas(parsed.data.campaignParticipantIds)
+  const canvas = await getComparisonCanvas(parsed.data.campaignParticipantIds, input.experience)
   if (canvas.people.length === 0) {
     throw new Error('Nothing to snapshot — no people resolved from the selection.')
   }
