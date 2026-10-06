@@ -52,9 +52,9 @@ export default async function DirectoryPage({
   }
 
   const [clients, partners, commercialMap] = await Promise.all([
-    getClientDirectoryEntries(),
-    canManagePartners ? getPartners() : Promise.resolve([]),
-    scope.isPlatformAdmin
+    activeTab === "clients" ? getClientDirectoryEntries() : Promise.resolve([]),
+    activeTab === "partners" ? getPartners() : Promise.resolve([]),
+    activeTab === "clients" && scope.isPlatformAdmin
       ? getClientCommercialSummaries()
       : Promise.resolve(null),
   ]);
