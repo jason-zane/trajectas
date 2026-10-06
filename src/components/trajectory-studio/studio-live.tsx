@@ -43,7 +43,7 @@ export function LiveTrajectoryStudio({ initial, experience, initialLens, nonce }
     startTransition(async () => {
       setError(null)
       try {
-        const next = await getComparisonCanvas(picked)
+        const next = await getComparisonCanvas(picked, experience)
         setResult(next); setOpen(false)
         const url = new URL(window.location.href)
         setActiveLens(url.searchParams.get('lens') === 'time' ? 'time' : 'snapshot')

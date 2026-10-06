@@ -1,12 +1,14 @@
+import { MultipleTrajectoryPeopleError } from '@/lib/features/workspace-features'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createStudioDemo } from '@/lib/trajectory-studio/demo'
 
 const calls = vi.hoisted(() => ({
-  canvas: vi.fn(), admin: vi.fn(), partner: vi.fn(), client: vi.fn(),
+  enabled: vi.fn(), requireExperience: vi.fn(), canvas: vi.fn(), admin: vi.fn(), partner: vi.fn(), client: vi.fn(),
   redirect: vi.fn((url: string) => { throw new Error(`redirect:${url}`) }),
   notFound: vi.fn(() => { throw new Error('not-found') }),
 }))
+vi.mock('@/lib/features/access', () => ({ requireInsightExperience: calls.requireExperience, isWorkspaceFeatureEnabled: calls.enabled }))
 vi.mock('@/app/actions/canvas', () => ({ getComparisonCanvas: calls.canvas }))
 vi.mock('@/lib/auth/authorization', () => ({ requireAdminScope: calls.admin }))
 vi.mock('@/lib/auth/resolve-partner-org', () => ({ resolvePartnerOrg: calls.partner }))
@@ -24,7 +26,7 @@ import PreviewPage from '@/app/preview/trajectory/page'
 import { renderTrajectoryPage } from '@/lib/trajectory-studio/page'
 import { TrajectoryStudio } from '@/components/trajectory-studio/trajectory-studio'
 
-beforeEach(() => { vi.clearAllMocks(); vi.unstubAllEnvs() })
+beforeEach(() => { vi.clearAllMocks(); vi.unstubAllEnvs(); calls.enabled.mockResolvedValue(true); calls.requireExperience.mockReset() })
 
 describe('Production Trajectory entry points', () => {
   it.each([
@@ -44,6 +46,20 @@ describe('Production Trajectory entry points', () => {
     expect(page.props).toMatchObject({ experience: 'compare', initialLens: 'snapshot' })
     expect(calls[portal]).toHaveBeenCalledOnce()
   })
+  it('renders a disabled insight without loading its participant data', async () => {
+    calls.enabled.mockResolvedValueOnce(false)
+    const page = await PartnerUnified({ searchParams: Promise.resolve({ ids: 'one' }) })
+    expect(renderToStaticMarkup(page)).toContain('Unified Trajectory is not enabled')
+    expect(calls.canvas).not.toHaveBeenCalled()
+  })
+  it('requires Unified before redirecting a multi-person individual request', async () => {
+    calls.canvas.mockRejectedValueOnce(new MultipleTrajectoryPeopleError())
+    calls.requireExperience.mockImplementation(async experience => {
+      if (experience === 'unified') throw new Error('Unified is not enabled')
+    })
+    await expect(PartnerTrajectory({ searchParams: Promise.resolve({ ids: 'one,two' }) })).rejects.toThrow('Unified is not enabled')
+    expect(calls.redirect).not.toHaveBeenCalled()
+  })
   it('never permits unified in the client portal', async () => {
     await expect(renderTrajectoryPage({}, 'unified', 'client')).rejects.toThrow('not-found')
     expect(calls.canvas).not.toHaveBeenCalled()
@@ -59,7 +75,7 @@ describe('Production Trajectory entry points', () => {
     calls.canvas.mockResolvedValueOnce(createStudioDemo().result)
     const params = { id: 'participant-one', lens: 'snapshot', experience: 'unified' }
     const page = await ClientTrajectory({ searchParams: Promise.resolve(params) })
-    expect(calls.canvas).toHaveBeenCalledWith(['participant-one'])
+    expect(calls.canvas).toHaveBeenCalledWith(['participant-one'], 'individual')
     expect(page.props).toMatchObject({ experience: 'individual', initialLens: 'time' })
   })
   it('preserves existing multi-person history links in the authorized unified route', async () => {
@@ -71,7 +87,7 @@ describe('Production Trajectory entry points', () => {
   it('deduplicates IDs and honors unified history links', async () => {
     calls.canvas.mockResolvedValueOnce(createStudioDemo().result)
     const page = await UnifiedPage({ searchParams: Promise.resolve({ ids: 'one,one,two', lens: 'time' }) })
-    expect(calls.canvas).toHaveBeenCalledWith(['one', 'two'])
+    expect(calls.canvas).toHaveBeenCalledWith(['one', 'two'], 'unified')
     expect(page.props.initialLens).toBe('time')
   })
   it('propagates participant authorization failures and rejects excessive selections', async () => {

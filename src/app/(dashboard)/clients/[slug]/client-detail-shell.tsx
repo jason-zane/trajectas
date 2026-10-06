@@ -15,6 +15,7 @@ const ALL_TABS = [
   { label: "Users", segment: "users" },
   { label: "Branding", segment: "branding" },
   { label: "Billing", segment: "billing" },
+  { label: "Features & Experience", segment: "features" },
   { label: "Settings", segment: "settings" },
 ];
 
@@ -35,7 +36,7 @@ export function ClientDetailShell({
   // Billing is platform-admin only (matches the gate on the billing page).
   const tabs = isPlatformAdmin
     ? ALL_TABS
-    : ALL_TABS.filter((t) => t.segment !== "billing");
+    : ALL_TABS.filter((t) => t.segment !== "billing" && t.segment !== "features");
   const activeSegment =
     tabs.find((t) => pathname.endsWith(`/${t.segment}`))?.segment ?? "overview";
 

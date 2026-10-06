@@ -111,6 +111,7 @@ export function ParticipantDetailView({
           <TabsContent value="trajectory" className="mt-6">
             <CanvasWorkspace
               initial={trajectory}
+              experience="individual"
               basePath="/participants/trajectory"
               compareBasePath="/participants/compare"
             />

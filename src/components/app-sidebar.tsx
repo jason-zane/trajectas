@@ -2,6 +2,7 @@
 
 import { isTrajectasName } from "@/lib/brand/identity";
 
+import { featureForInsightPath } from '@/lib/features/workspace-features';
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -292,10 +293,15 @@ interface AppSidebarProps {
 
 export function AppSidebar({ identity }: AppSidebarProps = {}) {
   const pathname = usePathname();
-  const { portal, href } = usePortal();
+  const { portal, href, features } = usePortal();
   const config = portalConfig[portal];
   const PortalIcon = config.icon;
-  const navSections = navByPortal[portal];
+  const navSections = navByPortal[portal].map(section => ({
+    ...section, items: section.items.filter(item => {
+      const feature = featureForInsightPath(item.href);
+      return !feature || features[feature];
+    }),
+  })).filter(section => section.items.length > 0);
   const { isSectionOpen, setSectionOpen } = useSidebarSections(portal);
   const settingsHref = href("/settings");
   const isSettingsArea =

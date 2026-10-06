@@ -24,6 +24,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 interface PartnerDashboardProps {
+  dashboardStyle?: "default" | "operational" | "portfolio";
   partnerName: string;
   clients: ClientWithCounts[];
   campaigns: CampaignWithMeta[];
@@ -152,6 +153,7 @@ function SectionHeading({
 
 export function PartnerDashboard({
   partnerName,
+  dashboardStyle = "default",
   clients,
   campaigns,
   allocation,
@@ -160,6 +162,7 @@ export function PartnerDashboard({
   favoriteCampaignIds = [],
   completionTimeline = [],
 }: PartnerDashboardProps) {
+  const portfolio = dashboardStyle !== "operational";
   const favoriteSet = useMemo(() => new Set(favoriteCampaignIds), [favoriteCampaignIds]);
   const weekRange = useMemo(() => formatWeekRange(new Date()), []);
 
@@ -245,13 +248,13 @@ export function PartnerDashboard({
           This week · {weekRange}
         </p>
         <h1 className="font-sans text-[clamp(2.25rem,4.5vw,3.75rem)] font-extrabold leading-[1.05] tracking-[-0.03em] text-foreground">
-          What&rsquo;s moving <span className="text-[var(--emerald)]">across your portfolio.</span>
+          What&rsquo;s moving <span className="text-[var(--emerald)]">{portfolio ? "across your portfolio." : "in your workspace."}</span>
         </h1>
         <p className="max-w-xl text-[1.0625rem] leading-relaxed text-muted-foreground">
-          {clients.length === 0 ? (
+          {portfolio && clients.length === 0 ? (
             "No clients yet — create your first to assign assessments and launch a campaign."
           ) : activeCount === 0 ? (
-            "No active campaigns yet — launch one for a client to start seeing activity here."
+            "No active campaigns yet — launch one to start seeing activity here."
           ) : leadCampaign && leadDays != null && leadDays >= 0 ? (
             <>
               {leadCampaign.clientName ? `${leadCampaign.clientName} · ` : ""}
@@ -265,7 +268,7 @@ export function PartnerDashboard({
               {leadPending > 0 ? `, with ${leadPending} still to finish.` : "."}
             </>
           ) : (
-            `${activeCount} active campaign${activeCount === 1 ? "" : "s"} across ${clients.length} client${clients.length === 1 ? "" : "s"}.`
+            portfolio ? `${activeCount} active campaign${activeCount === 1 ? "" : "s"} across ${clients.length} client${clients.length === 1 ? "" : "s"}.` : `${activeCount} active campaign${activeCount === 1 ? "" : "s"} in your workspace.`
           )}
         </p>
       </header>
@@ -283,13 +286,13 @@ export function PartnerDashboard({
             recentCampaigns={campaigns}
             successHrefPrefix="/partner/campaigns"
           />
-          <Link
+          {portfolio && <Link
             href="/partner/clients/create"
             className={cn(buttonVariants({ variant: "outline" }), "border-foreground/20")}
           >
             <Building2 className="size-4" />
             New client
-          </Link>
+          </Link>}
           <Link
             href="/partner/participants"
             className={cn(buttonVariants({ variant: "outline" }), "border-foreground/20")}
@@ -344,9 +347,9 @@ export function PartnerDashboard({
               suffix: activeCount === 1 ? "campaign running" : "campaigns running",
             },
             {
-              label: "Clients",
-              value: clients.length,
-              suffix:
+              label: portfolio ? "Clients" : "Participants",
+              value: portfolio ? clients.length : totalParticipants,
+              suffix: !portfolio ? "invited to campaigns" :
                 clientsWithActive === 0
                   ? "none with a campaign running"
                   : `${clientsWithActive} with a campaign running`,
@@ -371,7 +374,7 @@ export function PartnerDashboard({
       </section>
 
       {/* ===== ALLOCATION ===== */}
-      <section className="space-y-5">
+      {portfolio && <section className="space-y-5">
         <SectionHeading eyebrow="Your allocation" title="What you can deploy." />
 
         {allocation.length === 0 ? (
@@ -417,7 +420,7 @@ export function PartnerDashboard({
             })}
           </ul>
         )}
-      </section>
+      </section>}
 
       {/* ===== TOP THREE TO WATCH ===== */}
       <section className="space-y-5">
@@ -433,7 +436,7 @@ export function PartnerDashboard({
             size="sm"
             eyebrow="No active campaigns"
             title="Nothing to watch this week."
-            description="Launch a campaign for one of your clients — it'll show up here as soon as invites go out."
+            description={portfolio ? "Launch a campaign for one of your clients — it'll show up here as soon as invites go out." : "Launch a campaign — it'll show up here as soon as invites go out."}
           />
         ) : (
           <ul className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
@@ -531,7 +534,7 @@ export function PartnerDashboard({
       </section>
 
       {/* ===== CLIENTS ===== */}
-      <section className="space-y-5">
+      {portfolio && <section className="space-y-5">
         <SectionHeading
           eyebrow="Clients"
           title="Where attention goes next."
@@ -579,7 +582,7 @@ export function PartnerDashboard({
             ))}
           </ul>
         )}
-      </section>
+      </section>}
 
       {/* ===== RECENT ACTIVITY ===== */}
       <section className="space-y-4 pb-16">
@@ -595,7 +598,7 @@ export function PartnerDashboard({
             size="sm"
             eyebrow="Quiet for now"
             title="No recent activity."
-            description="Results stream in here as participants across your clients start and complete their assessments."
+            description="Results stream in here as participants start and complete their assessments."
           />
         ) : (
           <ul className="space-y-1">

@@ -1,5 +1,7 @@
 'use client'
 
+import { usePortal } from '@/components/portal-context'
+import type { InsightExperience } from '@/lib/features/workspace-features'
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -40,6 +42,7 @@ import { CANVAS_MAX_PEOPLE } from '@/lib/validations/canvas'
 
 export function CanvasWorkspace({
   initial,
+  experience = 'compare',
   initialCharted,
   initialOrder,
   initialShowChange,
@@ -47,12 +50,14 @@ export function CanvasWorkspace({
   compareBasePath,
 }: {
   initial: CanvasResult
+  experience?: InsightExperience
   initialCharted?: string
   initialOrder?: CanvasOrder
   initialShowChange?: boolean
   basePath: string
   compareBasePath: string
 }) {
+  const { features } = usePortal()
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
@@ -121,7 +126,7 @@ export function CanvasWorkspace({
 
   function refetch(cpIds: string[]) {
     startTransition(async () => {
-      const next = await getComparisonCanvas(cpIds)
+      const next = await getComparisonCanvas(cpIds, experience)
       setResult(next)
     })
   }
@@ -181,7 +186,7 @@ export function CanvasWorkspace({
             </button>
           </span>
         ))}
-        {result.people.length < CANVAS_MAX_PEOPLE && (
+        {experience !== 'individual' && result.people.length < CANVAS_MAX_PEOPLE && (
           <button
             type="button"
             onClick={() => setShowAdd(true)}
@@ -221,7 +226,7 @@ export function CanvasWorkspace({
               ))}
             </SelectContent>
           </Select>
-          {result.people.length === 1 && (
+          {features.trajectory && result.people.length === 1 && (
             <button
               type="button"
               onClick={() => setShowLinked(true)}
@@ -231,10 +236,10 @@ export function CanvasWorkspace({
               Linked records
             </button>
           )}
-          <Link href={compareHref} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+          {features.compare && <Link href={compareHref} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
             <Table2 className="size-4" />
             Open in Compare
-          </Link>
+          </Link>}
         </div>
       </div>
 
@@ -268,6 +273,7 @@ export function CanvasWorkspace({
       />
 
       <CanvasExportBar
+        experience={experience}
         campaignParticipantIds={result.people.map((p) => p.entryCpId)}
         viewState={{ charted, order, showChange }}
         peopleCount={result.people.length}

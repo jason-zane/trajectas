@@ -1,3 +1,4 @@
+import { isWorkspaceFeatureEnabled } from "@/lib/features/access";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import {
@@ -27,6 +28,7 @@ async function ParticipantDetailContent({
   id: string;
   participant: NonNullable<Awaited<ReturnType<typeof loadParticipant>>>;
 }) {
+  const trajectoryEnabled = await isWorkspaceFeatureEnabled("trajectory");
   const [sessions, activity, snapshots, trajectory] = await Promise.all([
     getParticipantSessions(id).catch((error) => {
       console.error("[participant-detail] Failed to load sessions:", error);
@@ -40,10 +42,10 @@ async function ParticipantDetailContent({
       console.error("[participant-detail] Failed to load report snapshots:", error);
       return [];
     }),
-    getComparisonCanvas([id]).catch((error) => {
+    trajectoryEnabled ? getComparisonCanvas([id], "individual").catch((error) => {
       console.error("[participant-detail] Failed to load trajectory canvas:", error);
       return null;
-    }),
+    }) : Promise.resolve(null),
   ]);
 
   return (

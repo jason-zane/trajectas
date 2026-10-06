@@ -1,3 +1,5 @@
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { redirect } from "next/navigation";
 
 import { getCampaignById } from "@/app/actions/campaigns";
@@ -19,6 +21,7 @@ export default async function PartnerCompareCampaignPage({
     saved?: string;
   }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('compare')) return <WorkspaceFeatureUnavailable feature="compare" />
   const { id: campaignId } = await params;
   const sp = await searchParams;
 

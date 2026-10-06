@@ -16,6 +16,9 @@ import { logSupportSessionPageView } from "@/app/actions/enter-portal";
 import { getSidebarIdentity } from "@/lib/dal/workspace";
 import { type WorkspaceBootstrap } from "@/lib/auth/types";
 
+import { getEffectiveWorkspaceFeatures } from '@/lib/dal/workspace-features';
+import { DISABLED_WORKSPACE_FEATURES } from '@/lib/features/workspace-features';
+
 interface WorkspaceShellProps {
   children: React.ReactNode;
   bootstrap: WorkspaceBootstrap;
@@ -37,7 +40,10 @@ export async function WorkspaceShell({
   } = bootstrap;
 
   const dashboardCSS = generateDashboardCSS(brandConfig);
-  const identity = await getSidebarIdentity(bootstrap);
+  const [identity, features] = await Promise.all([
+    getSidebarIdentity(bootstrap),
+    actor || isLocalDev ? getEffectiveWorkspaceFeatures() : Promise.resolve(DISABLED_WORKSPACE_FEATURES),
+  ]);
 
   if (supportSessionInfo && actor) {
     const headerStore = await headers();
@@ -57,6 +63,7 @@ export async function WorkspaceShell({
   return (
     <PortalProvider
       initialPortal={portal}
+      features={features}
       routePrefix={routePrefix}
       canSwitchPortal={isLocalDev}
     >

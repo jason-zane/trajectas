@@ -1,3 +1,4 @@
+import { isWorkspaceFeatureEnabled } from "@/lib/features/access";
 import Link from "next/link";
 import { TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
@@ -10,6 +11,7 @@ export default async function ParticipantsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const trajectoryEnabled = await isWorkspaceFeatureEnabled("trajectory");
   const params = await searchParams;
   const view = params.view === "sessions" ? "sessions" : "participants";
 
@@ -29,13 +31,13 @@ export default async function ParticipantsPage({
         title="Participants"
         description={`${total} ${view === "participants" ? "participant" : "session"}${total !== 1 ? "s" : ""} across all campaigns.`}
       >
-        <Link
+        {trajectoryEnabled && <Link
           href="/participants/trajectory"
           className={buttonVariants({ variant: "outline", size: "sm" })}
         >
           <TrendingUp className="mr-1.5 size-4" />
           Trajectory
-        </Link>
+        </Link>}
       </PageHeader>
 
       <ParticipantsTable

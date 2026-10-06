@@ -1,4 +1,5 @@
 'use server'
+import { requireWorkspaceFeature } from '@/lib/features/access'
 
 import { createClient } from '@/lib/supabase/server'
 import { resolveSessionActor } from '@/lib/auth/actor'
@@ -67,6 +68,7 @@ async function inferScope() {
 }
 
 export async function listSavedComparisons(): Promise<SavedComparisonSummary[]> {
+  await requireWorkspaceFeature('compare')
   const supabase = await createClient()
   const actor = await resolveSessionActor()
   if (!actor) return []
@@ -111,6 +113,7 @@ export async function listSavedComparisons(): Promise<SavedComparisonSummary[]> 
 }
 
 export async function getSavedComparison(id: string): Promise<SavedComparison | null> {
+  await requireWorkspaceFeature('compare')
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('comparisons')
@@ -144,6 +147,7 @@ export async function saveComparison(input: {
   deltaMode: boolean
   shareScope?: ShareScope
 }): Promise<SavedComparison> {
+  await requireWorkspaceFeature('compare')
   const name = input.name.trim()
   if (!name) throw new Error('Name is required')
 
@@ -193,6 +197,7 @@ export async function updateSavedComparison(
     shareScope: ShareScope
   }>,
 ): Promise<SavedComparison> {
+  await requireWorkspaceFeature('compare')
   const supabase = await createClient()
   const update: Record<string, unknown> = {}
   if (patch.name !== undefined) {
@@ -229,6 +234,7 @@ export async function updateSavedComparison(
 }
 
 export async function deleteSavedComparison(id: string): Promise<void> {
+  await requireWorkspaceFeature('compare')
   const supabase = await createClient()
   const { error } = await supabase.from('comparisons').delete().eq('id', id)
   if (error) throw new Error(error.message)

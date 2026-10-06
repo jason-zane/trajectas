@@ -42,7 +42,7 @@ export function CampaignSessionsTable({
   canDelete?: boolean;
 }) {
   const router = useRouter();
-  const { href } = usePortal();
+  const { href, features } = usePortal();
   const [confirmDelete, setConfirmDelete] = useState<string[] | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -200,7 +200,7 @@ export function CampaignSessionsTable({
         pageSize={25}
         enableRowSelection
         getRowId={(row) => row.id}
-        bulkActions={bulkActions}
+        bulkActions={bulkActions.filter(action => action.label !== "Compare selected" || features.compare)}
         rowHref={(row) => href(`/campaigns/${campaignId}/sessions/${row.id}`)}
       />
       <ConfirmDialog
