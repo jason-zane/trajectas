@@ -3,6 +3,7 @@
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { testSurfaceEnv } from "./surface-env.mjs";
 
 function parseEnvContent(content) {
   const entries = {};
@@ -86,7 +87,6 @@ const envFromSupabase =
     : readLocalSupabaseEnv(cwd);
 const host = process.env.HOSTNAME ?? envFromFile.HOSTNAME ?? "127.0.0.1";
 const port = process.env.PORT ?? envFromFile.PORT ?? "3101";
-const baseUrl = `http://${host}:${port}`;
 
 const env = {
   ...process.env,
@@ -95,14 +95,7 @@ const env = {
   HOSTNAME: host,
   PORT: port,
   NEXT_TELEMETRY_DISABLED: process.env.NEXT_TELEMETRY_DISABLED ?? "1",
-  PUBLIC_APP_URL: process.env.PUBLIC_APP_URL ?? envFromFile.PUBLIC_APP_URL ?? baseUrl,
-  ADMIN_APP_URL: process.env.ADMIN_APP_URL ?? envFromFile.ADMIN_APP_URL ?? baseUrl,
-  ASSESS_APP_URL:
-    process.env.ASSESS_APP_URL ?? envFromFile.ASSESS_APP_URL ?? `${baseUrl}/assess`,
-  PARTNER_APP_URL:
-    process.env.PARTNER_APP_URL ?? envFromFile.PARTNER_APP_URL ?? `${baseUrl}/partner`,
-  CLIENT_APP_URL:
-    process.env.CLIENT_APP_URL ?? envFromFile.CLIENT_APP_URL ?? `${baseUrl}/client`,
+  ...testSurfaceEnv(process.env, envFromFile),
   SERVER_ACTION_ALLOWED_ORIGINS:
     process.env.SERVER_ACTION_ALLOWED_ORIGINS ??
     envFromFile.SERVER_ACTION_ALLOWED_ORIGINS ??

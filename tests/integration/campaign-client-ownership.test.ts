@@ -5,12 +5,12 @@ import { canRun, createAdminClient, createTestUser } from './_helpers/rls-fixtur
 import { AuthorizationError } from '@/lib/auth/authorization'
 import type { ResolvedActor } from '@/lib/auth/types'
 
-const request = vi.hoisted(() => ({ actor: null as ResolvedActor | null }))
+const request = vi.hoisted(() => ({ actor: null as ResolvedActor | null, surface: 'partner' as 'partner' | 'client' }))
 vi.mock('@/lib/auth/actor', () => ({
   resolveSessionActor: async () => request.actor,
   resolveSignedPreviewContext: async () => null,
 }))
-vi.mock('next/headers', () => ({ headers: async () => new Headers({ host: 'localhost:3000', 'x-trajectas-surface': 'partner' }) }))
+vi.mock('next/headers', () => ({ headers: async () => new Headers({ host: 'localhost:3000', 'x-trajectas-surface': request.surface }) }))
 vi.mock('next/cache', () => ({ revalidatePath: () => undefined, revalidateTag: () => undefined }))
 
 /** Real local RLS clients plus the real service-role campaign management action. */
@@ -36,6 +36,7 @@ describe.skipIf(!canRun)('campaign ownership follows client transfers', () => {
       expect(result.data).toEqual(allowed ? [{ id }] : [])
     }
     request.actor = users[index].actor
+    request.surface = index === 2 ? 'client' : 'partner'
     const { getAccessibleCampaignIds, resolveAuthorizedScope } = await import('@/lib/auth/authorization')
     const visible = await getAccessibleCampaignIds(await resolveAuthorizedScope())
     expect(visible?.includes(ids.campaign)).toBe(allowed)

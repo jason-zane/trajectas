@@ -20,6 +20,25 @@ function scope(overrides: Partial<AuthorizedScope> = {}): AuthorizedScope { retu
 function row(module_flags: Record<string, boolean> = {}, client_id: string | null = null) { return { compare_enabled: true, trajectory_enabled: true, unified_trajectory_enabled: !client_id, dashboard_style: 'default', module_flags, client_id } }
 beforeEach(() => { state.scope=scope(); state.rows={}; state.calls=[]; state.error=false; state.owner=a; state.history=[]; state.rpc.mockReset() })
 describe('module resolution preserves phase-one context and confinement', () => {
+  it('keeps public and root requests without target context disabled even with memberships', async () => {
+    for (const requestSurface of ['public', 'admin'] as const) {
+      state.scope=scope({ requestSurface, isPlatformAdmin:false, clientIds:[client], clientAdminIds:[client], partnerIds:[a] })
+      expect(await getEffectiveWorkspaceFeatures()).toMatchObject({ campaignViewing:false, clientProvisioning:false })
+    }
+    expect(state.calls).toEqual([])
+  })
+  it('licenses a root org-admin’s explicit own-client context and preserves disabled overrides', async () => {
+    state.scope=scope({ isPlatformAdmin:false, clientIds:[client], clientAdminIds:[client], partnerIds:[], activeContext:{ surface:'admin', tenantType:'client', tenantId:client } })
+    state.scope.actor={ ...state.scope.actor!, role:'org_admin', clientMemberships:[{ id:'synthetic-membership',clientId:client,role:'admin',isDefault:true,createdAt:'2026-10-07T00:00:00Z' }] }
+    state.rows[client]=row({ participantExperience:false },client)
+    expect(await getEffectiveWorkspaceFeatures()).toMatchObject({ campaignViewing:true, participantExperience:false, clientProvisioning:false, unifiedTrajectory:false })
+    expect(state.calls).toEqual([{table:'workspace_feature_settings',filters:[['client_id',client]]}])
+    state.calls=[]
+    state.scope.activeContext={ surface:'admin',tenantType:'client',tenantId:b }
+    expect(await getEffectiveWorkspaceFeatures()).toMatchObject({ campaignViewing:false, participantExperience:false })
+    expect(state.calls).toEqual([])
+    await expect(getTenantWorkspaceFeatures('client',b)).rejects.toThrow('not accessible')
+  })
   it.each(['client','partner'] as const)('uses legacy defaults for missing %s rows and overlays only stored modules', async type => {
     const id=type==='client'?client:a
     expect(await getTenantWorkspaceFeatures(type,id)).toEqual(defaultWorkspaceFeatures(type))
