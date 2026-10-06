@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { canRun, createAdminClient, createTestUser } from './_helpers/rls-fixture'
+import { AuthorizationError } from '@/lib/auth/authorization'
 import type { ResolvedActor } from '@/lib/auth/types'
 
 const request = vi.hoisted(() => ({ actor: null as ResolvedActor | null }))
@@ -39,8 +40,16 @@ describe.skipIf(!canRun)('campaign ownership follows client transfers', () => {
     const visible = await getAccessibleCampaignIds(await resolveAuthorizedScope())
     expect(visible?.includes(ids.campaign)).toBe(allowed)
     const { updateCampaignField } = await import('@/app/actions/campaigns')
-    const result = await updateCampaignField(ids.campaign, 'description', `Updated by ${index}`)
-    expect('error' in result).toBe(!allowed)
+    const operation = updateCampaignField(ids.campaign, 'description', `Updated by ${index}`)
+    if (allowed) expect('error' in await operation).toBe(false)
+    else {
+      // A former/empty partner workspace now also denies the module before management.
+      const result = await operation.catch(error => {
+        if (!(error instanceof AuthorizationError)) throw error
+        return { error: error.message }
+      })
+      expect('error' in result).toBe(true)
+    }
   }
   beforeAll(async () => {
     await insert('partners', [{ id: ids.a, name: 'Transfer A', slug: ids.a }, { id: ids.b, name: 'Transfer B', slug: ids.b }])

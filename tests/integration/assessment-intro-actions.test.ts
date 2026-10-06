@@ -1,3 +1,9 @@
+// Existing role/RLS assertions run with the published legacy feature licence.
+// Feature-denial and context resolution are tested separately by the workspace suites.
+vi.mock('@/lib/dal/workspace-features', async () => {
+  const { defaultWorkspaceFeatures } = await import('@/lib/features/workspace-features')
+  return { getEffectiveWorkspaceFeatures: async () => defaultWorkspaceFeatures('partner') }
+})
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const auth = vi.hoisted(() => ({
