@@ -1,19 +1,19 @@
 # Workspace release integration evidence
 
-This supersedes the historical publication, dependency and release status in the original acceptance/local-validation reports. The acceptance matrix remains the product checklist. Current main was re-fetched: `edf762189b6053e5898de814fea1979b8f00d626` (merged PR424). Phase 1 is retained; standalone client conversion and ownership migration are excluded.
+This supersedes the historical publication, dependency and release status in the original acceptance/local-validation reports. The acceptance matrix remains the product checklist. Current main was re-fetched: `701a111b8652a031a01c166548bb7254c20bf57a` (PR424 plus released Sharp PR427 and EPP PR428). The draft was reconciled onto it; duplicate earlier Sharp/EPP commits were dropped and reviewed EPP filter/share-dialog corrections retained. Phase 1 is retained; standalone client conversion and ownership migration are excluded.
 
 ## Delivery and coordination
 
-The integration branch `feat/workspace-roadmap-release` contains independent commits for Sharp, PR425 release orchestration, the EPP invitation visibility fix, roadmap controls, and PR426 performance work. The source worktrees and original roadmap commit `a664f2b2` remain preserved. An explicit RSC fixture integration commit retains cache isolation/authorization assertions and adds a disabled-feature regression. No assertions or gates were weakened.
+The integration branch `feat/workspace-roadmap-release` is based on released Sharp/EPP main and retains independent commits for PR425 release orchestration, roadmap controls, and PR426 performance work. Separate PR425/426 release ordering still applies. The source worktrees and original roadmap commit `a664f2b2` remain preserved. An explicit RSC fixture integration commit retains cache isolation/authorization assertions and adds a disabled-feature regression. No assertions or gates were weakened.
 
 | Separable PR | Current head | Automated result |
 | --- | --- | --- |
-| [427 Sharp](https://github.com/jason-zane/trajectas/pull/427) | `5ddb0095698bade23001c2b07f9d4991bb36e431` | Security, integration, normal build/quality and smoke passed |
-| [428 EPP](https://github.com/jason-zane/trajectas/pull/428) | `9c46b8040ef9e6e2e1dfcaa5344fe6380215d023` | Security, integration, normal build/quality and smoke passed; stacked on 427 |
+| [427 Sharp](https://github.com/jason-zane/trajectas/pull/427) | Reviewed `5ddb0095`; merged `f4f0f179` | Applicable checks passed; GitHub Production deployment 6896657256 success |
+| [428 EPP](https://github.com/jason-zane/trajectas/pull/428) | Reviewed `98f66f1a`; merged `701a111b` | Applicable checks passed; GitHub Production deployment 6896919652 success |
 | [425 workflow](https://github.com/jason-zane/trajectas/pull/425) | `9f51741c` | All applicable jobs including normal build, seeded E2E and release-gate passed |
 | [426 performance](https://github.com/jason-zane/trajectas/pull/426) | `106e42da` | Main CI and separate seeded E2E passed |
 
-These changes remain unmerged. EPP visibility is first priority and is distinct from the separately unresolved zero-client directory symptom. Sharp is pinned to patched `0.35.5`; a clean locked installation and native PNG encode/decode passed. Actual production audit returned zero high/critical findings and 40 unchanged moderate findings. No registry transport exception was substituted for an audit result.
+PR425/426 and the roadmap remain unmerged; Sharp/EPP released first through normal reviewed exact-head green PRs. GitHub records Production success at each merged SHA, not provider-specific READY/rollback availability. Authenticated EPP visibility remains unverified: the existing Chrome tab already displayed session-expired login, and no sign-in or invitation operation was performed. EPP is distinct from the separately unresolved zero-client directory symptom. Sharp is pinned to patched `0.35.5`; a clean locked installation and native PNG encode/decode passed. Actual production audit returned zero high/critical findings and 40 unchanged moderate findings. No registry transport exception was substituted for an audit result.
 
 ## Completed product checklist
 
@@ -33,11 +33,11 @@ These changes remain unmerged. EPP visibility is first priority and is distinct 
 | Component suite | Passed: 41 files, 216 tests |
 | Architecture suite | Passed: 20 files, 97 tests |
 | Release orchestration | Passed: six tests |
-| Full coverage | Passed: 317 files / 3,635 tests; 65 files / 504 local DB/environment skips |
+| Full coverage | Passed after current-main reconciliation: 318 files / 3,643 tests; 65 files / 504 local DB/environment skips |
 | Focused route/harness/composition and architecture checks | Passed: 28 files / 139 tests before owner correction; 25 files / 129 tests after owner correction, including actual-page multi-partner and foreign-owner denial |
 | Typecheck / max-warnings-zero lint | Passed |
 | Actual DB migration/RPC/RLS cases | Both migrations and all 14 workspace-feature cases passed in earlier draft CI; corrected final-head whole integration suite awaiting disposable-stack CI. Not run on this Mac because local CLI/Docker access was denied |
-| Combined normal build / seeded / smoke / release-gate | `199dae69` passed normal build/quality, security, full integration and seeded; one Public Site smoke fixture expected Public at a localhost admin route, so smoke/release-gate failed. Fixture now uses loopback `public.localhost` with all assertions retained. Final-head CI must pass independently |
+| Combined normal build / seeded / smoke / release-gate | `fbf041dc` passed all jobs including explicit Public fallback smoke; later target-aware/current-main reconciled head requires fresh final CI |
 | Local release:validate / local smoke | Unrun as a combined runner: previous local process/server restrictions remain; no denied operation retried |
 | Hosted authenticated acceptance / recovery rehearsal | Blocked; no synthetic seeding or writes against production |
 
