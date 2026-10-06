@@ -71,7 +71,7 @@ describe.skipIf(!canRun)('workspace features: real local ownership, RLS and audi
     }
   })
   it('restricts aggregate workspaces and support contexts instead of using platform role as a bypass', async () => {
-    request.scope = { ...platform, requestSurface: 'partner', isPlatformAdmin: false, partnerIds: [ids.a, ids.b], activeContext: { surface: 'partner', tenantType: 'partner', tenantId: ids.a } }
+    request.scope = { ...platform, requestSurface: 'partner', isPlatformAdmin: false, partnerIds: [ids.a, ids.b], activeContext: null }
     expect(await getEffectiveWorkspaceFeatures()).toMatchObject({ compare: false, trajectory: false, unifiedTrajectory: true })
     await expect(setTenantWorkspaceFeature({ type: 'partner', id: ids.a }, { key: 'compare', value: true })).rejects.toThrow('Only Trajectas')
     request.scope = platform
@@ -95,6 +95,31 @@ describe.skipIf(!canRun)('workspace features: real local ownership, RLS and audi
     await expect(getTenantWorkspaceFeatures('partner', ids.b)).rejects.toThrow('not accessible')
     request.scope = platform
     await expect(setTenantWorkspaceFeature({ type: 'client', id: ids.client }, { key: 'unifiedTrajectory', value: true })).rejects.toThrow('partner workspaces only')
+  })
+  it('uses the selected client’s owning partner rather than unrelated memberships', async () => {
+    request.scope = platform
+    await setTenantWorkspaceFeature({ type: 'partner', id: ids.a }, { key: 'compare', value: true })
+    await setTenantWorkspaceFeature({ type: 'partner', id: ids.a }, { key: 'trajectory', value: true })
+    await setTenantWorkspaceFeature({ type: 'partner', id: ids.a }, { key: 'dashboardStyle', value: 'operational' })
+    await setTenantWorkspaceFeature({ type: 'partner', id: ids.b }, { key: 'compare', value: false })
+    await setTenantWorkspaceFeature({ type: 'partner', id: ids.b }, { key: 'dashboardStyle', value: 'portfolio' })
+    await setTenantWorkspaceFeature({ type: 'client', id: ids.client }, { key: 'compare', value: false })
+    request.scope = { ...platform, requestSurface: 'partner', isPlatformAdmin: false, partnerIds: [ids.a, ids.b], clientIds: [ids.client], activeContext: { surface: 'partner', tenantType: 'client', tenantId: ids.client } }
+    expect(await getEffectiveWorkspaceFeatures()).toEqual({ compare: true, trajectory: true, unifiedTrajectory: true, dashboardStyle: 'operational' })
+    // The same client's own portal uses its own licence, not the parent's.
+    request.scope = { ...request.scope, requestSurface: 'client' }
+    expect(await getEffectiveWorkspaceFeatures()).toMatchObject({ compare: false, trajectory: true, unifiedTrajectory: false })
+    request.scope = platform
+  })
+  it('does not substitute another partner when the selected client has no eligible owner', async () => {
+    const update = await db.from('clients').update({ partner_id: ids.b }).eq('id', ids.client)
+    expect(update.error).toBeNull()
+    request.scope = { ...platform, requestSurface: 'partner', isPlatformAdmin: false, partnerIds: [ids.a], clientIds: [ids.client], activeContext: { surface: 'partner', tenantType: 'client', tenantId: ids.client } }
+    expect(await getEffectiveWorkspaceFeatures()).toMatchObject({ compare: false, trajectory: false, unifiedTrajectory: false })
+    const unassign = await db.from('clients').update({ partner_id: null }).eq('id', ids.client)
+    expect(unassign.error).toBeNull()
+    expect(await getEffectiveWorkspaceFeatures()).toMatchObject({ compare: false, trajectory: false, unifiedTrajectory: false })
+    request.scope = platform
   })
   it('denies an empty tenant context', async () => {
     request.scope = { ...platform, requestSurface: 'partner', isPlatformAdmin: false, partnerIds: [], activeContext: { surface: 'partner', tenantType: 'partner', tenantId: ids.a } }

@@ -36,7 +36,21 @@ export const getEffectiveWorkspaceFeatures = cache(async (): Promise<WorkspaceFe
   const type = scope.requestSurface === 'partner' ? 'partner'
     : scope.requestSurface === 'client' ? 'client' : context?.tenantType
   if (!type) return { ...DISABLED_WORKSPACE_FEATURES }
-  const ids = type === 'partner' ? scope.partnerIds : scope.clientIds
+  let ids = type === 'partner' ? scope.partnerIds : scope.clientIds
+  if (context?.tenantId) {
+    if (type === context.tenantType) {
+      ids = ids.includes(context.tenantId) ? [context.tenantId] : []
+    } else if (type === 'partner' && context.tenantType === 'client') {
+      // A selected client narrows clientIds, but partnerIds can still include
+      // unrelated memberships. License tools from this client's current owner.
+      if (!scope.clientIds.includes(context.tenantId) || !scope.partnerIds.length) return { ...DISABLED_WORKSPACE_FEATURES }
+      const { data: owner, error } = await createAdminClient().from('clients')
+        .select('partner_id').eq('id', context.tenantId)
+        .in('partner_id', scope.partnerIds).is('deleted_at', null).maybeSingle()
+      if (error) throw new Error('Unable to load workspace features.')
+      ids = owner?.partner_id ? [String(owner.partner_id)] : []
+    }
+  }
   if (!ids.length) return { ...DISABLED_WORKSPACE_FEATURES }
   const configs = await Promise.all(ids.map(id => getTenantWorkspaceFeatures(type, id)))
   const effective = intersectWorkspaceFeatures(configs)
