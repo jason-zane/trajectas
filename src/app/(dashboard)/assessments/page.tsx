@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +16,8 @@ export default async function AssessmentsPage({
 }: {
   searchParams: Promise<{ tab?: string; new?: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('assessmentLibrary')) return <WorkspaceFeatureUnavailable feature="assessmentLibrary" />
+
   const [assessments, rules, { tab }] = await Promise.all([
     getAssessments(),
     getItemSelectionRules(),

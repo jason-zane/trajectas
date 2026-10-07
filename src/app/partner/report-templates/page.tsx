@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,6 +8,8 @@ import { CreateTemplateButton } from "@/app/(dashboard)/report-templates/create-
 import { ReportTemplatesTable } from "@/app/(dashboard)/report-templates/report-templates-table";
 
 export default async function PartnerReportTemplatesPage() {
+  if (!await isWorkspaceFeatureEnabled('reportTemplateLibrary')) return <WorkspaceFeatureUnavailable feature="reportTemplateLibrary" />
+
   const templates = await getReportTemplates();
   const ownedTemplates = templates.filter((template) => Boolean(template.partnerId));
   const platformTemplates = templates.filter((template) => !template.partnerId);

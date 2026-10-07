@@ -1,5 +1,7 @@
 "use client"
 
+import { usePortal } from '@/components/portal-context'
+
 import { useEffect, useMemo, useState } from "react"
 import { Download, Loader2 } from "lucide-react"
 import { toast } from "sonner"
@@ -43,7 +45,7 @@ function buildStatusUrl(snapshotId: string) {
   return `/api/reports/${snapshotId}/status`
 }
 
-export function ReportPdfButton({
+function ReportPdfButtonContent({
   snapshotId,
   initialPdfUrl,
   initialPdfStatus,
@@ -231,4 +233,9 @@ export function ReportPdfButton({
       {displayLabel}
     </Button>
   )
+}
+
+export function ReportPdfButton(props: ReportPdfButtonProps) {
+  const { features } = usePortal()
+  return props.reportToken || features.reportDownload ? <ReportPdfButtonContent {...props} /> : null
 }

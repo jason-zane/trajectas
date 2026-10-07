@@ -4,7 +4,7 @@ import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unav
 import { EXPERIENCE_FEATURE } from '@/lib/features/workspace-features'
 import { requireInsightExperience, isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { headers } from 'next/headers'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { getComparisonCanvas } from '@/app/actions/canvas'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { resolvePartnerOrg } from '@/lib/auth/resolve-partner-org'
@@ -18,7 +18,6 @@ export type TrajectoryPageParams = { id?: string; ids?: string; lens?: string }
 
 // Experience and portal come from the server route, never a URL mode parameter.
 export async function renderTrajectoryPage(params: TrajectoryPageParams, experience: Experience, portal: 'admin' | 'partner' | 'client') {
-  if (portal === 'client' && experience === 'unified') notFound()
   const route = experience === 'individual' ? 'trajectory' : experience
   if (portal === 'admin') await requireAdminScope()
   else if (portal === 'partner') await resolvePartnerOrg(`/partner/participants/${route}`)

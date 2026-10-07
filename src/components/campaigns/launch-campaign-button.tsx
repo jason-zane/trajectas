@@ -1,5 +1,6 @@
 "use client";
 
+import { usePortal } from '@/components/portal-context';
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { RotateCcw, Rocket } from "lucide-react";
@@ -54,7 +55,7 @@ const STATUS_VARIANTS: Record<
   archived: "outline",
 };
 
-export function LaunchCampaignButton({
+function LaunchCampaignButtonContent({
   assessments,
   clients,
   recentCampaigns,
@@ -220,4 +221,9 @@ export function LaunchCampaignButton({
       />
     </>
   );
+}
+
+export function LaunchCampaignButton(props: LaunchCampaignButtonProps) {
+  const { features } = usePortal()
+  return features.campaignManagement && features.assessmentDelivery ? <LaunchCampaignButtonContent {...props} /> : null
 }

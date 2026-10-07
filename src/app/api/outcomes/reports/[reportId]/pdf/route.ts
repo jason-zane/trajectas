@@ -1,3 +1,4 @@
+import { requireWorkspaceFeature } from '@/lib/features/access'
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getOutcomeReport } from "@/lib/dal/outcomes";
@@ -12,6 +13,7 @@ export async function GET(
 ) {
   let report;
   try {
+    await requireWorkspaceFeature('reportDownload')
     report = await getOutcomeReport((await params).reportId);
   } catch {
     return Response.json(

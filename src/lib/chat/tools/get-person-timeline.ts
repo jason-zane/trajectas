@@ -15,6 +15,7 @@ import { getPersonTimeline, ChatTimelineError } from '@/lib/dal/chat-timeline'
 import { searchPeople, ChatSearchError } from '@/lib/dal/chat-search'
 
 export const getPersonTimelineTool = defineChatTool({
+  requiredFeatures: ['trajectory'],
   name: 'get_person_timeline',
   description:
     "A person's assessment history over time: every completed sitting, and how their scores changed. Use this for \"over time\", \"history\", \"has X improved\", \"show me X's journey\". Pass a name or email. The timeline is shown to the user as a card with a link into the Trajectory view.",

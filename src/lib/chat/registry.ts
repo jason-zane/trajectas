@@ -19,6 +19,8 @@
 // =============================================================================
 
 import 'server-only'
+import type { WorkspaceFeature } from '@/lib/features/workspace-features'
+import { requireWorkspaceFeature } from '@/lib/features/access'
 
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -42,6 +44,7 @@ export interface ChatToolContext {
 
 export interface ChatTool<TParams extends z.ZodTypeAny = z.ZodTypeAny, TData = unknown> {
   name: string
+  requiredFeatures?: readonly WorkspaceFeature[]
   /** Shown to the model. Say what it answers, not how it works. */
   description: string
   params: TParams
@@ -71,7 +74,11 @@ export interface ChatTool<TParams extends z.ZodTypeAny = z.ZodTypeAny, TData = u
 export function defineChatTool<TParams extends z.ZodTypeAny, TData>(
   tool: ChatTool<TParams, TData>,
 ): ChatTool<TParams, TData> {
-  return tool
+  return { ...tool, execute: async (args, context) => {
+    await requireWorkspaceFeature('workspaceAssistant')
+    for (const feature of tool.requiredFeatures ?? []) await requireWorkspaceFeature(feature)
+    return tool.execute(args, context)
+  } }
 }
 
 /** Registry lookup keyed by tool name. */

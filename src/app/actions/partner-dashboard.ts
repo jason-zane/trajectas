@@ -1,5 +1,6 @@
 "use server";
 
+import { requireWorkspaceFeature } from '@/lib/features/access'
 import { requirePartnerAccess } from "@/lib/auth/authorization";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -24,6 +25,7 @@ export async function getPartnerDashboardData(
   partnerId: string,
 ): Promise<PartnerDashboardData> {
   await requirePartnerAccess(partnerId);
+  await requireWorkspaceFeature('campaignViewing');
   const db = await createClient();
 
   const clientIds = await listPartnerClientIds(db, partnerId);

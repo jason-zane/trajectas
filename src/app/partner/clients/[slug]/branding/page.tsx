@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { getBrandConfig } from "@/lib/dal/brand";
 import { getPartnerBrandingEnabled } from "@/app/actions/partner-entitlements";
 import { ClientBrandEditor } from "@/app/(dashboard)/clients/[slug]/branding/client-brand-editor";
@@ -10,6 +12,7 @@ export default async function PartnerClientBrandingPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('clientManagement')) return <WorkspaceFeatureUnavailable feature="clientManagement" />
   const { slug } = await params;
   const { client, partnerId } = await requirePartnerClient(slug);
 

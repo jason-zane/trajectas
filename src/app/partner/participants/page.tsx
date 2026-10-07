@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { getParticipants, getUniqueParticipants } from "@/app/actions/participants";
@@ -8,6 +10,8 @@ export default async function PartnerParticipantsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   const params = await searchParams;
   const view = params.view === "participants" ? "participants" : "sessions";
 

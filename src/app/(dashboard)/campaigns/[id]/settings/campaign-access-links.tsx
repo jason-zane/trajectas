@@ -1,5 +1,8 @@
 "use client";
 
+import { usePortal } from '@/components/portal-context'
+import { WorkspaceFeatureVisibility } from '@/components/workspace-feature-visibility'
+
 import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Power, Trash2, Link2 } from "lucide-react";
@@ -30,6 +33,7 @@ export function CampaignAccessLinks({
   campaignId: string;
   links: CampaignAccessLink[];
 }) {
+  const { features } = usePortal();
   const [showCreate, setShowCreate] = useState(false);
   const [label, setLabel] = useState("");
   const [maxUses, setMaxUses] = useState("");
@@ -96,10 +100,10 @@ export function CampaignAccessLinks({
               Shareable links for self-enrollment into this campaign.
             </CardDescription>
           </div>
-          <Button size="sm" onClick={() => setShowCreate(true)}>
+          <WorkspaceFeatureVisibility features={["participantInvitations","assessmentDelivery"]}><Button size="sm" onClick={() => setShowCreate(true)}>
             <Plus className="size-4" />
             New Link
-          </Button>
+          </Button></WorkspaceFeatureVisibility>
         </div>
       </CardHeader>
       <CardContent>
@@ -142,12 +146,13 @@ export function CampaignAccessLinks({
                   size="icon"
                   variant="ghost"
                   className="size-8 text-muted-foreground hover:text-foreground"
+                  disabled={!features.participantInvitations || (!link.isActive && !features.assessmentDelivery)}
                   onClick={() => handleToggleActive(link.id, link.isActive)}
                   title={link.isActive ? "Deactivate link" : "Activate link"}
                 >
                   <Power className="size-3.5" />
                 </Button>
-                <Button
+                <WorkspaceFeatureVisibility features={["participantInvitations"]}><Button
                   size="icon"
                   variant="ghost"
                   className="size-8 text-muted-foreground hover:text-destructive"
@@ -155,7 +160,7 @@ export function CampaignAccessLinks({
                   title="Delete link"
                 >
                   <Trash2 className="size-3.5" />
-                </Button>
+                </Button></WorkspaceFeatureVisibility>
               </div>
             ))}
           </div>

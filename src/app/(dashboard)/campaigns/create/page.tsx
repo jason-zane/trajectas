@@ -1,9 +1,13 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { connection } from "next/server"
 import { CampaignForm } from "../campaign-form";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mapClientRow } from "@/lib/supabase/mappers";
 
 export default async function CreateCampaignPage() {
+  if (!await isWorkspaceFeatureEnabled('campaignManagement') || !await isWorkspaceFeatureEnabled('assessmentDelivery')) return <WorkspaceFeatureUnavailable feature="campaignManagement" />
+
   await connection()
   const db = createAdminClient();
   const { data } = await db

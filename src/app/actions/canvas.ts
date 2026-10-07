@@ -13,7 +13,7 @@
  * every (people × time) setup; see the v4 spec.
  */
 
-import { requireInsightExperience } from '@/lib/features/access'
+import { requireWorkspaceFeature, requireInsightExperience } from '@/lib/features/access'
 import { MultipleTrajectoryPeopleError, type InsightExperience } from '@/lib/features/workspace-features'
 import { createClient } from '@/lib/supabase/server'
 import { requireParticipantAccess } from '@/lib/auth/authorization'
@@ -277,6 +277,8 @@ export async function createTrajectorySnapshot(input: {
   viewState?: CanvasViewState
   experience?: InsightExperience
 }): Promise<{ snapshotId: string; title: string }> {
+  await requireWorkspaceFeature('reportDownload')
+  await requireWorkspaceFeature('reportGeneration')
   const parsed = canvasRequestSchema.safeParse({
     campaignParticipantIds: input.campaignParticipantIds,
   })

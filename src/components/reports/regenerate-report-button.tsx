@@ -1,5 +1,7 @@
 'use client'
 
+import { usePortal } from '@/components/portal-context'
+
 import { useTransition } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -11,7 +13,7 @@ interface RegenerateReportButtonProps {
   snapshotId: string
 }
 
-export function RegenerateReportButton({ snapshotId }: RegenerateReportButtonProps) {
+function RegenerateReportButtonContent({ snapshotId }: RegenerateReportButtonProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -37,4 +39,9 @@ export function RegenerateReportButton({ snapshotId }: RegenerateReportButtonPro
       {isPending ? 'Regenerating...' : 'Regenerate'}
     </Button>
   )
+}
+
+export function RegenerateReportButton(props: RegenerateReportButtonProps) {
+  const { features } = usePortal()
+  return features.reportGeneration ? <RegenerateReportButtonContent {...props} /> : null
 }

@@ -1,5 +1,7 @@
 'use server'
 
+import { requireWorkspaceFeature } from '@/lib/features/access'
+
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCampaignAccess } from '@/lib/auth/authorization'
@@ -13,6 +15,8 @@ import {
 } from '@/lib/scoring/three-sixty'
 
 async function require360Admin(campaignId: string) {
+  await requireWorkspaceFeature('feedback360')
+
   const access = await requireCampaignAccess(campaignId)
   if (!access.scope.isPlatformAdmin) {
     throw new Error('360 results are restricted to platform admins.')

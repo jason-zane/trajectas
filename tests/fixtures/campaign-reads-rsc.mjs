@@ -23,6 +23,7 @@ const linkRows = campaignRows.flatMap(c => [0, 1].map(i => ({
 class AuthorizationError extends Error {}
 const mocks = {
   react: React,
+  '@/lib/features/access': { requireWorkspaceFeature: async () => { if (scenario === 'feature-denied') throw new AuthorizationError('Feature disabled') } },
   '@/lib/auth/authorization': {
     AuthorizationError,
     resolveAuthorizedScope: async () => { calls.scopes++; return scope },
@@ -87,7 +88,10 @@ const actions = mod.exports
 const results = []
 
 async function Root() {
-  if (scenario === 'dashboard' || scenario === 'empty' || scenario === 'denied') {
+  if (scenario === 'feature-denied') {
+    try { await actions.getCampaigns({ clientId: 'client-a' }); results.push({ denied: false }) }
+    catch(e) { results.push({ denied: e instanceof AuthorizationError }) }
+  } else if (scenario === 'dashboard' || scenario === 'empty' || scenario === 'denied') {
     try {
       const [all, operational] = await Promise.all([
         ...(scenario === 'denied' ? [] : [actions.getCampaigns({ clientId: 'client-a' })]),

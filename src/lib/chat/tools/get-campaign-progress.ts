@@ -16,6 +16,7 @@ import { campaignResults, campaignParticipants } from '../destinations'
 import { getCampaignProgress, ChatScoresError } from '@/lib/dal/chat-scores'
 
 export const getCampaignProgressTool = defineChatTool({
+  requiredFeatures: ['campaignViewing'],
   name: 'get_campaign_progress',
   description:
     'Get how far a campaign has got: how many people were invited, have started, and have completed. Call find_campaign first to get the campaign id. The figures are shown to the user as a card.',

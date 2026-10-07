@@ -1,5 +1,6 @@
 'use client'
 
+import { usePortal } from '@/components/portal-context'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus } from 'lucide-react'
@@ -22,7 +23,7 @@ import {
 import { getSelectLabel } from '@/lib/select-display'
 import { createReportTemplate } from '@/app/actions/reports'
 
-export function CreateTemplateButton({
+function CreateTemplateButtonContent({
   basePath = '/report-templates',
 }: {
   basePath?: string
@@ -108,4 +109,9 @@ export function CreateTemplateButton({
       </ActionDialog>
     </>
   )
+}
+
+export function CreateTemplateButton(props: { basePath?: string }) {
+  const { features } = usePortal()
+  return features.reportTemplateAuthoring ? <CreateTemplateButtonContent {...props} /> : null
 }

@@ -52,8 +52,8 @@ export async function dispatchPendingIntegrationEvents(limit: number) {
 
   const { data: candidates, error: candidatesError } = await db
     .from('integration_events_outbox')
-    .select('id, attempts')
-    .eq('status', 'pending')
+    .select('id, attempts, client_id')
+    .eq('status', 'pending').eq('requires_review', false)
     .lte('available_at', now)
     .order('available_at', { ascending: true })
     .limit(limit)
@@ -73,7 +73,7 @@ export async function dispatchPendingIntegrationEvents(limit: number) {
       .from('integration_events_outbox')
       .update({ status: 'dispatched', dispatched_at: null,
         available_at: claimUntil, attempts: nextAttempts })
-      .eq('id', candidate.id).eq('status', 'pending')
+      .eq('id', candidate.id).eq('status', 'pending').eq('requires_review', false)
       .eq('attempts', Number(candidate.attempts ?? 0))
       .lte('available_at', now).select('*').maybeSingle()
     if (claimError) {
@@ -87,7 +87,7 @@ export async function dispatchPendingIntegrationEvents(limit: number) {
     // later claim. Do not include payloads, URLs, or signing material in errors.
     const finishEvent = (values: Record<string, unknown>) => db
       .from('integration_events_outbox').update(values)
-      .eq('id', event.id).eq('status', 'dispatched')
+      .eq('id', event.id).eq('status', 'dispatched').eq('requires_review', false)
       .is('dispatched_at', null).eq('available_at', claimUntil)
 
     try {
@@ -148,6 +148,16 @@ export async function dispatchPendingIntegrationEvents(limit: number) {
         if (existingDelivery) {
           continue
         }
+
+        // A concurrent pause moves unfinished rows to the existing terminal status.
+        // Recheck the claim immediately before each new HTTP request; in-flight
+        // requests cannot be recalled. Old workers also skip saved terminal rows.
+        const { data: liveClaim, error: liveClaimError } = await db.from('integration_events_outbox')
+          .select('id').eq('id', event.id).eq('status', 'dispatched')
+          .eq('requires_review', false).is('dispatched_at', null)
+          .eq('available_at', claimUntil).maybeSingle()
+        if (liveClaimError) throw new Error('Unable to verify webhook delivery availability.')
+        if (!liveClaim) break
 
         const timestamp = Math.floor(Date.now() / 1000).toString()
         const secret = decryptIntegrationSecret(String(endpoint.signing_secret_ciphertext))

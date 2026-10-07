@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ArrowRight, ClipboardList, Clock3, Layers3, Target } from "lucide-react";
@@ -43,6 +45,8 @@ export default async function ClientAssessmentDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('assessmentLibrary')) return <WorkspaceFeatureUnavailable feature="assessmentLibrary" />
+
   const { clientId } = await resolveClientOrg("/client/assessments");
   if (!clientId) {
     redirect("/client/dashboard");

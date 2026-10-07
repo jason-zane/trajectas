@@ -20,6 +20,7 @@ import TrajectoryPage from '@/app/(dashboard)/participants/trajectory/page'
 import UnifiedPage from '@/app/(dashboard)/participants/unified/page'
 import PartnerTrajectory from '@/app/partner/participants/trajectory/page'
 import PartnerUnified from '@/app/partner/participants/unified/page'
+import ClientUnified from '@/app/client/participants/unified/page'
 import ClientTrajectory from '@/app/client/participants/trajectory/page'
 import StudioPage from '@/app/(dashboard)/participants/studio/page'
 import PreviewPage from '@/app/preview/trajectory/page'
@@ -35,6 +36,7 @@ describe('Production Trajectory entry points', () => {
     ['partner trajectory', PartnerTrajectory, 'individual', 'time', calls.partner],
     ['partner unified', PartnerUnified, 'unified', 'snapshot', calls.partner],
     ['client trajectory', ClientTrajectory, 'individual', 'time', calls.client],
+    ['client unified', ClientUnified, 'unified', 'snapshot', calls.client],
   ] as const)('opens %s after its portal access check', async (_name, route, experience, initialLens, guard) => {
     const page = await route({ searchParams: Promise.resolve({}) })
     expect(guard).toHaveBeenCalledOnce()
@@ -60,8 +62,10 @@ describe('Production Trajectory entry points', () => {
     await expect(PartnerTrajectory({ searchParams: Promise.resolve({ ids: 'one,two' }) })).rejects.toThrow('Unified is not enabled')
     expect(calls.redirect).not.toHaveBeenCalled()
   })
-  it('never permits unified in the client portal', async () => {
-    await expect(renderTrajectoryPage({}, 'unified', 'client')).rejects.toThrow('not-found')
+  it('blocks disabled client Unified before loading participant data', async () => {
+    calls.enabled.mockResolvedValue(false)
+    const page = await ClientUnified({ searchParams: Promise.resolve({ ids: 'one,two' }) })
+    expect(renderToStaticMarkup(page)).toContain('Unified Trajectory is not enabled')
     expect(calls.canvas).not.toHaveBeenCalled()
   })
   it('denies direct unified URLs before loading participant data', async () => {

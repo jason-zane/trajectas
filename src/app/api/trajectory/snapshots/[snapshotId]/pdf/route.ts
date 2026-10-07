@@ -1,3 +1,5 @@
+import { requireWorkspaceFeature } from '@/lib/features/access'
+import { AuthorizationError } from '@/lib/auth/authorization'
 import { NextResponse, after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -30,6 +32,8 @@ export async function GET(
     return NextResponse.json({ error: 'invalid_snapshot_id' }, { status: 400 })
   }
 
+  try { await requireWorkspaceFeature('reportDownload') }
+  catch (error) { if (error instanceof AuthorizationError) return NextResponse.json({ error: 'report_download_disabled' }, { status: 403 }); throw error }
   const db = await createClient()
   const { data: snapshot, error } = await db
     .from('comparison_snapshots')

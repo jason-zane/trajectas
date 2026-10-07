@@ -1,3 +1,7 @@
+vi.mock('@/lib/dal/workspace-features', async () => {
+  const { defaultWorkspaceFeatures } = await import('@/lib/features/workspace-features')
+  return { getIntegrationClientFeatures: async () => defaultWorkspaceFeatures('client') }
+})
 /* eslint-disable @typescript-eslint/no-explicit-any -- fluent database fixture */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createHash } from 'node:crypto'

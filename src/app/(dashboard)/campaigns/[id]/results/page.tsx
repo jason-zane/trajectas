@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound, redirect } from "next/navigation";
 import { getCampaignHeader } from "@/app/actions/campaigns";
 import { getCampaign360Snapshot } from "@/app/actions/three-sixty";
@@ -8,6 +10,10 @@ export default async function Campaign360ResultsPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('feedback360')) return <WorkspaceFeatureUnavailable feature="feedback360" />
+
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   const { id } = await params;
   const campaign = await getCampaignHeader(id);
   if (!campaign) notFound();

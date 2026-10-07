@@ -1,5 +1,7 @@
 'use server'
+import { requireWorkspaceFeature } from '@/lib/features/access'
 
+import { provisionWorkspaceWithFeatures } from '@/lib/dal/workspace-provisioning'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
@@ -126,15 +128,14 @@ export async function createPartner(formData: FormData) {
   const scope = await requireAdminScope()
   const db = createAdminClient()
 
-  const { data: created, error } = await db
-    .from('partners')
-    .insert(toPartnerInsert(parsed.data))
-    .select('id')
-    .single()
-
-  if (error) {
-    logActionError('createPartner', error)
-    return { error: { _form: ['Unable to create partner.'] } }
+  let created: { id: string }
+  if (formData.has('featurePreset') || formData.has('featureConfiguration')) {
+    try { created = await provisionWorkspaceWithFeatures('partner', toPartnerInsert(parsed.data), formData) }
+    catch (error) { logActionError('createPartner', error); return { error: { _form: ['Unable to create partner with its features.'] } } }
+  } else {
+    const result = await db.from('partners').insert(toPartnerInsert(parsed.data)).select('id').single()
+    if (result.error || !result.data) { logActionError('createPartner', result.error); return { error: { _form: ['Unable to create partner.'] } } }
+    created = result.data
   }
 
   await logAuditEvent({
@@ -518,6 +519,8 @@ export async function inviteUserToPartner(
   partnerId: string,
   input: { email: string; role: 'admin' | 'member' }
 ) {
+  await requireWorkspaceFeature('teamManagement')
+
   let access
   try {
     access = await requirePartnerAccess(partnerId)
@@ -601,6 +604,8 @@ export async function reissuePartnerInvite(
   partnerId: string,
   inviteId: string
 ): Promise<{ inviteLink: string } | { error: string }> {
+  await requireWorkspaceFeature('teamManagement')
+
   let access
   try {
     access = await requirePartnerAccess(partnerId)
@@ -626,6 +631,8 @@ export async function changePartnerMemberRole(
   membershipId: string,
   role: 'admin' | 'member'
 ) {
+  await requireWorkspaceFeature('teamManagement')
+
   let access
   try {
     access = await requirePartnerAccess(partnerId)
@@ -671,6 +678,8 @@ export async function removePartnerMember(
   partnerId: string,
   membershipId: string
 ) {
+  await requireWorkspaceFeature('teamManagement')
+
   let access
   try {
     access = await requirePartnerAccess(partnerId)
@@ -719,6 +728,8 @@ export async function revokePartnerInvite(
   partnerId: string,
   inviteId: string
 ) {
+  await requireWorkspaceFeature('teamManagement')
+
   let access
   try {
     access = await requirePartnerAccess(partnerId)

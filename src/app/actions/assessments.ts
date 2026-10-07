@@ -1,5 +1,8 @@
 'use server'
 
+import { PUBLIC_BUILDS_SYSTEM_SCOPE } from '@/lib/public-builds/constants'
+import { requireWorkspaceFeature } from '@/lib/features/access'
+
 import { assessmentSelectionIssue } from '@/lib/dal/model-management'
 
 import { revalidatePath } from 'next/cache'
@@ -235,6 +238,8 @@ function revalidateAssessmentPaths() {
 }
 
 async function requireAssessmentBuilderScope() {
+  await requireWorkspaceFeature('assessmentAuthoring')
+
   const scope = await resolveAuthorizedScope()
 
   if (!canManageAssessmentLibrary(scope)) {
@@ -268,6 +273,8 @@ export async function getAssessments(): Promise<AssessmentWithMeta[]> {
 }
 
 export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssessmentSummary[]> {
+  await requireWorkspaceFeature('assessmentLibrary')
+
   const scope = await resolveAuthorizedScope()
   const db = await createClient()
 
@@ -429,6 +436,8 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
 }
 
 export async function getPartnerAssessmentLibrary(): Promise<AssessmentLibrarySummary[]> {
+  await requireWorkspaceFeature('assessmentLibrary')
+
   const scope = await resolveAuthorizedScope()
 
   // Partner-owned assessments, plus the shared library. `null` = unrestricted,
@@ -590,6 +599,8 @@ export async function getPartnerAssessmentLibrary(): Promise<AssessmentLibrarySu
 }
 
 export async function getAssessmentById(id: string): Promise<Assessment | null> {
+  await requireWorkspaceFeature('assessmentLibrary')
+
   try {
     await requireAssessmentAccess(id)
   } catch (error) {
@@ -646,6 +657,8 @@ export async function getAssessmentWithFactors(id: string): Promise<{
   factors: AssessmentFactorLink[]
   sections: ExistingSection[]
 } | null> {
+  await requireWorkspaceFeature('assessmentLibrary')
+
   try {
     await requireAssessmentAccess(id, { forWrite: true })
   } catch (error) {
@@ -858,6 +871,8 @@ export async function createAssessment(
   payload: Record<string, unknown>,
   opts: { systemScope?: AuthorizedScope } = {},
 ) {
+  if (opts.systemScope !== PUBLIC_BUILDS_SYSTEM_SCOPE) { await requireWorkspaceFeature('assessmentAuthoring'); if (payload.status === 'active') await requireWorkspaceFeature('assessmentPublishing') }
+
   let scope: AuthorizedScope | null = null
   let partnerId: string | null = null
   try {
@@ -983,6 +998,8 @@ export async function createAssessment(
 }
 
 export async function updateAssessment(id: string, payload: Record<string, unknown>) {
+  await requireWorkspaceFeature('assessmentAuthoring'); if (payload.status === 'active') await requireWorkspaceFeature('assessmentPublishing')
+
   let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
   try {
     ;({ scope } = await requireAssessmentAccess(id, { forWrite: true }))
@@ -1178,6 +1195,8 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
 }
 
 export async function deleteAssessment(id: string) {
+  await requireWorkspaceFeature('assessmentAuthoring')
+
   let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
   try {
     ;({ scope } = await requireAssessmentAccess(id, { forWrite: true }))
@@ -1223,6 +1242,8 @@ export async function deleteAssessment(id: string) {
 }
 
 export async function restoreAssessment(id: string) {
+  await requireWorkspaceFeature('assessmentAuthoring')
+
   let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
   try {
     ;({ scope } = await requireAssessmentAccess(id, { includeArchived: true, forWrite: true }))
@@ -1255,6 +1276,8 @@ export async function restoreAssessment(id: string) {
 }
 
 export async function updateAssessmentField(id: string, field: string, value: string) {
+  await requireWorkspaceFeature('assessmentAuthoring'); if (field === 'status' && value === 'active') await requireWorkspaceFeature('assessmentPublishing')
+
   let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
   try {
     ;({ scope } = await requireAssessmentAccess(id, { forWrite: true }))
@@ -1301,6 +1324,8 @@ export async function updateAssessmentCustomisation(
   assessmentId: string,
   minCustomFactors: number | null
 ): Promise<{ success: true } | { error: string }> {
+  await requireWorkspaceFeature('assessmentAuthoring')
+
   let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
   try {
     ;({ scope } = await requireAssessmentAccess(assessmentId, { forWrite: true }))
@@ -1378,6 +1403,8 @@ export async function updateAssessmentScoringProfile(
   assessmentId: string,
   scoringProfile: ScoringProfile,
 ): Promise<ActionResult> {
+  await requireWorkspaceFeature('assessmentAuthoring')
+
   const allowed: ScoringProfile[] = ['pomp_factor', 'ability_dichotomous', 'ability_irt']
   if (!allowed.includes(scoringProfile)) {
     return { error: 'Unknown scoring profile.' }
@@ -1622,6 +1649,8 @@ export async function getExistingBlocks(assessmentId: string): Promise<ExistingF
 }
 
 export async function bulkDeleteAssessments(ids: string[]) {
+  await requireWorkspaceFeature('assessmentAuthoring')
+
   if (ids.length === 0) return
   const scope = await resolveAuthorizedScope()
   if (!scope.isPlatformAdmin) return { error: 'Unauthorized' }
@@ -1637,6 +1666,8 @@ export async function bulkDeleteAssessments(ids: string[]) {
 }
 
 export async function bulkUpdateAssessmentStatus(ids: string[], status: string) {
+  await requireWorkspaceFeature('assessmentAuthoring'); if (status === 'active') await requireWorkspaceFeature('assessmentPublishing')
+
   if (ids.length === 0) return
   const scope = await resolveAuthorizedScope()
   if (!scope.isPlatformAdmin) return { error: 'Unauthorized' }
@@ -1672,6 +1703,8 @@ export async function updateAssessmentMeta(
     sourceId?: string | null
   },
 ): Promise<ActionResult> {
+  await requireWorkspaceFeature('assessmentAuthoring'); if (updates.status === 'active') await requireWorkspaceFeature('assessmentPublishing')
+
   let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
   try {
     ;({ scope } = await requireAssessmentAccess(assessmentId, { forWrite: true }))
@@ -1760,6 +1793,8 @@ export async function updateAssessmentComposition(
   assessmentId: string,
   payload: { factors: Array<{ factorId: string; weight?: number }> },
 ): Promise<ActionResult> {
+  await requireWorkspaceFeature('assessmentAuthoring')
+
   let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
   try {
     ;({ scope } = await requireAssessmentAccess(assessmentId, { forWrite: true }))
@@ -1829,6 +1864,8 @@ export async function updateAssessmentPresentation(
     forcedChoiceBlocks?: ForcedChoiceBlockDraft[]
   },
 ): Promise<ActionResult> {
+  await requireWorkspaceFeature('assessmentAuthoring')
+
   let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
   try {
     ;({ scope } = await requireAssessmentAccess(assessmentId, { forWrite: true }))
@@ -1962,6 +1999,8 @@ export async function createAssessmentDraft(payload: {
   description?: string
   sourceId?: string
 }): Promise<{ success: true; id: string } | { error: string }> {
+  await requireWorkspaceFeature('assessmentAuthoring')
+
   let scope = null as Awaited<ReturnType<typeof requireAssessmentBuilderScope>> | null
   try {
     scope = await requireAssessmentBuilderScope()

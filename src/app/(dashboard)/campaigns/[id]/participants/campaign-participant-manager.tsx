@@ -1,5 +1,7 @@
 "use client";
 
+import { WorkspaceFeatureVisibility } from '@/components/workspace-feature-visibility'
+
 import { useOptimistic, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -510,7 +512,7 @@ export function CampaignParticipantManager({
           >
             <Link2 className="size-4" />
           </Button>
-          <Button
+          <WorkspaceFeatureVisibility features={["participantInvitations"]}><Button
             size="icon-sm"
             variant="ghost"
             title={
@@ -519,15 +521,15 @@ export function CampaignParticipantManager({
             onClick={() => handleSendEmail(row.original.id, row.original.email)}
           >
             <Mail className="size-4" />
-          </Button>
-          <Button
+          </Button></WorkspaceFeatureVisibility>
+          <WorkspaceFeatureVisibility features={["campaignManagement"]}><Button
             size="icon-sm"
             variant="ghost"
             className="text-muted-foreground hover:text-destructive"
             onClick={() => handleRemove(row.original.id, row.original.displayName)}
           >
             <Trash2 className="size-4" />
-          </Button>
+          </Button></WorkspaceFeatureVisibility>
         </DataTableRowActions>
       ),
     },
@@ -574,14 +576,14 @@ export function CampaignParticipantManager({
           <span className="hidden text-xs text-muted-foreground sm:inline">
             {countLabel}
           </span>
-          <Button size="sm" variant="outline" onClick={() => setShowBulk(true)}>
+          <WorkspaceFeatureVisibility features={["participantInvitations","assessmentDelivery"]}><Button size="sm" variant="outline" onClick={() => setShowBulk(true)}>
             <Upload className="size-4" />
             Bulk Import
-          </Button>
-          <Button size="sm" onClick={() => setShowInvite(true)}>
+          </Button></WorkspaceFeatureVisibility>
+          <WorkspaceFeatureVisibility features={["participantInvitations","assessmentDelivery"]}><Button size="sm" onClick={() => setShowInvite(true)}>
             <Plus className="size-4" />
             Invite
-          </Button>
+          </Button></WorkspaceFeatureVisibility>
         </div>
       </div>
 

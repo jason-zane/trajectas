@@ -1,3 +1,4 @@
+import { requireWorkspaceFeature } from '@/lib/features/access'
 import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
@@ -36,6 +37,8 @@ async function requirePdfAccess(
 ): Promise<{ error: Response } | { access: PdfAccess }> {
   try {
     const access = await requireReportSnapshotReadAccess(snapshotId)
+    await requireWorkspaceFeature('reportViewing')
+    await requireWorkspaceFeature('reportDownload')
     // Aggregate-only campaigns: no individual PDFs for client/partner
     // viewers. Participant token paths are unaffected (own report only).
     assertIndividualResultsAccess(access.scope, access.confidentialityMode)

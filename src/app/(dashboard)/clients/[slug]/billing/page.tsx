@@ -1,3 +1,5 @@
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { notFound } from "next/navigation";
 
 import { getClientBySlug } from "@/app/actions/clients";
@@ -17,6 +19,8 @@ export default async function ClientBillingPage({
   params: Promise<{ slug: string }>;
   searchParams: Promise<UsageSearchParams>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('billingVisibility')) return <WorkspaceFeatureUnavailable feature="billingVisibility" />
+
   // Billing is Trajectas-internal: gate to platform admin before loading any
   // billing data (the hub reads invoices/billing accounts via the service-role
   // DAL, so getClientBySlug's client/partner access is not sufficient here).

@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense } from 'react'
@@ -12,6 +14,8 @@ interface Props {
 }
 
 export default async function PartnerReportViewerPage({ params }: Props) {
+  if (!await isWorkspaceFeatureEnabled('reportViewing')) return <WorkspaceFeatureUnavailable feature="reportViewing" />
+
   const { snapshotId } = await params
   const snapshot = await getReportSnapshot(snapshotId)
   if (!snapshot) {

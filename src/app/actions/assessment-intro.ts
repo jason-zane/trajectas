@@ -1,5 +1,7 @@
 'use server'
 
+import { requireWorkspaceFeature } from '@/lib/features/access'
+
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -42,6 +44,8 @@ export async function updateAssessmentIntro(
   assessmentId: string,
   content: AssessmentIntroContent
 ): Promise<{ success: true } | { error: string }> {
+  await requireWorkspaceFeature('assessmentAuthoring')
+
   const access = await requireAssessmentAccess(assessmentId, { forWrite: true })
 
   const parsed = uuidSchema.safeParse(assessmentId)
@@ -83,6 +87,8 @@ export async function toggleAssessmentIntro(
   assessmentId: string,
   enabled: boolean
 ): Promise<{ success: true } | { error: string }> {
+  await requireWorkspaceFeature('assessmentAuthoring')
+
   const access = await requireAssessmentAccess(assessmentId, { forWrite: true })
 
   const db = createAdminClient()
@@ -158,6 +164,8 @@ export async function updateCampaignIntroOverride(
   assessmentId: string,
   override: IntroOverride
 ): Promise<{ success: true } | { error: string }> {
+  await requireWorkspaceFeature('participantExperience')
+
   const access = await requireCampaignAccess(campaignId)
   if (!canManageCampaign(access.scope, access.partnerId, access.clientId)) {
     return { error: 'You do not have permission to update this campaign.' }

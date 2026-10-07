@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { PageHeader } from "@/components/page-header";
 import { UsagePeriodControls } from "@/components/usage/usage-period-controls";
 import { UsageReportPanel } from "@/components/usage/usage-report-panel";
@@ -16,6 +18,8 @@ export default async function UsagePage({
 }: {
   searchParams: Promise<UsageSearchParams>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('usageVisibility')) return <WorkspaceFeatureUnavailable feature="usageVisibility" />
+
   await requireAdminScope();
   const query = await searchParams;
   const period = resolveUsagePeriod(query);

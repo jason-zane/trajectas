@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from 'next/navigation'
 import { getReportTemplate, getTemplateUsage, getAllCampaigns, getReportPrompts } from '@/app/actions/reports'
 import { parseBlocks } from '@/lib/reports/registry'
@@ -9,6 +11,8 @@ interface Props {
 }
 
 export default async function BlockBuilderPage({ params }: Props) {
+  if (!await isWorkspaceFeatureEnabled('reportTemplateAuthoring')) return <WorkspaceFeatureUnavailable feature="reportTemplateAuthoring" />
+
   const { id } = await params
   const [template, usage, campaigns, promptOptions] = await Promise.all([
     getReportTemplate(id),

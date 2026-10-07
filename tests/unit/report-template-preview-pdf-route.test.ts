@@ -1,3 +1,6 @@
+vi.mock('@/lib/dal/workspace-features', async () => { return { getEffectiveWorkspaceFeatures: () => featureConfig.value } })
+const featureConfig = vi.hoisted(() => ({ value: {} as Record<string, unknown> }))
+import { defaultWorkspaceFeatures } from '@/lib/features/workspace-features'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Mock authorization and PDF generation functions
@@ -39,6 +42,7 @@ describe('GET /api/report-templates/[id]/preview/pdf', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    featureConfig.value = defaultWorkspaceFeatures('partner')
   })
 
   it('returns 400 when assessment query param is missing', async () => {
@@ -202,3 +206,10 @@ describe('GET /api/report-templates/[id]/preview/pdf', () => {
     expect(requireAssessmentAccess).toHaveBeenCalledWith(assessmentId)
   })
 })
+
+ it.each(['reportTemplateAuthoring','reportDownload'])('blocks preview PDF with %s disabled before PDF generation', async feature => {
+  resolveAuthorizedScope.mockResolvedValue({}); canManageReportTemplateLibrary.mockReturnValue(true)
+  featureConfig.value = { ...defaultWorkspaceFeatures('partner'), [feature]: false }
+  const response = await GET(new Request('http://localhost/api/report-templates/synthetic/preview/pdf?assessment=synthetic'), { params: Promise.resolve({ id: 'synthetic' }) })
+  expect(response.status).toBe(403); expect(generatePreviewPdf).not.toHaveBeenCalled()
+ })

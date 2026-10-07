@@ -1,5 +1,7 @@
 "use client";
 
+import { WorkspaceFeatureVisibility } from '@/components/workspace-feature-visibility';
+
 import { useMemo } from "react";
 import Link from "next/link";
 import {
@@ -129,7 +131,7 @@ export function ClientDashboard({
   favoriteCampaignIds = [],
   completionTimeline = [],
 }: ClientDashboardProps) {
-  const { href } = usePortal();
+  const { href, features } = usePortal();
   const favoriteSet = useMemo(
     () => new Set(favoriteCampaignIds),
     [favoriteCampaignIds],
@@ -233,7 +235,7 @@ export function ClientDashboard({
       </header>
 
       {/* ===== QUICK ACTIONS ===== */}
-      <section className="space-y-4">
+      <WorkspaceFeatureVisibility when={(features.campaignManagement && features.assessmentDelivery) || features.campaignViewing}><section className="space-y-4">
         <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
           Quick actions
         </p>
@@ -246,7 +248,7 @@ export function ClientDashboard({
             forcedClientId={clientId}
             successHrefPrefix="/client/campaigns"
           />
-          <Link
+          <WorkspaceFeatureVisibility features={["campaignViewing"]}><Link
             href={href("/participants")}
             className={cn(
               buttonVariants({ variant: "outline" }),
@@ -255,12 +257,12 @@ export function ClientDashboard({
           >
             <ArrowUpRight className="size-4" />
             View recent results
-          </Link>
+          </Link></WorkspaceFeatureVisibility>
         </div>
-      </section>
+      </section></WorkspaceFeatureVisibility>
 
       {/* ===== METRIC STRIP — one headline, two framing stats ===== */}
-      <section className="grid gap-8 border-t border-b border-border/70 py-8 lg:grid-cols-5">
+      <WorkspaceFeatureVisibility when={features.campaignViewing}><section className="grid gap-8 border-t border-b border-border/70 py-8 lg:grid-cols-5">
         {/* Headline metric */}
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between gap-4">
@@ -330,10 +332,10 @@ export function ClientDashboard({
             </div>
           ))}
         </div>
-      </section>
+      </section></WorkspaceFeatureVisibility>
 
       {/* ===== WHAT'S MOVING — prioritised campaign list ===== */}
-      <section className="space-y-5">
+      <WorkspaceFeatureVisibility when={features.campaignViewing}><section className="space-y-5">
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
@@ -465,10 +467,10 @@ export function ClientDashboard({
             })}
           </ul>
         )}
-      </section>
+      </section></WorkspaceFeatureVisibility>
 
       {/* ===== RECENT ACTIVITY ===== */}
-      <section className="space-y-4 pb-16">
+      <WorkspaceFeatureVisibility when={features.campaignViewing}><section className="space-y-4 pb-16">
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
@@ -538,7 +540,7 @@ export function ClientDashboard({
             })}
           </ul>
         )}
-      </section>
+      </section></WorkspaceFeatureVisibility>
     </div>
   );
 }

@@ -1,3 +1,10 @@
+// Existing role/RLS assertions run with the published legacy feature licence.
+// Feature-denial and context resolution are tested separately by the workspace suites.
+const licence = vi.hoisted(() => ({ assistant: true }))
+vi.mock('@/lib/dal/workspace-features', async () => {
+  const { defaultWorkspaceFeatures } = await import('@/lib/features/workspace-features')
+  return { getEffectiveWorkspaceFeatures: async () => ({ ...defaultWorkspaceFeatures('partner'), workspaceAssistant: licence.assistant }) }
+})
 /**
  * Integration tests for grounded-chat tools.
  *
@@ -12,7 +19,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { canRun, createAdminClient, createTestUser } from './_helpers/rls-fixture'
 import { findParticipantTool } from '@/lib/chat/tools/find-participant'
 import { findCampaignTool } from '@/lib/chat/tools/find-campaign'
@@ -60,6 +67,18 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
   let adminDb: SupabaseClient
   let clientADb: SupabaseClient
   let clientBDb: SupabaseClient
+
+  it('denies an assistant tool before a real scoped database query when unavailable', async () => {
+    const read = vi.spyOn(adminDb, 'from')
+    licence.assistant = false
+    try {
+      await expect(findParticipantTool.execute({ query: tag }, ctx(adminDb, true))).rejects.toThrow('not enabled')
+      expect(read).not.toHaveBeenCalled()
+    } finally {
+      licence.assistant = true
+      read.mockRestore()
+    }
+  })
 
   beforeAll(async () => {
     const mk = async (name: string) => {

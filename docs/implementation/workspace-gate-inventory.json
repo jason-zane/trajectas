@@ -1,0 +1,2336 @@
+[
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/composition/page.tsx",
+    "line": 40,
+    "function": "AssessmentCompositionPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/intro/page.tsx",
+    "line": 15,
+    "function": "AssessmentIntroPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/overview/page.tsx",
+    "line": 13,
+    "function": "AssessmentOverviewPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/page.tsx",
+    "line": 10,
+    "function": "AssessmentEditPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/presentation/page.tsx",
+    "line": 15,
+    "function": "AssessmentPresentationPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/reports/page.tsx",
+    "line": 13,
+    "function": "AssessmentReportsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/reports/page.tsx",
+    "line": 15,
+    "function": "AssessmentReportsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('reportTemplateLibrary')) return <WorkspaceFeatureUnavailable feature=\"reportTemplateLibrary\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/settings/page.tsx",
+    "line": 12,
+    "function": "AssessmentSettingsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/create/page.tsx",
+    "line": 8,
+    "function": "CreateAssessmentPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/page.tsx",
+    "line": 19,
+    "function": "AssessmentsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentLibrary')) return <WorkspaceFeatureUnavailable feature=\"assessmentLibrary\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/business/usage/page.tsx",
+    "line": 21,
+    "function": "UsagePage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('usageVisibility')) return <WorkspaceFeatureUnavailable feature=\"usageVisibility\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/business-outcomes/[studyId]/page.tsx",
+    "line": 11,
+    "function": "OutcomeStudyPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('outcomeStudies')) return <WorkspaceFeatureUnavailable feature=\"outcomeStudies\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/business-outcomes/page.tsx",
+    "line": 6,
+    "function": "BusinessOutcomesPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('outcomeStudies')) return <WorkspaceFeatureUnavailable feature=\"outcomeStudies\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/business-outcomes/report/[reportId]/page.tsx",
+    "line": 11,
+    "function": "ReportPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('outcomeReports')) return <WorkspaceFeatureUnavailable feature=\"outcomeReports\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/assessments/page.tsx",
+    "line": 18,
+    "function": "CampaignAssessmentsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignManagement')) return <WorkspaceFeatureUnavailable feature=\"campaignManagement\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/assessments/page.tsx",
+    "line": 20,
+    "function": "CampaignAssessmentsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/branding/page.tsx",
+    "line": 10,
+    "function": "CampaignBrandingPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignBranding')) return <WorkspaceFeatureUnavailable feature=\"campaignBranding\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/branding/page.tsx",
+    "line": 12,
+    "function": "CampaignBrandingPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/compare/page.tsx",
+    "line": 19,
+    "function": "CompareCampaignPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/experience/page.tsx",
+    "line": 17,
+    "function": "CampaignExperiencePage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('participantExperience')) return <WorkspaceFeatureUnavailable feature=\"participantExperience\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/experience/page.tsx",
+    "line": 19,
+    "function": "CampaignExperiencePage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/overview/page.tsx",
+    "line": 10,
+    "function": "CampaignOverviewPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/page.tsx",
+    "line": 10,
+    "function": "CampaignDetailPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/participants/[pid]/page.tsx",
+    "line": 23,
+    "function": "loadParticipantAuxiliaryData",
+    "gate": "const trajectoryEnabled = await isWorkspaceFeatureEnabled(\"trajectory\");"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/participants/[pid]/page.tsx",
+    "line": 51,
+    "function": "CampaignParticipantDetailPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/participants/[pid]/sessions/[sid]/page.tsx",
+    "line": 15,
+    "function": "CampaignParticipantSessionDetailPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/participants/page.tsx",
+    "line": 10,
+    "function": "CampaignParticipantsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/raters/page.tsx",
+    "line": 13,
+    "function": "CampaignRatersPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('feedback360')) return <WorkspaceFeatureUnavailable feature=\"feedback360\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/raters/page.tsx",
+    "line": 15,
+    "function": "CampaignRatersPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/results/page.tsx",
+    "line": 13,
+    "function": "Campaign360ResultsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('feedback360')) return <WorkspaceFeatureUnavailable feature=\"feedback360\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/results/page.tsx",
+    "line": 15,
+    "function": "Campaign360ResultsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/sessions/[sessionId]/page.tsx",
+    "line": 15,
+    "function": "CampaignSessionPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/settings/page.tsx",
+    "line": 24,
+    "function": "CampaignSettingsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignManagement')) return <WorkspaceFeatureUnavailable feature=\"campaignManagement\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/settings/page.tsx",
+    "line": 26,
+    "function": "CampaignSettingsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/create/page.tsx",
+    "line": 9,
+    "function": "CreateCampaignPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignManagement') || !await isWorkspaceFeatureEnabled('assessmentDelivery')) return <WorkspaceFeatureUnavailable feature=\"campaignManagement\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/page.tsx",
+    "line": 14,
+    "function": "CampaignsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/chat/page.tsx",
+    "line": 9,
+    "function": "ChatPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('workspaceAssistant')) return <WorkspaceFeatureUnavailable feature=\"workspaceAssistant\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/clients/[slug]/billing/page.tsx",
+    "line": 22,
+    "function": "ClientBillingPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('billingVisibility')) return <WorkspaceFeatureUnavailable feature=\"billingVisibility\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/clients/[slug]/settings/page.tsx",
+    "line": 28,
+    "function": "OrgSettingsPage",
+    "gate": "const integrationSettings = await isWorkspaceFeatureEnabled('integrationManagement') ? await getClientInternalIntegrationSettings(client.id) : null;"
+  },
+  {
+    "file": "src/app/(dashboard)/diagnostics/create/page.tsx",
+    "line": 10,
+    "function": "CreateDiagnosticSessionPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('orgDiagnostics')) return <WorkspaceFeatureUnavailable feature=\"orgDiagnostics\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/diagnostics/page.tsx",
+    "line": 20,
+    "function": "DiagnosticsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('orgDiagnostics')) return <WorkspaceFeatureUnavailable feature=\"orgDiagnostics\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/diagnostics/templates/[id]/edit/page.tsx",
+    "line": 12,
+    "function": "EditTemplatePage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('orgDiagnostics')) return <WorkspaceFeatureUnavailable feature=\"orgDiagnostics\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/diagnostics/templates/create/page.tsx",
+    "line": 6,
+    "function": "CreateTemplatePage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('orgDiagnostics')) return <WorkspaceFeatureUnavailable feature=\"orgDiagnostics\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/diagnostics/templates/page.tsx",
+    "line": 21,
+    "function": "DiagnosticTemplatesPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('orgDiagnostics')) return <WorkspaceFeatureUnavailable feature=\"orgDiagnostics\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/matching/page.tsx",
+    "line": 8,
+    "function": "MatchingPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('roleMatching')) return <WorkspaceFeatureUnavailable feature=\"roleMatching\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/participants/[id]/page.tsx",
+    "line": 32,
+    "function": "ParticipantDetailContent",
+    "gate": "const trajectoryEnabled = await isWorkspaceFeatureEnabled(\"trajectory\");"
+  },
+  {
+    "file": "src/app/(dashboard)/participants/[id]/page.tsx",
+    "line": 71,
+    "function": "AdminParticipantDetailPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/participants/[id]/sessions/[sid]/page.tsx",
+    "line": 15,
+    "function": "AdminSessionDetailPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/participants/compare/page.tsx",
+    "line": 38,
+    "function": "ComparePage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('compare')) return <WorkspaceFeatureUnavailable feature=\"compare\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/participants/page.tsx",
+    "line": 15,
+    "function": "ParticipantsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/participants/page.tsx",
+    "line": 17,
+    "function": "ParticipantsPage",
+    "gate": "const trajectoryEnabled = await isWorkspaceFeatureEnabled(\"trajectory\");"
+  },
+  {
+    "file": "src/app/(dashboard)/report-templates/[id]/builder/page.tsx",
+    "line": 14,
+    "function": "BlockBuilderPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('reportTemplateAuthoring')) return <WorkspaceFeatureUnavailable feature=\"reportTemplateAuthoring\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/report-templates/[id]/preview/page.tsx",
+    "line": 23,
+    "function": "PreviewPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('reportTemplateAuthoring')) return <WorkspaceFeatureUnavailable feature=\"reportTemplateAuthoring\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/report-templates/page.tsx",
+    "line": 9,
+    "function": "ReportTemplatesPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('reportTemplateLibrary')) return <WorkspaceFeatureUnavailable feature=\"reportTemplateLibrary\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/reports/[snapshotId]/page.tsx",
+    "line": 59,
+    "function": "ReportViewerPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('reportViewing')) return <WorkspaceFeatureUnavailable feature=\"reportViewing\" />"
+  },
+  {
+    "file": "src/app/(dashboard)/reports/page.tsx",
+    "line": 8,
+    "function": "ReportsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('reportViewing')) return <WorkspaceFeatureUnavailable feature=\"reportViewing\" />"
+  },
+  {
+    "file": "src/app/actions/architect.ts",
+    "line": 42,
+    "function": "extractRoleText",
+    "gate": "await requireWorkspaceFeature('roleMatching')"
+  },
+  {
+    "file": "src/app/actions/architect.ts",
+    "line": 59,
+    "function": "extractBrief",
+    "gate": "await requireWorkspaceFeature('roleMatching')"
+  },
+  {
+    "file": "src/app/actions/architect.ts",
+    "line": 80,
+    "function": "runArchitectMatch",
+    "gate": "await requireWorkspaceFeature('roleMatching')"
+  },
+  {
+    "file": "src/app/actions/architect.ts",
+    "line": 101,
+    "function": "summariseArchitectSelection",
+    "gate": "await requireWorkspaceFeature('roleMatching')"
+  },
+  {
+    "file": "src/app/actions/architect.ts",
+    "line": 128,
+    "function": "createArchitectAssessment",
+    "gate": "await requireWorkspaceFeature('roleMatching'); await requireWorkspaceFeature('assessmentAuthoring')"
+  },
+  {
+    "file": "src/app/actions/assessment-intro.ts",
+    "line": 47,
+    "function": "updateAssessmentIntro",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring')"
+  },
+  {
+    "file": "src/app/actions/assessment-intro.ts",
+    "line": 90,
+    "function": "toggleAssessmentIntro",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring')"
+  },
+  {
+    "file": "src/app/actions/assessment-intro.ts",
+    "line": 167,
+    "function": "updateCampaignIntroOverride",
+    "gate": "await requireWorkspaceFeature('participantExperience')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 241,
+    "function": "requireAssessmentBuilderScope",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 276,
+    "function": "getWorkspaceAssessmentSummaries",
+    "gate": "await requireWorkspaceFeature('assessmentLibrary')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 439,
+    "function": "getPartnerAssessmentLibrary",
+    "gate": "await requireWorkspaceFeature('assessmentLibrary')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 602,
+    "function": "getAssessmentById",
+    "gate": "await requireWorkspaceFeature('assessmentLibrary')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 660,
+    "function": "getAssessmentWithFactors",
+    "gate": "await requireWorkspaceFeature('assessmentLibrary')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 874,
+    "function": "createAssessment",
+    "gate": "if (opts.systemScope !== PUBLIC_BUILDS_SYSTEM_SCOPE) { await requireWorkspaceFeature('assessmentAuthoring'); if (payload.status === 'active') await requireWorkspaceFeature('assessmentPublishing') }"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 1001,
+    "function": "updateAssessment",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring'); if (payload.status === 'active') await requireWorkspaceFeature('assessmentPublishing')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 1198,
+    "function": "deleteAssessment",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 1245,
+    "function": "restoreAssessment",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 1279,
+    "function": "updateAssessmentField",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring'); if (field === 'status' && value === 'active') await requireWorkspaceFeature('assessmentPublishing')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 1327,
+    "function": "updateAssessmentCustomisation",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 1406,
+    "function": "updateAssessmentScoringProfile",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 1652,
+    "function": "bulkDeleteAssessments",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 1669,
+    "function": "bulkUpdateAssessmentStatus",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring'); if (status === 'active') await requireWorkspaceFeature('assessmentPublishing')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 1706,
+    "function": "updateAssessmentMeta",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring'); if (updates.status === 'active') await requireWorkspaceFeature('assessmentPublishing')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 1796,
+    "function": "updateAssessmentComposition",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 1867,
+    "function": "updateAssessmentPresentation",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring')"
+  },
+  {
+    "file": "src/app/actions/assessments.ts",
+    "line": 2002,
+    "function": "createAssessmentDraft",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring')"
+  },
+  {
+    "file": "src/app/actions/brand.ts",
+    "line": 60,
+    "function": "assertCanManageBrandOwner",
+    "gate": "if (ownerType === 'campaign') await requireWorkspaceFeature('campaignBranding')"
+  },
+  {
+    "file": "src/app/actions/brand.ts",
+    "line": 63,
+    "function": "assertCanManageBrandOwner",
+    "gate": "await requirePartnerWorkspaceFeature('clientManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 153,
+    "function": "getCampaigns",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 178,
+    "function": "getCampaignHeaderImpl",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 195,
+    "function": "getCampaignByIdImpl",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 235,
+    "function": "createCampaign",
+    "gate": "if (opts.systemScope !== PUBLIC_BUILDS_SYSTEM_SCOPE) { await requireWorkspaceFeature('campaignManagement'); await requireWorkspaceFeature('assessmentDelivery') }"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 242,
+    "function": "createCampaign",
+    "gate": "if (parsed.data.kind === 'leadership_360' && opts.systemScope !== PUBLIC_BUILDS_SYSTEM_SCOPE) await requireWorkspaceFeature('feedback360')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 341,
+    "function": "duplicateCampaignForReuse",
+    "gate": "await requireWorkspaceFeature('campaignManagement'); await requireWorkspaceFeature('assessmentDelivery')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 548,
+    "function": "updateCampaign",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 634,
+    "function": "updateCampaignField",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 686,
+    "function": "deleteCampaign",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 726,
+    "function": "restoreCampaign",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 770,
+    "function": "activateCampaign",
+    "gate": "await requireWorkspaceFeature('campaignManagement'); await requireWorkspaceFeature('assessmentDelivery')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 783,
+    "function": "activateCampaign",
+    "gate": "if (!(await isWorkspaceFeatureEnabled('feedback360'))) {"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 922,
+    "function": "pauseCampaign",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 959,
+    "function": "closeCampaign",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1000,
+    "function": "toggleCampaignSetting",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1060,
+    "function": "addAssessmentToCampaign",
+    "gate": "if (opts.systemScope !== PUBLIC_BUILDS_SYSTEM_SCOPE) await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1210,
+    "function": "removeAssessmentFromCampaign",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1250,
+    "function": "reorderCampaignAssessments",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1299,
+    "function": "inviteParticipant",
+    "gate": "await requireWorkspaceFeature('participantInvitations')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1300,
+    "function": "inviteParticipant",
+    "gate": "await requireWorkspaceFeature('assessmentDelivery')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1429,
+    "function": "sendParticipantInviteEmails",
+    "gate": "await requireWorkspaceFeature('participantInvitations')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1482,
+    "function": "sendParticipantInviteEmail",
+    "gate": "if (opts.systemScope !== PUBLIC_BUILDS_SYSTEM_SCOPE) await requireWorkspaceFeature('participantInvitations')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1565,
+    "function": "bulkInviteParticipants",
+    "gate": "await requireWorkspaceFeature('participantInvitations')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1566,
+    "function": "bulkInviteParticipants",
+    "gate": "await requireWorkspaceFeature('assessmentDelivery')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1805,
+    "function": "restoreParticipant",
+    "gate": "await requireWorkspaceFeature('participantInvitations')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1850,
+    "function": "createAccessLink",
+    "gate": "await requireWorkspaceFeature('participantInvitations')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1851,
+    "function": "createAccessLink",
+    "gate": "await requireWorkspaceFeature('assessmentDelivery')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1904,
+    "function": "deactivateAccessLink",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1942,
+    "function": "reactivateAccessLink",
+    "gate": "await requireWorkspaceFeature('participantInvitations')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1943,
+    "function": "reactivateAccessLink",
+    "gate": "await requireWorkspaceFeature('assessmentDelivery')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 1981,
+    "function": "deleteAccessLink",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 2055,
+    "function": "getParticipantsForClient",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 2120,
+    "function": "getOperationalCampaignsForClient",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 2192,
+    "function": "getRecentClientResults",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 2269,
+    "function": "getCompletionTimeline",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 2327,
+    "function": "getUniqueParticipantsForClient",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 2393,
+    "function": "getActiveAssessments",
+    "gate": "await requireWorkspaceFeature('assessmentDelivery')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 2442,
+    "function": "bulkDeleteCampaigns",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 2462,
+    "function": "bulkUpdateCampaignStatus",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 2510,
+    "function": "getFavoriteCampaignIds",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 2524,
+    "function": "favoriteCampaign",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 2543,
+    "function": "unfavoriteCampaign",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 2585,
+    "function": "updateCampaignConsultantSettings",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 2646,
+    "function": "getCampaignSessions",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/campaigns.ts",
+    "line": 2670,
+    "function": "getUniqueParticipantsForClientPaginated",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/canvas.ts",
+    "line": 99,
+    "function": "getComparisonCanvas",
+    "gate": "await requireInsightExperience(experience)"
+  },
+  {
+    "file": "src/app/actions/canvas.ts",
+    "line": 280,
+    "function": "createTrajectorySnapshot",
+    "gate": "await requireWorkspaceFeature('reportDownload')"
+  },
+  {
+    "file": "src/app/actions/canvas.ts",
+    "line": 281,
+    "function": "createTrajectorySnapshot",
+    "gate": "await requireWorkspaceFeature('reportGeneration')"
+  },
+  {
+    "file": "src/app/actions/client-entitlements.ts",
+    "line": 179,
+    "function": "getClientAssessmentLibrary",
+    "gate": "await requireWorkspaceFeature('assessmentLibrary')"
+  },
+  {
+    "file": "src/app/actions/client-entitlements.ts",
+    "line": 380,
+    "function": "getClientAssessmentLibraryDetail",
+    "gate": "await requireWorkspaceFeature('assessmentLibrary')"
+  },
+  {
+    "file": "src/app/actions/client-entitlements.ts",
+    "line": 836,
+    "function": "assignAssessment",
+    "gate": "await requireWorkspaceFeature('clientAssessmentAllocation')"
+  },
+  {
+    "file": "src/app/actions/client-entitlements.ts",
+    "line": 902,
+    "function": "updateAssessmentAssignment",
+    "gate": "await requireWorkspaceFeature('clientAssessmentAllocation')"
+  },
+  {
+    "file": "src/app/actions/client-entitlements.ts",
+    "line": 980,
+    "function": "removeAssessmentAssignment",
+    "gate": "await requireWorkspaceFeature('clientAssessmentAllocation')"
+  },
+  {
+    "file": "src/app/actions/client-entitlements.ts",
+    "line": 994,
+    "function": "toggleReportTemplateAssignment",
+    "gate": "await requireWorkspaceFeature('clientTemplateAllocation')"
+  },
+  {
+    "file": "src/app/actions/clients.ts",
+    "line": 90,
+    "function": "getClients",
+    "gate": "await requirePartnerWorkspaceFeature('clientDirectory')"
+  },
+  {
+    "file": "src/app/actions/clients.ts",
+    "line": 115,
+    "function": "getClientDirectoryEntries",
+    "gate": "await requirePartnerWorkspaceFeature('clientDirectory')"
+  },
+  {
+    "file": "src/app/actions/clients.ts",
+    "line": 172,
+    "function": "createClient",
+    "gate": "await requirePartnerWorkspaceFeature('clientProvisioning')"
+  },
+  {
+    "file": "src/app/actions/clients.ts",
+    "line": 247,
+    "function": "updateClient",
+    "gate": "await requirePartnerWorkspaceFeature('clientManagement')"
+  },
+  {
+    "file": "src/app/actions/clients.ts",
+    "line": 329,
+    "function": "deleteClient",
+    "gate": "await requirePartnerWorkspaceFeature('clientManagement')"
+  },
+  {
+    "file": "src/app/actions/clients.ts",
+    "line": 466,
+    "function": "getRecentClientCampaigns",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/clients.ts",
+    "line": 493,
+    "function": "restoreClient",
+    "gate": "await requirePartnerWorkspaceFeature('clientManagement')"
+  },
+  {
+    "file": "src/app/actions/clients.ts",
+    "line": 628,
+    "function": "inviteUserToClient",
+    "gate": "await requirePartnerWorkspaceFeature('clientManagement'); await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/clients.ts",
+    "line": 712,
+    "function": "reissueClientInvite",
+    "gate": "await requirePartnerWorkspaceFeature('clientManagement'); await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/clients.ts",
+    "line": 739,
+    "function": "changeClientMemberRole",
+    "gate": "await requirePartnerWorkspaceFeature('clientManagement'); await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/clients.ts",
+    "line": 784,
+    "function": "removeClientMember",
+    "gate": "await requirePartnerWorkspaceFeature('clientManagement'); await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/clients.ts",
+    "line": 832,
+    "function": "revokeClientInvite",
+    "gate": "await requirePartnerWorkspaceFeature('clientManagement'); await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/clients.ts",
+    "line": 867,
+    "function": "bulkDeleteClients",
+    "gate": "await requirePartnerWorkspaceFeature('clientManagement')"
+  },
+  {
+    "file": "src/app/actions/clients.ts",
+    "line": 882,
+    "function": "bulkUpdateClientStatus",
+    "gate": "await requirePartnerWorkspaceFeature('clientManagement')"
+  },
+  {
+    "file": "src/app/actions/comparison.ts",
+    "line": 51,
+    "function": "getEligibleAssessmentsForParticipants",
+    "gate": "await requireWorkspaceFeature('compare')"
+  },
+  {
+    "file": "src/app/actions/comparison.ts",
+    "line": 109,
+    "function": "getSessionOptionsForRow",
+    "gate": "await requireWorkspaceFeature('compare')"
+  },
+  {
+    "file": "src/app/actions/comparison.ts",
+    "line": 225,
+    "function": "searchCampaignParticipants",
+    "gate": "await requireWorkspaceFeature('compare')"
+  },
+  {
+    "file": "src/app/actions/comparison.ts",
+    "line": 365,
+    "function": "getComparisonMatrix",
+    "gate": "await requireWorkspaceFeature('compare')"
+  },
+  {
+    "file": "src/app/actions/diagnostics.ts",
+    "line": 87,
+    "function": "getDiagnosticTemplates",
+    "gate": "await requireWorkspaceFeature('orgDiagnostics')"
+  },
+  {
+    "file": "src/app/actions/diagnostics.ts",
+    "line": 122,
+    "function": "getDiagnosticTemplateById",
+    "gate": "await requireWorkspaceFeature('orgDiagnostics')"
+  },
+  {
+    "file": "src/app/actions/diagnostics.ts",
+    "line": 146,
+    "function": "createDiagnosticTemplate",
+    "gate": "await requireWorkspaceFeature('orgDiagnostics')"
+  },
+  {
+    "file": "src/app/actions/diagnostics.ts",
+    "line": 190,
+    "function": "updateDiagnosticTemplate",
+    "gate": "await requireWorkspaceFeature('orgDiagnostics')"
+  },
+  {
+    "file": "src/app/actions/diagnostics.ts",
+    "line": 233,
+    "function": "deleteDiagnosticTemplate",
+    "gate": "await requireWorkspaceFeature('orgDiagnostics')"
+  },
+  {
+    "file": "src/app/actions/diagnostics.ts",
+    "line": 257,
+    "function": "getDiagnosticSessions",
+    "gate": "await requireWorkspaceFeature('orgDiagnostics')"
+  },
+  {
+    "file": "src/app/actions/diagnostics.ts",
+    "line": 320,
+    "function": "getDiagnosticSessionById",
+    "gate": "await requireWorkspaceFeature('orgDiagnostics')"
+  },
+  {
+    "file": "src/app/actions/diagnostics.ts",
+    "line": 350,
+    "function": "getDiagnosticSessionDetail",
+    "gate": "await requireWorkspaceFeature('orgDiagnostics')"
+  },
+  {
+    "file": "src/app/actions/diagnostics.ts",
+    "line": 388,
+    "function": "getDiagnosticRespondents",
+    "gate": "await requireWorkspaceFeature('orgDiagnostics')"
+  },
+  {
+    "file": "src/app/actions/diagnostics.ts",
+    "line": 469,
+    "function": "createDiagnosticSession",
+    "gate": "await requireWorkspaceFeature('orgDiagnostics')"
+  },
+  {
+    "file": "src/app/actions/diagnostics.ts",
+    "line": 522,
+    "function": "deleteDiagnosticSession",
+    "gate": "await requireWorkspaceFeature('orgDiagnostics')"
+  },
+  {
+    "file": "src/app/actions/diagnostics.ts",
+    "line": 557,
+    "function": "getClientsForDiagnosticSelect",
+    "gate": "await requireWorkspaceFeature('orgDiagnostics')"
+  },
+  {
+    "file": "src/app/actions/diagnostics.ts",
+    "line": 578,
+    "function": "getTemplatesForSelect",
+    "gate": "await requireWorkspaceFeature('orgDiagnostics')"
+  },
+  {
+    "file": "src/app/actions/diagnostics.ts",
+    "line": 597,
+    "function": "bulkDeleteDiagnosticSessions",
+    "gate": "await requireWorkspaceFeature('orgDiagnostics')"
+  },
+  {
+    "file": "src/app/actions/diagnostics.ts",
+    "line": 612,
+    "function": "bulkUpdateDiagnosticSessionStatus",
+    "gate": "await requireWorkspaceFeature('orgDiagnostics')"
+  },
+  {
+    "file": "src/app/actions/experience.ts",
+    "line": 176,
+    "function": "assertCanManageExperienceOwner",
+    "gate": "await requireWorkspaceFeature('participantExperience')"
+  },
+  {
+    "file": "src/app/actions/integrations.ts",
+    "line": 116,
+    "function": "requireManageableClient",
+    "gate": "await requireWorkspaceFeature('integrationManagement')"
+  },
+  {
+    "file": "src/app/actions/matching.ts",
+    "line": 60,
+    "function": "getMatchingRuns",
+    "gate": "await requireWorkspaceFeature('roleMatching')"
+  },
+  {
+    "file": "src/app/actions/matching.ts",
+    "line": 90,
+    "function": "getWorkspaceMatchingRuns",
+    "gate": "await requireWorkspaceFeature('roleMatching')"
+  },
+  {
+    "file": "src/app/actions/matching.ts",
+    "line": 183,
+    "function": "getClientsForMatchingSelect",
+    "gate": "await requireWorkspaceFeature('roleMatching')"
+  },
+  {
+    "file": "src/app/actions/matching.ts",
+    "line": 204,
+    "function": "getSessionsForMatchingSelect",
+    "gate": "await requireWorkspaceFeature('roleMatching')"
+  },
+  {
+    "file": "src/app/actions/matching.ts",
+    "line": 244,
+    "function": "bulkDeleteMatchingRuns",
+    "gate": "await requireWorkspaceFeature('roleMatching')"
+  },
+  {
+    "file": "src/app/actions/participants.ts",
+    "line": 127,
+    "function": "getParticipants",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/participants.ts",
+    "line": 170,
+    "function": "getUniqueParticipants",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/participants.ts",
+    "line": 200,
+    "function": "getParticipant",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/participants.ts",
+    "line": 239,
+    "function": "getParticipantSessions",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/participants.ts",
+    "line": 276,
+    "function": "getParticipantActivity",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/participants.ts",
+    "line": 313,
+    "function": "getParticipantResponses",
+    "gate": "await requireWorkspaceFeature('campaignViewing')"
+  },
+  {
+    "file": "src/app/actions/participants.ts",
+    "line": 377,
+    "function": "bulkDeleteParticipants",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/participants.ts",
+    "line": 398,
+    "function": "bulkUpdateParticipantStatus",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/partner-dashboard.ts",
+    "line": 28,
+    "function": "getPartnerDashboardData",
+    "gate": "await requireWorkspaceFeature('campaignViewing');"
+  },
+  {
+    "file": "src/app/actions/partners.ts",
+    "line": 522,
+    "function": "inviteUserToPartner",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/partners.ts",
+    "line": 607,
+    "function": "reissuePartnerInvite",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/partners.ts",
+    "line": 634,
+    "function": "changePartnerMemberRole",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/partners.ts",
+    "line": 681,
+    "function": "removePartnerMember",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/partners.ts",
+    "line": 731,
+    "function": "revokePartnerInvite",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/raters.ts",
+    "line": 50,
+    "function": "require360Admin",
+    "gate": "await requireWorkspaceFeature('feedback360')"
+  },
+  {
+    "file": "src/app/actions/raters.ts",
+    "line": 244,
+    "function": "markApprovedRatersInvited",
+    "gate": "await requireWorkspaceFeature('participantInvitations')"
+  },
+  {
+    "file": "src/app/actions/raters.ts",
+    "line": 344,
+    "function": "sendRaterReminders",
+    "gate": "await requireWorkspaceFeature('participantInvitations')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 109,
+    "function": "getReportTemplates",
+    "gate": "await requireWorkspaceFeature('reportTemplateLibrary')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 169,
+    "function": "getReportTemplate",
+    "gate": "await requireWorkspaceFeature('reportTemplateLibrary')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 212,
+    "function": "createReportTemplate",
+    "gate": "await requireWorkspaceFeature('reportTemplateAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 245,
+    "function": "cloneReportTemplate",
+    "gate": "await requireWorkspaceFeature('reportTemplateAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 281,
+    "function": "updateReportTemplateBlocks",
+    "gate": "await requireWorkspaceFeature('reportTemplateAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 302,
+    "function": "updateReportTemplateSettings",
+    "gate": "await requireWorkspaceFeature('reportTemplateAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 328,
+    "function": "getReportTemplateBandScheme",
+    "gate": "await requireWorkspaceFeature('reportTemplateLibrary')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 350,
+    "function": "getResolvedReportTemplateBandScheme",
+    "gate": "await requireWorkspaceFeature('reportTemplateLibrary')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 372,
+    "function": "updateReportTemplateBandScheme",
+    "gate": "await requireWorkspaceFeature('reportTemplateAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 390,
+    "function": "deleteReportTemplate",
+    "gate": "await requireWorkspaceFeature('reportTemplateAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 423,
+    "function": "toggleReportTemplateActive",
+    "gate": "await requireWorkspaceFeature('reportTemplateAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 447,
+    "function": "toggleReportTemplateDefault",
+    "gate": "await requireWorkspaceFeature('reportTemplateAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 490,
+    "function": "getCampaignTemplates",
+    "gate": "await requireWorkspaceFeature('reportTemplateLibrary')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 520,
+    "function": "addCampaignTemplate",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 560,
+    "function": "removeCampaignTemplate",
+    "gate": "await requireWorkspaceFeature('campaignManagement')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 602,
+    "function": "getAssessmentTemplates",
+    "gate": "await requireWorkspaceFeature('reportTemplateLibrary')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 634,
+    "function": "addAssessmentTemplate",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 635,
+    "function": "addAssessmentTemplate",
+    "gate": "await requireWorkspaceFeature('reportTemplateLibrary')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 679,
+    "function": "removeAssessmentTemplate",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 680,
+    "function": "removeAssessmentTemplate",
+    "gate": "await requireWorkspaceFeature('reportTemplateLibrary')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 705,
+    "function": "setAssessmentTemplateDefault",
+    "gate": "await requireWorkspaceFeature('assessmentAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 706,
+    "function": "setAssessmentTemplateDefault",
+    "gate": "await requireWorkspaceFeature('reportTemplateLibrary')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 741,
+    "function": "getReportSnapshotsForCampaign",
+    "gate": "await requireWorkspaceFeature('reportViewing')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 787,
+    "function": "getReportSnapshot",
+    "gate": "await requireWorkspaceFeature('reportViewing')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 839,
+    "function": "getReportSnapshot",
+    "gate": "if (!await isWorkspaceFeatureEnabled('reportDownload')) return { ...snapshot, pdfUrl: undefined }"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 934,
+    "function": "getCampaignSessionReportRows",
+    "gate": "await requireWorkspaceFeature('reportViewing')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1233,
+    "function": "prepareReportSnapshotSendDraft",
+    "gate": "await requireWorkspaceFeature('reportViewing')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1277,
+    "function": "sendReportSnapshotEmail",
+    "gate": "await requireWorkspaceFeature('reportViewing')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1337,
+    "function": "sendReportToCandidate",
+    "gate": "await requireWorkspaceFeature('reportViewing')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1391,
+    "function": "retrySnapshot",
+    "gate": "await requireWorkspaceFeature('reportGeneration')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1420,
+    "function": "regenerateSnapshot",
+    "gate": "await requireWorkspaceFeature('reportGeneration')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1465,
+    "function": "getAllReadySnapshots",
+    "gate": "await requireWorkspaceFeature('reportViewing')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1524,
+    "function": "getReportSnapshotsForParticipant",
+    "gate": "await requireWorkspaceFeature('reportViewing')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1566,
+    "function": "getReportSnapshotsForParticipant",
+    "gate": "if (!await isWorkspaceFeatureEnabled('reportDownload')) return mapped.map(snapshot => ({ ...snapshot, pdfUrl: undefined }))"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1585,
+    "function": "getTemplateUsage",
+    "gate": "await requireWorkspaceFeature('reportTemplateLibrary')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1621,
+    "function": "getTemplateUsageCounts",
+    "gate": "await requireWorkspaceFeature('reportTemplateLibrary')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1754,
+    "function": "getEntityOptions",
+    "gate": "await requireWorkspaceFeature('reportTemplateAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1802,
+    "function": "listAssessmentsForPreview",
+    "gate": "await requireWorkspaceFeature('reportTemplateAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1832,
+    "function": "getPreviewEntitiesForAssessment",
+    "gate": "await requireWorkspaceFeature('reportTemplateAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1874,
+    "function": "bulkDeleteReportTemplates",
+    "gate": "await requireWorkspaceFeature('reportTemplateAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1892,
+    "function": "bulkSetReportTemplateActive",
+    "gate": "await requireWorkspaceFeature('reportTemplateAuthoring')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1914,
+    "function": "bulkDeleteReports",
+    "gate": "await requireWorkspaceFeature('reportViewing')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1932,
+    "function": "bulkUpdateReportStatus",
+    "gate": "await requireWorkspaceFeature('reportViewing')"
+  },
+  {
+    "file": "src/app/actions/reports.ts",
+    "line": 1979,
+    "function": "getCampaignReportPicture",
+    "gate": "await requireWorkspaceFeature('reportViewing')"
+  },
+  {
+    "file": "src/app/actions/saved-comparisons.ts",
+    "line": 71,
+    "function": "listSavedComparisons",
+    "gate": "await requireWorkspaceFeature('compare')"
+  },
+  {
+    "file": "src/app/actions/saved-comparisons.ts",
+    "line": 116,
+    "function": "getSavedComparison",
+    "gate": "await requireWorkspaceFeature('compare')"
+  },
+  {
+    "file": "src/app/actions/saved-comparisons.ts",
+    "line": 150,
+    "function": "saveComparison",
+    "gate": "await requireWorkspaceFeature('compare')"
+  },
+  {
+    "file": "src/app/actions/saved-comparisons.ts",
+    "line": 200,
+    "function": "updateSavedComparison",
+    "gate": "await requireWorkspaceFeature('compare')"
+  },
+  {
+    "file": "src/app/actions/saved-comparisons.ts",
+    "line": 237,
+    "function": "deleteSavedComparison",
+    "gate": "await requireWorkspaceFeature('compare')"
+  },
+  {
+    "file": "src/app/actions/staff-users.ts",
+    "line": 33,
+    "function": "createStaffInviteAction",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/staff-users.ts",
+    "line": 83,
+    "function": "revokeInviteAction",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/staff-users.ts",
+    "line": 99,
+    "function": "revokeInviteById",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/staff-users.ts",
+    "line": 125,
+    "function": "reissueInviteLinkById",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/staff-users.ts",
+    "line": 150,
+    "function": "revokeMembershipAction",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/staff-users.ts",
+    "line": 175,
+    "function": "revokeMembershipById",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/staff-users.ts",
+    "line": 207,
+    "function": "setStaffUserActiveStateAction",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/staff-users.ts",
+    "line": 228,
+    "function": "toggleUserActiveState",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/three-sixty.ts",
+    "line": 18,
+    "function": "require360Admin",
+    "gate": "await requireWorkspaceFeature('feedback360')"
+  },
+  {
+    "file": "src/app/actions/trajectory.ts",
+    "line": 135,
+    "function": "getLinkedParticipants",
+    "gate": "await requireWorkspaceFeature('trajectory')"
+  },
+  {
+    "file": "src/app/actions/trajectory.ts",
+    "line": 200,
+    "function": "searchPersons",
+    "gate": "await requireWorkspaceFeature('trajectory')"
+  },
+  {
+    "file": "src/app/actions/trajectory.ts",
+    "line": 285,
+    "function": "getTrajectoryLandingData",
+    "gate": "await requireWorkspaceFeature('trajectory')"
+  },
+  {
+    "file": "src/app/actions/trajectory.ts",
+    "line": 421,
+    "function": "linkParticipantsToSamePerson",
+    "gate": "await requireWorkspaceFeature('personIdentityManagement')"
+  },
+  {
+    "file": "src/app/actions/trajectory.ts",
+    "line": 423,
+    "function": "linkParticipantsToSamePerson",
+    "gate": "await requireWorkspaceFeature('trajectory')"
+  },
+  {
+    "file": "src/app/actions/trajectory.ts",
+    "line": 511,
+    "function": "unlinkParticipant",
+    "gate": "await requireWorkspaceFeature('personIdentityManagement')"
+  },
+  {
+    "file": "src/app/actions/trajectory.ts",
+    "line": 513,
+    "function": "unlinkParticipant",
+    "gate": "await requireWorkspaceFeature('trajectory')"
+  },
+  {
+    "file": "src/app/actions/user-management.ts",
+    "line": 598,
+    "function": "updateUserRole",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/user-management.ts",
+    "line": 662,
+    "function": "addMembership",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/user-management.ts",
+    "line": 755,
+    "function": "updateMembershipRole",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/user-management.ts",
+    "line": 841,
+    "function": "resendInvite",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/user-management.ts",
+    "line": 939,
+    "function": "bulkDeleteUsers",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/user-management.ts",
+    "line": 982,
+    "function": "bulkUpdateUserStatus",
+    "gate": "await requireWorkspaceFeature('teamManagement')"
+  },
+  {
+    "file": "src/app/actions/workspace-features.ts",
+    "line": 52,
+    "function": "authorizeWorkspaceExport",
+    "gate": "export async function authorizeWorkspaceExport(experienceInput: unknown, formatInput: unknown): Promise<{ success: true } | { error: string }> {"
+  },
+  {
+    "file": "src/app/actions/workspace-features.ts",
+    "line": 58,
+    "function": "authorizeWorkspaceExport",
+    "gate": "await requireInsightExperience(experience)"
+  },
+  {
+    "file": "src/app/actions/workspace-features.ts",
+    "line": 59,
+    "function": "authorizeWorkspaceExport",
+    "gate": "await requireWorkspaceFeature(formatInput === 'csv' ? 'insightCsvExport' : 'reportDownload')"
+  },
+  {
+    "file": "src/app/actions/workspace-features.ts",
+    "line": 65,
+    "function": "authorizeWorkspaceUsageExport",
+    "gate": "export async function authorizeWorkspaceUsageExport(): Promise<{ success: true } | { error: string }> {"
+  },
+  {
+    "file": "src/app/actions/workspace-features.ts",
+    "line": 68,
+    "function": "authorizeWorkspaceUsageExport",
+    "gate": "await requireWorkspaceFeature('usageVisibility')"
+  },
+  {
+    "file": "src/app/api/chat/route.ts",
+    "line": 56,
+    "function": "POST",
+    "gate": "await requireWorkspaceFeature('workspaceAssistant')"
+  },
+  {
+    "file": "src/app/api/comparison/export/route.ts",
+    "line": 44,
+    "function": "POST",
+    "gate": "await requireWorkspaceFeature('insightCsvExport')"
+  },
+  {
+    "file": "src/app/api/outcomes/reports/[reportId]/pdf/route.ts",
+    "line": 16,
+    "function": "GET",
+    "gate": "await requireWorkspaceFeature('reportDownload')"
+  },
+  {
+    "file": "src/app/api/report-templates/[id]/preview/pdf/route.ts",
+    "line": 37,
+    "function": "GET",
+    "gate": "await requireWorkspaceFeature('reportTemplateAuthoring')"
+  },
+  {
+    "file": "src/app/api/report-templates/[id]/preview/pdf/route.ts",
+    "line": 38,
+    "function": "GET",
+    "gate": "await requireWorkspaceFeature('reportDownload')"
+  },
+  {
+    "file": "src/app/api/reports/[snapshotId]/pdf/route.ts",
+    "line": 40,
+    "function": "requirePdfAccess",
+    "gate": "await requireWorkspaceFeature('reportViewing')"
+  },
+  {
+    "file": "src/app/api/reports/[snapshotId]/pdf/route.ts",
+    "line": 41,
+    "function": "requirePdfAccess",
+    "gate": "await requireWorkspaceFeature('reportDownload')"
+  },
+  {
+    "file": "src/app/api/reports/[snapshotId]/status/route.ts",
+    "line": 52,
+    "function": "GET",
+    "gate": "await requireWorkspaceFeature('reportViewing')"
+  },
+  {
+    "file": "src/app/api/reports/[snapshotId]/status/route.ts",
+    "line": 53,
+    "function": "GET",
+    "gate": "await requireWorkspaceFeature('reportDownload')"
+  },
+  {
+    "file": "src/app/api/trajectory/export/route.ts",
+    "line": 37,
+    "function": "POST",
+    "gate": "await requireWorkspaceFeature('insightCsvExport')"
+  },
+  {
+    "file": "src/app/api/trajectory/snapshots/[snapshotId]/pdf/route.ts",
+    "line": 35,
+    "function": "GET",
+    "gate": "try { await requireWorkspaceFeature('reportDownload') }"
+  },
+  {
+    "file": "src/app/client/assessments/[id]/page.tsx",
+    "line": 48,
+    "function": "ClientAssessmentDetailPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentLibrary')) return <WorkspaceFeatureUnavailable feature=\"assessmentLibrary\" />"
+  },
+  {
+    "file": "src/app/client/assessments/page.tsx",
+    "line": 17,
+    "function": "ClientAssessmentsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentLibrary')) return <WorkspaceFeatureUnavailable feature=\"assessmentLibrary\" />"
+  },
+  {
+    "file": "src/app/client/business-outcomes/[reportId]/page.tsx",
+    "line": 11,
+    "function": "ReportPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('outcomeReports')) return <WorkspaceFeatureUnavailable feature=\"outcomeReports\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/assessments/page.tsx",
+    "line": 19,
+    "function": "ClientCampaignAssessmentsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignManagement')) return <WorkspaceFeatureUnavailable feature=\"campaignManagement\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/assessments/page.tsx",
+    "line": 21,
+    "function": "ClientCampaignAssessmentsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/branding/page.tsx",
+    "line": 14,
+    "function": "ClientCampaignBrandingPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignBranding')) return <WorkspaceFeatureUnavailable feature=\"campaignBranding\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/branding/page.tsx",
+    "line": 16,
+    "function": "ClientCampaignBrandingPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/compare/page.tsx",
+    "line": 21,
+    "function": "ClientCompareCampaignPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/compare/page.tsx",
+    "line": 23,
+    "function": "ClientCompareCampaignPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('compare')) return <WorkspaceFeatureUnavailable feature=\"compare\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/experience/page.tsx",
+    "line": 18,
+    "function": "ClientCampaignExperiencePage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('participantExperience')) return <WorkspaceFeatureUnavailable feature=\"participantExperience\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/experience/page.tsx",
+    "line": 20,
+    "function": "ClientCampaignExperiencePage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/overview/page.tsx",
+    "line": 10,
+    "function": "ClientCampaignOverviewPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/page.tsx",
+    "line": 10,
+    "function": "ClientCampaignDetailPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/participants/[pid]/page.tsx",
+    "line": 45,
+    "function": "ClientParticipantDetailPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/participants/[pid]/sessions/[sid]/page.tsx",
+    "line": 14,
+    "function": "ClientSessionDetailPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/participants/page.tsx",
+    "line": 10,
+    "function": "ClientCampaignParticipantsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/sessions/[sessionId]/page.tsx",
+    "line": 14,
+    "function": "ClientCampaignSessionPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/settings/page.tsx",
+    "line": 17,
+    "function": "ClientCampaignSettingsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignManagement')) return <WorkspaceFeatureUnavailable feature=\"campaignManagement\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/settings/page.tsx",
+    "line": 19,
+    "function": "ClientCampaignSettingsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/create/page.tsx",
+    "line": 12,
+    "function": "ClientCreateCampaignPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignManagement') || !await isWorkspaceFeatureEnabled('assessmentDelivery')) return <WorkspaceFeatureUnavailable feature=\"campaignManagement\" />"
+  },
+  {
+    "file": "src/app/client/campaigns/page.tsx",
+    "line": 22,
+    "function": "ClientCampaignsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/client/participants/compare/page.tsx",
+    "line": 39,
+    "function": "ClientComparePage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('compare')) return <WorkspaceFeatureUnavailable feature=\"compare\" />"
+  },
+  {
+    "file": "src/app/client/participants/page.tsx",
+    "line": 17,
+    "function": "ClientParticipantsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/client/reports/[snapshotId]/page.tsx",
+    "line": 15,
+    "function": "ClientReportViewerPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('reportViewing')) return <WorkspaceFeatureUnavailable feature=\"reportViewing\" />"
+  },
+  {
+    "file": "src/app/client/usage/page.tsx",
+    "line": 20,
+    "function": "ClientUsagePage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('usageVisibility')) return <WorkspaceFeatureUnavailable feature=\"usageVisibility\" />"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/composition/page.tsx",
+    "line": 15,
+    "function": "PartnerAssessmentCompositionPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/intro/page.tsx",
+    "line": 14,
+    "function": "PartnerAssessmentIntroPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/overview/page.tsx",
+    "line": 13,
+    "function": "PartnerAssessmentOverviewPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/page.tsx",
+    "line": 10,
+    "function": "PartnerAssessmentEditPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/presentation/page.tsx",
+    "line": 15,
+    "function": "PartnerAssessmentPresentationPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/reports/page.tsx",
+    "line": 13,
+    "function": "PartnerAssessmentReportsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/reports/page.tsx",
+    "line": 15,
+    "function": "PartnerAssessmentReportsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('reportTemplateLibrary')) return <WorkspaceFeatureUnavailable feature=\"reportTemplateLibrary\" />"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/settings/page.tsx",
+    "line": 12,
+    "function": "PartnerAssessmentSettingsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/partner/assessments/create/page.tsx",
+    "line": 8,
+    "function": "PartnerCreateAssessmentPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentAuthoring')) return <WorkspaceFeatureUnavailable feature=\"assessmentAuthoring\" />"
+  },
+  {
+    "file": "src/app/partner/assessments/page.tsx",
+    "line": 15,
+    "function": "PartnerAssessmentsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('assessmentLibrary')) return <WorkspaceFeatureUnavailable feature=\"assessmentLibrary\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/assessments/page.tsx",
+    "line": 19,
+    "function": "PartnerCampaignAssessmentsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignManagement')) return <WorkspaceFeatureUnavailable feature=\"campaignManagement\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/assessments/page.tsx",
+    "line": 21,
+    "function": "PartnerCampaignAssessmentsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/branding/page.tsx",
+    "line": 14,
+    "function": "PartnerCampaignBrandingPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignBranding')) return <WorkspaceFeatureUnavailable feature=\"campaignBranding\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/branding/page.tsx",
+    "line": 16,
+    "function": "PartnerCampaignBrandingPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/compare/page.tsx",
+    "line": 24,
+    "function": "PartnerCompareCampaignPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/compare/page.tsx",
+    "line": 26,
+    "function": "PartnerCompareCampaignPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('compare')) return <WorkspaceFeatureUnavailable feature=\"compare\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/experience/page.tsx",
+    "line": 18,
+    "function": "PartnerCampaignExperiencePage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('participantExperience')) return <WorkspaceFeatureUnavailable feature=\"participantExperience\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/experience/page.tsx",
+    "line": 20,
+    "function": "PartnerCampaignExperiencePage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/overview/page.tsx",
+    "line": 10,
+    "function": "PartnerCampaignOverviewPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/page.tsx",
+    "line": 10,
+    "function": "PartnerCampaignDetailPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/participants/[participantId]/page.tsx",
+    "line": 45,
+    "function": "PartnerParticipantDetailPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/participants/[participantId]/sessions/[sid]/page.tsx",
+    "line": 14,
+    "function": "PartnerSessionDetailPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/participants/page.tsx",
+    "line": 10,
+    "function": "PartnerCampaignParticipantsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/sessions/[sessionId]/page.tsx",
+    "line": 14,
+    "function": "PartnerCampaignSessionPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/settings/page.tsx",
+    "line": 17,
+    "function": "PartnerCampaignSettingsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignManagement')) return <WorkspaceFeatureUnavailable feature=\"campaignManagement\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/settings/page.tsx",
+    "line": 19,
+    "function": "PartnerCampaignSettingsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/create/page.tsx",
+    "line": 10,
+    "function": "PartnerCreateCampaignPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignManagement') || !await isWorkspaceFeatureEnabled('assessmentDelivery')) return <WorkspaceFeatureUnavailable feature=\"campaignManagement\" />"
+  },
+  {
+    "file": "src/app/partner/campaigns/page.tsx",
+    "line": 19,
+    "function": "PartnerCampaignsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/assessments/page.tsx",
+    "line": 16,
+    "function": "PartnerClientAssessmentsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('clientAssessmentAllocation')) return <WorkspaceFeatureUnavailable feature=\"clientAssessmentAllocation\" />"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/branding/page.tsx",
+    "line": 15,
+    "function": "PartnerClientBrandingPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('clientManagement')) return <WorkspaceFeatureUnavailable feature=\"clientManagement\" />"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/details/page.tsx",
+    "line": 11,
+    "function": "PartnerClientDetailsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('clientManagement')) return <WorkspaceFeatureUnavailable feature=\"clientManagement\" />"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/layout.tsx",
+    "line": 13,
+    "function": "PartnerClientDetailLayout",
+    "gate": "if (!await isWorkspaceFeatureEnabled('clientDirectory')) return <WorkspaceFeatureUnavailable feature=\"clientDirectory\" />"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/reports/page.tsx",
+    "line": 13,
+    "function": "PartnerClientReportsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('clientTemplateAllocation')) return <WorkspaceFeatureUnavailable feature=\"clientTemplateAllocation\" />"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/settings/page.tsx",
+    "line": 13,
+    "function": "PartnerClientSettingsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('clientManagement')) return <WorkspaceFeatureUnavailable feature=\"clientManagement\" />"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/settings/page.tsx",
+    "line": 19,
+    "function": "PartnerClientSettingsPage",
+    "gate": "(await isWorkspaceFeatureEnabled('integrationManagement')) ? getClientInternalIntegrationSettings(client.id) : Promise.resolve(null),"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/usage/page.tsx",
+    "line": 20,
+    "function": "PartnerClientUsagePage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('usageVisibility')) return <WorkspaceFeatureUnavailable feature=\"usageVisibility\" />"
+  },
+  {
+    "file": "src/app/partner/clients/page.tsx",
+    "line": 19,
+    "function": "PartnerClientsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('clientDirectory')) return <WorkspaceFeatureUnavailable feature=\"clientDirectory\" />"
+  },
+  {
+    "file": "src/app/partner/clients/page.tsx",
+    "line": 31,
+    "function": "PartnerClientsPage",
+    "gate": "const canCreate = canManageClientDirectory(scope) && await isWorkspaceFeatureEnabled('clientProvisioning');"
+  },
+  {
+    "file": "src/app/partner/diagnostics/[id]/page.tsx",
+    "line": 14,
+    "function": "PartnerDiagnosticDetailPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('orgDiagnostics')) return <WorkspaceFeatureUnavailable feature=\"orgDiagnostics\" />"
+  },
+  {
+    "file": "src/app/partner/participants/compare/page.tsx",
+    "line": 40,
+    "function": "PartnerComparePage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('compare')) return <WorkspaceFeatureUnavailable feature=\"compare\" />"
+  },
+  {
+    "file": "src/app/partner/participants/page.tsx",
+    "line": 13,
+    "function": "PartnerParticipantsPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature=\"campaignViewing\" />"
+  },
+  {
+    "file": "src/app/partner/report-templates/[id]/builder/page.tsx",
+    "line": 19,
+    "function": "PartnerReportTemplateBuilderPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('reportTemplateAuthoring')) return <WorkspaceFeatureUnavailable feature=\"reportTemplateAuthoring\" />"
+  },
+  {
+    "file": "src/app/partner/report-templates/[id]/preview/page.tsx",
+    "line": 15,
+    "function": "PartnerReportTemplatePreviewPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('reportTemplateAuthoring')) return <WorkspaceFeatureUnavailable feature=\"reportTemplateAuthoring\" />"
+  },
+  {
+    "file": "src/app/partner/report-templates/page.tsx",
+    "line": 11,
+    "function": "PartnerReportTemplatesPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('reportTemplateLibrary')) return <WorkspaceFeatureUnavailable feature=\"reportTemplateLibrary\" />"
+  },
+  {
+    "file": "src/app/partner/reports/[snapshotId]/page.tsx",
+    "line": 17,
+    "function": "PartnerReportViewerPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('reportViewing')) return <WorkspaceFeatureUnavailable feature=\"reportViewing\" />"
+  },
+  {
+    "file": "src/app/partner/usage/page.tsx",
+    "line": 24,
+    "function": "PartnerUsagePage",
+    "gate": "if (!await isWorkspaceFeatureEnabled('usageVisibility')) return <WorkspaceFeatureUnavailable feature=\"usageVisibility\" />"
+  },
+  {
+    "file": "src/components/campaigns/pages/campaign-compare-page.tsx",
+    "line": 49,
+    "function": "CampaignComparePageComponent",
+    "gate": "if (!await isWorkspaceFeatureEnabled('compare')) return <WorkspaceFeatureUnavailable feature=\"compare\" />"
+  },
+  {
+    "file": "src/components/trajectory-studio/studio-report.tsx",
+    "line": 35,
+    "function": "downloadCsv",
+    "gate": "const result = await authorizeWorkspaceExport(experience, 'csv')"
+  },
+  {
+    "file": "src/components/trajectory-studio/studio-report.tsx",
+    "line": 46,
+    "function": "printReport",
+    "gate": "const result = await authorizeWorkspaceExport(experience, 'pdf')"
+  },
+  {
+    "file": "src/components/usage/usage-report-panel.tsx",
+    "line": 140,
+    "function": "exportCsv",
+    "gate": "const result = await authorizeWorkspaceUsageExport();"
+  },
+  {
+    "file": "src/components/workspace-portal-live.tsx",
+    "line": 1669,
+    "function": "WorkspacePortalLivePage",
+    "gate": "if (feature && !(await isWorkspaceFeatureEnabled(feature))) return <WorkspaceFeatureUnavailable feature={feature} />"
+  },
+  {
+    "file": "src/lib/chat/registry.ts",
+    "line": 78,
+    "function": "defineChatTool",
+    "gate": "await requireWorkspaceFeature('workspaceAssistant')"
+  },
+  {
+    "file": "src/lib/chat/registry.ts",
+    "line": 79,
+    "function": "defineChatTool",
+    "gate": "for (const feature of tool.requiredFeatures ?? []) await requireWorkspaceFeature(feature)"
+  },
+  {
+    "file": "src/lib/dal/business-centre.ts",
+    "line": 30,
+    "function": "listInvoicesForClient",
+    "gate": "await requireWorkspaceFeature('billingVisibility')"
+  },
+  {
+    "file": "src/lib/dal/business-centre.ts",
+    "line": 46,
+    "function": "getClientUsageMonthly",
+    "gate": "await requireWorkspaceFeature('usageVisibility')"
+  },
+  {
+    "file": "src/lib/dal/business-centre.ts",
+    "line": 72,
+    "function": "getClientBillingHub",
+    "gate": "await requireWorkspaceFeature('billingVisibility')"
+  },
+  {
+    "file": "src/lib/dal/business-centre.ts",
+    "line": 78,
+    "function": "getClientBillingHub",
+    "gate": "(await isWorkspaceFeatureEnabled('usageVisibility')) ? getClientUsageMonthly(clientId) : Promise.resolve([]),"
+  },
+  {
+    "file": "src/lib/dal/outcomes.ts",
+    "line": 103,
+    "function": "listOutcomeStudies",
+    "gate": "await requireWorkspaceFeature('outcomeStudies')"
+  },
+  {
+    "file": "src/lib/dal/outcomes.ts",
+    "line": 133,
+    "function": "createOutcomeStudy",
+    "gate": "await requireWorkspaceFeature('outcomeStudies')"
+  },
+  {
+    "file": "src/lib/dal/outcomes.ts",
+    "line": 165,
+    "function": "saveOutcomeStudy",
+    "gate": "await requireWorkspaceFeature('outcomeStudies')"
+  },
+  {
+    "file": "src/lib/dal/outcomes.ts",
+    "line": 347,
+    "function": "getOutcomeRuns",
+    "gate": "await requireWorkspaceFeature('outcomeStudies')"
+  },
+  {
+    "file": "src/lib/dal/outcomes.ts",
+    "line": 361,
+    "function": "getOutcomeWorkspace",
+    "gate": "await requireWorkspaceFeature('outcomeStudies')"
+  },
+  {
+    "file": "src/lib/dal/outcomes.ts",
+    "line": 420,
+    "function": "importOutcomeData",
+    "gate": "await requireWorkspaceFeature('outcomeStudies')"
+  },
+  {
+    "file": "src/lib/dal/outcomes.ts",
+    "line": 527,
+    "function": "getOutcomeRoster",
+    "gate": "await requireWorkspaceFeature('outcomeStudies')"
+  },
+  {
+    "file": "src/lib/dal/outcomes.ts",
+    "line": 541,
+    "function": "queueOutcomeRun",
+    "gate": "await requireWorkspaceFeature('outcomeStudies')"
+  },
+  {
+    "file": "src/lib/dal/outcomes.ts",
+    "line": 636,
+    "function": "publishOutcomeReport",
+    "gate": "await requireWorkspaceFeature('outcomeReports')"
+  },
+  {
+    "file": "src/lib/dal/outcomes.ts",
+    "line": 692,
+    "function": "getOutcomeReport",
+    "gate": "await requireWorkspaceFeature('outcomeReports')"
+  },
+  {
+    "file": "src/lib/dal/outcomes.ts",
+    "line": 719,
+    "function": "revokeOutcomeReport",
+    "gate": "await requireWorkspaceFeature('outcomeReports')"
+  },
+  {
+    "file": "src/lib/dal/outcomes.ts",
+    "line": 745,
+    "function": "saveOutcomeReportDraft",
+    "gate": "await requireWorkspaceFeature('outcomeReports')"
+  },
+  {
+    "file": "src/lib/dal/usage-report.ts",
+    "line": 82,
+    "function": "getUsageReport",
+    "gate": "await requireWorkspaceFeature('usageVisibility')"
+  },
+  {
+    "file": "src/lib/dal/usage-statements.ts",
+    "line": 17,
+    "function": "listClientUsageStatements",
+    "gate": "await requireWorkspaceFeature('usageVisibility')"
+  },
+  {
+    "file": "src/lib/dal/usage.ts",
+    "line": 17,
+    "function": "getClientUsageSummary",
+    "gate": "await requireWorkspaceFeature('usageVisibility')"
+  },
+  {
+    "file": "src/lib/features/access.ts",
+    "line": 12,
+    "function": "requireInsightExperience",
+    "gate": "await requireWorkspaceFeature(EXPERIENCE_FEATURE[parsed])"
+  },
+  {
+    "file": "src/lib/features/access.ts",
+    "line": 32,
+    "function": "requirePartnerWorkspaceFeature",
+    "gate": "if (scope.requestSurface === 'partner' || (scope.requestSurface === 'admin' && context?.tenantType === 'partner')) await requireWorkspaceFeature(feature)"
+  },
+  {
+    "file": "src/lib/features/integration-access.ts",
+    "line": 6,
+    "function": "requireIntegrationClientFeature",
+    "gate": "export async function requireIntegrationClientFeature(clientId: string, ...features: WorkspaceFeature[]) {"
+  },
+  {
+    "file": "src/lib/integrations/service.ts",
+    "line": 313,
+    "function": "createIntegrationCampaign",
+    "gate": "await requireIntegrationClientFeature(context.clientId, 'integrationLaunches', 'assessmentDelivery', 'campaignManagement')"
+  },
+  {
+    "file": "src/lib/integrations/service.ts",
+    "line": 456,
+    "function": "upsertIntegrationParticipant",
+    "gate": "await requireIntegrationClientFeature(context.clientId, 'integrationLaunches', 'participantInvitations')"
+  },
+  {
+    "file": "src/lib/integrations/service.ts",
+    "line": 591,
+    "function": "createIntegrationLaunch",
+    "gate": "await requireIntegrationClientFeature(context.clientId, 'integrationLaunches', 'assessmentDelivery', 'participantInvitations')"
+  },
+  {
+    "file": "src/lib/trajectory-studio/page.tsx",
+    "line": 26,
+    "function": "renderTrajectoryPage",
+    "gate": "if (!await isWorkspaceFeatureEnabled(EXPERIENCE_FEATURE[experience])) return <WorkspaceFeatureUnavailable feature={EXPERIENCE_FEATURE[experience]} />"
+  },
+  {
+    "file": "src/lib/trajectory-studio/page.tsx",
+    "line": 27,
+    "function": "renderTrajectoryPage",
+    "gate": "await requireInsightExperience(experience)"
+  },
+  {
+    "file": "src/lib/trajectory-studio/page.tsx",
+    "line": 35,
+    "function": "renderTrajectoryPage",
+    "gate": "await requireInsightExperience('unified')"
+  },
+  {
+    "file": "src/lib/trajectory-studio/page.tsx",
+    "line": 43,
+    "function": "renderTrajectoryPage",
+    "gate": "await requireInsightExperience('unified')"
+  }
+]

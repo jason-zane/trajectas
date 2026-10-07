@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from "next/navigation";
 import {
   getParticipant,
@@ -40,6 +42,8 @@ export default async function PartnerParticipantDetailPage({
 }: {
   params: Promise<{ id: string; participantId: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   const { id: campaignId, participantId } = await params;
 
   const participant = await loadParticipant(participantId);

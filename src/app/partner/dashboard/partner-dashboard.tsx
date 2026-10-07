@@ -1,5 +1,8 @@
 "use client";
 
+import { usePortal } from '@/components/portal-context';
+import { WorkspaceFeatureVisibility } from '@/components/workspace-feature-visibility'
+
 import { useMemo } from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Building2, CalendarDays, Star } from "lucide-react";
@@ -162,7 +165,8 @@ export function PartnerDashboard({
   favoriteCampaignIds = [],
   completionTimeline = [],
 }: PartnerDashboardProps) {
-  const portfolio = dashboardStyle !== "operational";
+  const { features } = usePortal();
+  const portfolio = dashboardStyle !== "operational" && features.clientDirectory;
   const favoriteSet = useMemo(() => new Set(favoriteCampaignIds), [favoriteCampaignIds]);
   const weekRange = useMemo(() => formatWeekRange(new Date()), []);
 
@@ -274,7 +278,7 @@ export function PartnerDashboard({
       </header>
 
       {/* ===== QUICK ACTIONS ===== */}
-      <section className="space-y-4">
+      <WorkspaceFeatureVisibility when={(features.campaignManagement && features.assessmentDelivery) || features.clientProvisioning || features.campaignViewing}><section className="space-y-4">
         <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
           Quick actions
         </p>
@@ -286,25 +290,25 @@ export function PartnerDashboard({
             recentCampaigns={campaigns}
             successHrefPrefix="/partner/campaigns"
           />
-          {portfolio && <Link
+          {portfolio && <WorkspaceFeatureVisibility features={["clientProvisioning"]}><Link
             href="/partner/clients/create"
             className={cn(buttonVariants({ variant: "outline" }), "border-foreground/20")}
           >
             <Building2 className="size-4" />
             New client
-          </Link>}
-          <Link
+          </Link></WorkspaceFeatureVisibility>}
+          <WorkspaceFeatureVisibility features={["campaignViewing"]}><Link
             href="/partner/participants"
             className={cn(buttonVariants({ variant: "outline" }), "border-foreground/20")}
           >
             <ArrowUpRight className="size-4" />
             View results
-          </Link>
+          </Link></WorkspaceFeatureVisibility>
         </div>
-      </section>
+      </section></WorkspaceFeatureVisibility>
 
       {/* ===== METRIC STRIP ===== */}
-      <section className="grid gap-8 border-t border-b border-border/70 py-8 lg:grid-cols-5">
+      <WorkspaceFeatureVisibility when={features.campaignViewing}><section className="grid gap-8 border-t border-b border-border/70 py-8 lg:grid-cols-5">
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between gap-4">
             <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -371,10 +375,10 @@ export function PartnerDashboard({
             </div>
           ))}
         </div>
-      </section>
+      </section></WorkspaceFeatureVisibility>
 
       {/* ===== ALLOCATION ===== */}
-      {portfolio && <section className="space-y-5">
+      {portfolio && <WorkspaceFeatureVisibility when={features.assessmentLibrary}><section className="space-y-5">
         <SectionHeading eyebrow="Your allocation" title="What you can deploy." />
 
         {allocation.length === 0 ? (
@@ -420,10 +424,10 @@ export function PartnerDashboard({
             })}
           </ul>
         )}
-      </section>}
+      </section></WorkspaceFeatureVisibility>}
 
       {/* ===== TOP THREE TO WATCH ===== */}
-      <section className="space-y-5">
+      <WorkspaceFeatureVisibility when={features.campaignViewing}><section className="space-y-5">
         <SectionHeading
           eyebrow="Top three to watch"
           title="Favourites first, then closing soonest."
@@ -531,10 +535,10 @@ export function PartnerDashboard({
             })}
           </ul>
         )}
-      </section>
+      </section></WorkspaceFeatureVisibility>
 
       {/* ===== CLIENTS ===== */}
-      {portfolio && <section className="space-y-5">
+      {portfolio && <WorkspaceFeatureVisibility when={features.clientDirectory}><section className="space-y-5">
         <SectionHeading
           eyebrow="Clients"
           title="Where attention goes next."
@@ -582,10 +586,10 @@ export function PartnerDashboard({
             ))}
           </ul>
         )}
-      </section>}
+      </section></WorkspaceFeatureVisibility>}
 
       {/* ===== RECENT ACTIVITY ===== */}
-      <section className="space-y-4 pb-16">
+      <WorkspaceFeatureVisibility when={features.campaignViewing}><section className="space-y-4 pb-16">
         <SectionHeading
           eyebrow="Recent activity"
           title="Latest participant movements."
@@ -639,7 +643,7 @@ export function PartnerDashboard({
             })}
           </ul>
         )}
-      </section>
+      </section></WorkspaceFeatureVisibility>
     </div>
   );
 }

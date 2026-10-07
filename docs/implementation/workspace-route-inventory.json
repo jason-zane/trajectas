@@ -1,0 +1,652 @@
+[
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/composition/page.tsx",
+    "line": 40,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/intro/page.tsx",
+    "line": 15,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/overview/page.tsx",
+    "line": 13,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/page.tsx",
+    "line": 10,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/presentation/page.tsx",
+    "line": 15,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/reports/page.tsx",
+    "line": 13,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/reports/page.tsx",
+    "line": 15,
+    "feature": "reportTemplateLibrary"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/[id]/edit/settings/page.tsx",
+    "line": 12,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/create/page.tsx",
+    "line": 8,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/(dashboard)/assessments/page.tsx",
+    "line": 19,
+    "feature": "assessmentLibrary"
+  },
+  {
+    "file": "src/app/(dashboard)/business/usage/page.tsx",
+    "line": 21,
+    "feature": "usageVisibility"
+  },
+  {
+    "file": "src/app/(dashboard)/business-outcomes/[studyId]/page.tsx",
+    "line": 11,
+    "feature": "outcomeStudies"
+  },
+  {
+    "file": "src/app/(dashboard)/business-outcomes/page.tsx",
+    "line": 6,
+    "feature": "outcomeStudies"
+  },
+  {
+    "file": "src/app/(dashboard)/business-outcomes/report/[reportId]/page.tsx",
+    "line": 11,
+    "feature": "outcomeReports"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/assessments/page.tsx",
+    "line": 18,
+    "feature": "campaignManagement"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/assessments/page.tsx",
+    "line": 20,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/branding/page.tsx",
+    "line": 10,
+    "feature": "campaignBranding"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/branding/page.tsx",
+    "line": 12,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/compare/page.tsx",
+    "line": 19,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/experience/page.tsx",
+    "line": 17,
+    "feature": "participantExperience"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/experience/page.tsx",
+    "line": 19,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/overview/page.tsx",
+    "line": 10,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/page.tsx",
+    "line": 10,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/participants/[pid]/page.tsx",
+    "line": 23,
+    "feature": "trajectory"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/participants/[pid]/page.tsx",
+    "line": 51,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/participants/[pid]/sessions/[sid]/page.tsx",
+    "line": 15,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/participants/page.tsx",
+    "line": 10,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/raters/page.tsx",
+    "line": 13,
+    "feature": "feedback360"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/raters/page.tsx",
+    "line": 15,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/results/page.tsx",
+    "line": 13,
+    "feature": "feedback360"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/results/page.tsx",
+    "line": 15,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/sessions/[sessionId]/page.tsx",
+    "line": 15,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/settings/page.tsx",
+    "line": 24,
+    "feature": "campaignManagement"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/[id]/settings/page.tsx",
+    "line": 26,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/create/page.tsx",
+    "line": 9,
+    "feature": "campaignManagement"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/create/page.tsx",
+    "line": 9,
+    "feature": "assessmentDelivery"
+  },
+  {
+    "file": "src/app/(dashboard)/campaigns/page.tsx",
+    "line": 14,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/chat/page.tsx",
+    "line": 9,
+    "feature": "workspaceAssistant"
+  },
+  {
+    "file": "src/app/(dashboard)/clients/[slug]/billing/page.tsx",
+    "line": 22,
+    "feature": "billingVisibility"
+  },
+  {
+    "file": "src/app/(dashboard)/clients/[slug]/settings/page.tsx",
+    "line": 28,
+    "feature": "integrationManagement"
+  },
+  {
+    "file": "src/app/(dashboard)/diagnostics/create/page.tsx",
+    "line": 10,
+    "feature": "orgDiagnostics"
+  },
+  {
+    "file": "src/app/(dashboard)/diagnostics/page.tsx",
+    "line": 20,
+    "feature": "orgDiagnostics"
+  },
+  {
+    "file": "src/app/(dashboard)/diagnostics/templates/[id]/edit/page.tsx",
+    "line": 12,
+    "feature": "orgDiagnostics"
+  },
+  {
+    "file": "src/app/(dashboard)/diagnostics/templates/create/page.tsx",
+    "line": 6,
+    "feature": "orgDiagnostics"
+  },
+  {
+    "file": "src/app/(dashboard)/diagnostics/templates/page.tsx",
+    "line": 21,
+    "feature": "orgDiagnostics"
+  },
+  {
+    "file": "src/app/(dashboard)/matching/page.tsx",
+    "line": 8,
+    "feature": "roleMatching"
+  },
+  {
+    "file": "src/app/(dashboard)/participants/[id]/page.tsx",
+    "line": 32,
+    "feature": "trajectory"
+  },
+  {
+    "file": "src/app/(dashboard)/participants/[id]/page.tsx",
+    "line": 71,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/participants/[id]/sessions/[sid]/page.tsx",
+    "line": 15,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/participants/compare/page.tsx",
+    "line": 38,
+    "feature": "compare"
+  },
+  {
+    "file": "src/app/(dashboard)/participants/page.tsx",
+    "line": 15,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/participants/page.tsx",
+    "line": 17,
+    "feature": "trajectory"
+  },
+  {
+    "file": "src/app/(dashboard)/report-templates/[id]/builder/page.tsx",
+    "line": 14,
+    "feature": "reportTemplateAuthoring"
+  },
+  {
+    "file": "src/app/(dashboard)/report-templates/[id]/preview/page.tsx",
+    "line": 23,
+    "feature": "reportTemplateAuthoring"
+  },
+  {
+    "file": "src/app/(dashboard)/report-templates/page.tsx",
+    "line": 9,
+    "feature": "reportTemplateLibrary"
+  },
+  {
+    "file": "src/app/(dashboard)/reports/[snapshotId]/page.tsx",
+    "line": 59,
+    "feature": "reportViewing"
+  },
+  {
+    "file": "src/app/(dashboard)/reports/page.tsx",
+    "line": 8,
+    "feature": "reportViewing"
+  },
+  {
+    "file": "src/app/client/assessments/[id]/page.tsx",
+    "line": 48,
+    "feature": "assessmentLibrary"
+  },
+  {
+    "file": "src/app/client/assessments/page.tsx",
+    "line": 17,
+    "feature": "assessmentLibrary"
+  },
+  {
+    "file": "src/app/client/business-outcomes/[reportId]/page.tsx",
+    "line": 11,
+    "feature": "outcomeReports"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/assessments/page.tsx",
+    "line": 19,
+    "feature": "campaignManagement"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/assessments/page.tsx",
+    "line": 21,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/branding/page.tsx",
+    "line": 14,
+    "feature": "campaignBranding"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/branding/page.tsx",
+    "line": 16,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/compare/page.tsx",
+    "line": 21,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/compare/page.tsx",
+    "line": 23,
+    "feature": "compare"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/experience/page.tsx",
+    "line": 18,
+    "feature": "participantExperience"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/experience/page.tsx",
+    "line": 20,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/overview/page.tsx",
+    "line": 10,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/page.tsx",
+    "line": 10,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/participants/[pid]/page.tsx",
+    "line": 45,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/participants/[pid]/sessions/[sid]/page.tsx",
+    "line": 14,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/participants/page.tsx",
+    "line": 10,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/sessions/[sessionId]/page.tsx",
+    "line": 14,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/settings/page.tsx",
+    "line": 17,
+    "feature": "campaignManagement"
+  },
+  {
+    "file": "src/app/client/campaigns/[id]/settings/page.tsx",
+    "line": 19,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/client/campaigns/create/page.tsx",
+    "line": 12,
+    "feature": "campaignManagement"
+  },
+  {
+    "file": "src/app/client/campaigns/create/page.tsx",
+    "line": 12,
+    "feature": "assessmentDelivery"
+  },
+  {
+    "file": "src/app/client/campaigns/page.tsx",
+    "line": 22,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/client/participants/compare/page.tsx",
+    "line": 39,
+    "feature": "compare"
+  },
+  {
+    "file": "src/app/client/participants/page.tsx",
+    "line": 17,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/client/reports/[snapshotId]/page.tsx",
+    "line": 15,
+    "feature": "reportViewing"
+  },
+  {
+    "file": "src/app/client/usage/page.tsx",
+    "line": 20,
+    "feature": "usageVisibility"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/composition/page.tsx",
+    "line": 15,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/intro/page.tsx",
+    "line": 14,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/overview/page.tsx",
+    "line": 13,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/page.tsx",
+    "line": 10,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/presentation/page.tsx",
+    "line": 15,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/reports/page.tsx",
+    "line": 13,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/reports/page.tsx",
+    "line": 15,
+    "feature": "reportTemplateLibrary"
+  },
+  {
+    "file": "src/app/partner/assessments/[id]/edit/settings/page.tsx",
+    "line": 12,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/partner/assessments/create/page.tsx",
+    "line": 8,
+    "feature": "assessmentAuthoring"
+  },
+  {
+    "file": "src/app/partner/assessments/page.tsx",
+    "line": 15,
+    "feature": "assessmentLibrary"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/assessments/page.tsx",
+    "line": 19,
+    "feature": "campaignManagement"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/assessments/page.tsx",
+    "line": 21,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/branding/page.tsx",
+    "line": 14,
+    "feature": "campaignBranding"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/branding/page.tsx",
+    "line": 16,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/compare/page.tsx",
+    "line": 24,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/compare/page.tsx",
+    "line": 26,
+    "feature": "compare"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/experience/page.tsx",
+    "line": 18,
+    "feature": "participantExperience"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/experience/page.tsx",
+    "line": 20,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/overview/page.tsx",
+    "line": 10,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/page.tsx",
+    "line": 10,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/participants/[participantId]/page.tsx",
+    "line": 45,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/participants/[participantId]/sessions/[sid]/page.tsx",
+    "line": 14,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/participants/page.tsx",
+    "line": 10,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/sessions/[sessionId]/page.tsx",
+    "line": 14,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/settings/page.tsx",
+    "line": 17,
+    "feature": "campaignManagement"
+  },
+  {
+    "file": "src/app/partner/campaigns/[id]/settings/page.tsx",
+    "line": 19,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/partner/campaigns/create/page.tsx",
+    "line": 10,
+    "feature": "campaignManagement"
+  },
+  {
+    "file": "src/app/partner/campaigns/create/page.tsx",
+    "line": 10,
+    "feature": "assessmentDelivery"
+  },
+  {
+    "file": "src/app/partner/campaigns/page.tsx",
+    "line": 19,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/assessments/page.tsx",
+    "line": 16,
+    "feature": "clientAssessmentAllocation"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/branding/page.tsx",
+    "line": 15,
+    "feature": "clientManagement"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/details/page.tsx",
+    "line": 11,
+    "feature": "clientManagement"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/layout.tsx",
+    "line": 13,
+    "feature": "clientDirectory"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/reports/page.tsx",
+    "line": 13,
+    "feature": "clientTemplateAllocation"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/settings/page.tsx",
+    "line": 13,
+    "feature": "clientManagement"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/settings/page.tsx",
+    "line": 19,
+    "feature": "integrationManagement"
+  },
+  {
+    "file": "src/app/partner/clients/[slug]/usage/page.tsx",
+    "line": 20,
+    "feature": "usageVisibility"
+  },
+  {
+    "file": "src/app/partner/clients/page.tsx",
+    "line": 19,
+    "feature": "clientDirectory"
+  },
+  {
+    "file": "src/app/partner/clients/page.tsx",
+    "line": 31,
+    "feature": "clientProvisioning"
+  },
+  {
+    "file": "src/app/partner/diagnostics/[id]/page.tsx",
+    "line": 14,
+    "feature": "orgDiagnostics"
+  },
+  {
+    "file": "src/app/partner/participants/compare/page.tsx",
+    "line": 40,
+    "feature": "compare"
+  },
+  {
+    "file": "src/app/partner/participants/page.tsx",
+    "line": 13,
+    "feature": "campaignViewing"
+  },
+  {
+    "file": "src/app/partner/report-templates/[id]/builder/page.tsx",
+    "line": 19,
+    "feature": "reportTemplateAuthoring"
+  },
+  {
+    "file": "src/app/partner/report-templates/[id]/preview/page.tsx",
+    "line": 15,
+    "feature": "reportTemplateAuthoring"
+  },
+  {
+    "file": "src/app/partner/report-templates/page.tsx",
+    "line": 11,
+    "feature": "reportTemplateLibrary"
+  },
+  {
+    "file": "src/app/partner/reports/[snapshotId]/page.tsx",
+    "line": 17,
+    "feature": "reportViewing"
+  },
+  {
+    "file": "src/app/partner/usage/page.tsx",
+    "line": 24,
+    "feature": "usageVisibility"
+  }
+]

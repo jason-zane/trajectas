@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { getCampaignById } from "@/app/actions/campaigns";
 import { getClientAssessmentLibrary } from "@/app/actions/client-entitlements";
 import {
@@ -14,6 +16,10 @@ export default async function ClientCampaignAssessmentsPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('campaignManagement')) return <WorkspaceFeatureUnavailable feature="campaignManagement" />
+
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   const { id } = await params;
   const campaign = await getCampaignById(id);
   if (!campaign) notFound();

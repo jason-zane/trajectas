@@ -1,3 +1,5 @@
+
+import { requireWorkspaceFeature } from '@/lib/features/access'
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -12,6 +14,8 @@ import type { ClientUsageRow } from "@/types/database";
  * called from a page already behind `requireAdminScope`.
  */
 export async function getClientUsageSummary(): Promise<ClientUsageRow[]> {
+  await requireWorkspaceFeature('usageVisibility')
+
   const db = createAdminClient();
 
   const [clientsRes, campaignsRes] = await Promise.all([

@@ -1,3 +1,7 @@
+import { getWebhookBacklogReview } from '@/lib/dal/webhook-backlog'
+import { WebhookBacklogReviewPanel } from '@/components/webhook-backlog-review'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { getClientInternalIntegrationSettings } from "@/app/actions/integrations";
 import { getPartnerBrandingEnabled } from "@/app/actions/partner-entitlements";
 import { ClientSettingsPanel } from "@/app/(dashboard)/clients/[slug]/settings/client-settings-panel";
@@ -8,22 +12,26 @@ export default async function PartnerClientSettingsPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  const canManageMetadata = await isWorkspaceFeatureEnabled('clientManagement');
+  if (!canManageMetadata && !await isWorkspaceFeatureEnabled('integrationManagement')) return <WorkspaceFeatureUnavailable feature="clientManagement" />
   const { slug } = await params;
   const { client, partnerId } = await requirePartnerClient(slug);
 
   const [partnerBrandingEnabled, integrationSettings] = await Promise.all([
     getPartnerBrandingEnabled(partnerId),
-    getClientInternalIntegrationSettings(client.id),
+    (await isWorkspaceFeatureEnabled('integrationManagement')) ? getClientInternalIntegrationSettings(client.id) : Promise.resolve(null),
   ]);
 
+  const backlog = integrationSettings?.canManage ? await getWebhookBacklogReview(client.id) : null;
   return (
-    <ClientSettingsPanel
+    <div className="space-y-6"><ClientSettingsPanel
+      canManageMetadata={canManageMetadata}
       clientId={client.id}
       clientSlug={slug}
       canCustomizeBranding={client.canCustomizeBranding ?? false}
       partnerBrandingDisabled={!partnerBrandingEnabled}
       partnerBrandingDisabledMessage="Brand customisation is not enabled for your partner organisation. Contact Trajectas to switch it on."
       integrationSettings={integrationSettings}
-    />
+    />{backlog && <WebhookBacklogReviewPanel clientId={client.id} initial={backlog} />}</div>
   );
 }

@@ -1,9 +1,13 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { PageHeader } from '@/components/page-header'
 import { getReportTemplates } from '@/app/actions/reports'
 import { CreateTemplateButton } from './create-template-button'
 import { ReportTemplatesTable } from './report-templates-table'
 
 export default async function ReportTemplatesPage() {
+  if (!await isWorkspaceFeatureEnabled('reportTemplateLibrary')) return <WorkspaceFeatureUnavailable feature="reportTemplateLibrary" />
+
   const templates = await getReportTemplates()
 
   return (

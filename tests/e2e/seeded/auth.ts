@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { createHmac } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
@@ -6,9 +7,8 @@ import { createServerClient } from "@supabase/ssr";
 
 /**
  * The seeded admin actor (see supabase/seed.sql). An org-admin of "Seeded
- * Client Co" — on the single-host e2e harness the request surface always
- * resolves to "public", so this actor reaches the seeded campaigns/participants
- * through its client membership, not via platform-admin. Sessions are minted
+ * Client Co" — root routes use local admin routing with an explicit context
+ * for that existing client membership, never platform defaults. Sessions are minted
  * here at test time; no password ever exists for this user (passwordless model).
  */
 export const SEEDED_ADMIN = {
@@ -264,6 +264,26 @@ async function mintStorageState(email: string, outputPath: string): Promise<void
     );
   }
 
+  if (email === SEEDED_ADMIN.email) {
+    // A root org-admin request needs an explicit target workspace. Verify the
+    // real local persona and membership through the authenticated RLS client
+    // before adding the same signed active-context shape the switcher uses.
+    const clientId = "10000000-0000-0000-0000-000000000101";
+    const [profile, membership] = await Promise.all([
+      ssr.from("profiles").select("role").eq("id", SEEDED_ADMIN.id).single(),
+      ssr.from("client_memberships").select("client_id,role")
+        .eq("profile_id", SEEDED_ADMIN.id).eq("client_id", clientId).single(),
+    ]);
+    if (profile.error || membership.error || profile.data?.role !== "org_admin" || membership.data?.role !== "admin") {
+      throw new Error("[seeded-auth] Expected the seeded org-admin and its existing client-admin membership.");
+    }
+    const envFromFile = readEnvFile(resolve(process.cwd(), ".env.e2e.local"));
+    const secret = process.env.TRAJECTAS_CONTEXT_SECRET ?? envFromFile.TRAJECTAS_CONTEXT_SECRET ?? "e2e-local-context-secret-do-not-use-in-production";
+    const payload = Buffer.from(JSON.stringify({ surface: "admin", tenantType: "client", tenantId: clientId })).toString("base64url");
+    const signature = createHmac("sha256", secret).update(payload).digest("base64url");
+    jar.set("tf_active_context", `${payload}.${signature}`);
+  }
+
   const domain = new URL(
     process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3101"
   ).hostname;
@@ -275,7 +295,7 @@ async function mintStorageState(email: string, outputPath: string): Promise<void
       domain,
       path: "/",
       expires: -1,
-      httpOnly: false,
+      httpOnly: name === "tf_active_context",
       secure: false,
       sameSite: "Lax" as const,
     })),

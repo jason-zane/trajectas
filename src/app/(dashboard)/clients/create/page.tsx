@@ -3,6 +3,7 @@ import { ClientCreateForm } from "./client-create-form";
 import {
   AuthorizationError,
   canManageClientAssignment,
+  isUnconfinedPlatformAdmin,
   canManageClientDirectory,
   getPreferredPartnerIdForClientCreation,
   resolveAuthorizedScope,
@@ -39,6 +40,7 @@ export default async function CreateClientPage() {
         name: partner.name,
       }))}
       canAssignPartner={canAssignPartner}
+      canSelectFeatures={scope.requestSurface === "admin" && isUnconfinedPlatformAdmin(scope)}
       fixedPartnerId={fixedPartnerId}
     />
   );

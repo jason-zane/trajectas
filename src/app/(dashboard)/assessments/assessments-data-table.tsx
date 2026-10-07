@@ -1,5 +1,8 @@
 "use client";
 
+import { usePortal } from '@/components/portal-context'
+import { WorkspaceFeatureVisibility } from '@/components/workspace-feature-visibility'
+
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -25,14 +28,14 @@ const STATUS_VARIANT: Record<string, "secondary" | "default" | "outline"> = {
   archived: "outline",
 };
 
-const columns: ColumnDef<AssessmentWithMeta>[] = [
+function getColumns(canAuthor: boolean): ColumnDef<AssessmentWithMeta>[] { return [
   {
     accessorKey: "title",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Title" />
     ),
     cell: ({ row }) => (
-      <DataTableRowLink
+      canAuthor ? <DataTableRowLink
         href={`/assessments/${row.original.id}/edit`}
         ariaLabel={`Open ${row.original.title}`}
         className="min-w-0"
@@ -40,7 +43,7 @@ const columns: ColumnDef<AssessmentWithMeta>[] = [
         <p className="truncate font-semibold text-foreground hover:text-primary">
           {row.original.title}
         </p>
-      </DataTableRowLink>
+      </DataTableRowLink> : <span className="font-semibold">{row.original.title}</span>
     ),
   },
   {
@@ -72,9 +75,9 @@ const columns: ColumnDef<AssessmentWithMeta>[] = [
   {
     id: "actions",
     enableSorting: false,
-    cell: ({ row }) => <AssessmentRowActions assessment={row.original} />,
+    cell: ({ row }) => <WorkspaceFeatureVisibility features={["assessmentAuthoring"]}><AssessmentRowActions assessment={row.original} /></WorkspaceFeatureVisibility>,
   },
-];
+]; }
 
 function AssessmentRowActions({ assessment }: { assessment: AssessmentWithMeta }) {
   const router = useRouter();
@@ -150,9 +153,10 @@ export function AssessmentsDataTable({
 }: {
   assessments: AssessmentWithMeta[];
 }) {
+  const { features } = usePortal();
   return (
     <DataTable
-      columns={columns}
+      columns={getColumns(features.assessmentAuthoring)}
       data={assessments}
       searchableColumns={["title"]}
       searchPlaceholder="Search assessments"
@@ -169,11 +173,11 @@ export function AssessmentsDataTable({
       ]}
       defaultSort={{ id: "updated_at", desc: true }}
       hiddenColumns={["updated_at"]}
-      rowHref={(row) => `/assessments/${row.id}/edit`}
+      rowHref={features.assessmentAuthoring ? (row) => `/assessments/${row.id}/edit` : undefined}
       pageSize={20}
-      enableRowSelection
+      enableRowSelection={features.assessmentAuthoring}
       getRowId={(row) => row.id}
-      bulkActions={bulkActions}
+      bulkActions={features.assessmentAuthoring ? bulkActions : []}
     />
   );
 }

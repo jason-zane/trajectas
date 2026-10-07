@@ -1,5 +1,8 @@
 'use server'
 
+import { PUBLIC_BUILDS_SYSTEM_SCOPE } from '@/lib/public-builds/constants'
+import { requireWorkspaceFeature, isWorkspaceFeatureEnabled } from '@/lib/features/access'
+
 import { cache } from 'react'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -147,6 +150,8 @@ async function getClientPartnerId(clientId: string) {
 }
 
 const getCampaignsForRequest = cache(async (clientId: string | undefined): Promise<CampaignWithMeta[]> => {
+  await requireWorkspaceFeature('campaignViewing')
+
   const scope = await resolveAuthorizedScope()
 
   // Determine effective client filter:
@@ -176,6 +181,8 @@ export async function getCampaigns(options?: { clientId?: string }): Promise<Cam
 }
 
 async function getCampaignHeaderImpl(id: string): Promise<CampaignHeader | null> {
+  await requireWorkspaceFeature('campaignViewing')
+
   try {
     await requireCampaignAccess(id)
   } catch (error) {
@@ -191,6 +198,8 @@ async function getCampaignHeaderImpl(id: string): Promise<CampaignHeader | null>
 export const getCampaignHeader = cache(getCampaignHeaderImpl)
 
 async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
+  await requireWorkspaceFeature('campaignViewing')
+
   let access
   try { access = await requireCampaignAccess(id) }
   catch (error) {
@@ -229,10 +238,14 @@ export async function createCampaign(
   payload: Record<string, unknown>,
   opts: { systemScope?: AuthorizedScope } = {},
 ) {
+  if (opts.systemScope !== PUBLIC_BUILDS_SYSTEM_SCOPE) { await requireWorkspaceFeature('campaignManagement'); await requireWorkspaceFeature('assessmentDelivery') }
+
   const parsed = campaignSchema.safeParse(payload)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
   }
+
+  if (parsed.data.kind === 'leadership_360' && opts.systemScope !== PUBLIC_BUILDS_SYSTEM_SCOPE) await requireWorkspaceFeature('feedback360')
 
   const scope = opts.systemScope ?? (await resolveAuthorizedScope())
   const clientId = parsed.data.clientId || null
@@ -331,6 +344,8 @@ function buildReusedCampaignTitle(title: string): string {
 }
 
 export async function duplicateCampaignForReuse(sourceCampaignId: string) {
+  await requireWorkspaceFeature('campaignManagement'); await requireWorkspaceFeature('assessmentDelivery')
+
   let access
   try {
     access = await requireCampaignManage(sourceCampaignId)
@@ -536,6 +551,8 @@ export async function duplicateCampaignForReuse(sourceCampaignId: string) {
 }
 
 export async function updateCampaign(id: string, payload: Record<string, unknown>) {
+  await requireWorkspaceFeature('campaignManagement')
+
   const parsed = campaignSchema.safeParse(payload)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
@@ -620,6 +637,8 @@ export async function updateCampaign(id: string, payload: Record<string, unknown
 // ---------------------------------------------------------------------------
 
 export async function updateCampaignField(id: string, field: string, value: string) {
+  await requireWorkspaceFeature('campaignManagement')
+
   if (field !== 'description') {
     return { error: 'Only description can be auto-saved' }
   }
@@ -670,6 +689,8 @@ export async function updateCampaignField(id: string, field: string, value: stri
 // ---------------------------------------------------------------------------
 
 export async function deleteCampaign(id: string) {
+  await requireWorkspaceFeature('campaignManagement')
+
   let access
   try {
     access = await requireCampaignManage(id)
@@ -708,6 +729,8 @@ export async function deleteCampaign(id: string) {
 }
 
 export async function restoreCampaign(id: string) {
+  await requireWorkspaceFeature('campaignManagement')
+
   let access
   try {
     access = await requireCampaignManage(id)
@@ -750,6 +773,8 @@ export async function restoreCampaign(id: string) {
 // ---------------------------------------------------------------------------
 
 export async function activateCampaign(id: string) {
+  await requireWorkspaceFeature('campaignManagement'); await requireWorkspaceFeature('assessmentDelivery')
+
   let access
   try {
     access = await requireCampaignManage(id)
@@ -761,6 +786,12 @@ export async function activateCampaign(id: string) {
   }
 
   const db = createAdminClient()
+  if (!(await isWorkspaceFeatureEnabled('feedback360'))) {
+    const { data: kind, error: kindError } = await db.from('campaigns').select('kind').eq('id', id).is('deleted_at', null).single()
+    if (kindError || !kind) return { error: 'Unable to verify campaign availability.' }
+    if (kind.kind === 'leadership_360') return { error: '360 feedback is not enabled for your workspace.' }
+  }
+
 
   // Pre-launch readiness gate: verify campaign has linked assessments with
   // questions to serve, and either participants or access links
@@ -894,6 +925,8 @@ export async function activateCampaign(id: string) {
 }
 
 export async function pauseCampaign(id: string) {
+  await requireWorkspaceFeature('campaignManagement')
+
   let access
   try {
     access = await requireCampaignManage(id)
@@ -929,6 +962,8 @@ export async function pauseCampaign(id: string) {
 }
 
 export async function closeCampaign(id: string) {
+  await requireWorkspaceFeature('campaignManagement')
+
   let access
   try {
     access = await requireCampaignManage(id)
@@ -968,6 +1003,8 @@ export async function closeCampaign(id: string) {
 // ---------------------------------------------------------------------------
 
 export async function toggleCampaignSetting(id: string, field: string, value: boolean) {
+  await requireWorkspaceFeature('campaignManagement')
+
   const allowed = ['allow_resume', 'show_progress', 'randomize_assessment_order']
   if (!allowed.includes(field)) {
     return { error: `Cannot toggle ${field}` }
@@ -1026,6 +1063,8 @@ export async function addAssessmentToCampaign(
   assessmentId: string,
   opts: { systemScope?: AuthorizedScope } = {},
 ) {
+  if (opts.systemScope !== PUBLIC_BUILDS_SYSTEM_SCOPE) await requireWorkspaceFeature('campaignManagement')
+
   let access
   try {
     access = await requireCampaignManage(campaignId, opts)
@@ -1174,6 +1213,8 @@ export async function addAssessmentToCampaign(
 }
 
 export async function removeAssessmentFromCampaign(campaignId: string, assessmentId: string) {
+  await requireWorkspaceFeature('campaignManagement')
+
   let access
   try {
     access = await requireCampaignManage(campaignId)
@@ -1212,6 +1253,8 @@ export async function removeAssessmentFromCampaign(campaignId: string, assessmen
 }
 
 export async function reorderCampaignAssessments(campaignId: string, orderedIds: string[]) {
+  await requireWorkspaceFeature('campaignManagement')
+
   let access
   try {
     access = await requireCampaignManage(campaignId)
@@ -1259,6 +1302,9 @@ export async function inviteParticipant(
   payload: Record<string, unknown>,
   options?: { deferEmail?: boolean },
 ) {
+  await requireWorkspaceFeature('participantInvitations')
+  await requireWorkspaceFeature('assessmentDelivery')
+
   const parsed = inviteParticipantSchema.safeParse(payload)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
@@ -1386,6 +1432,8 @@ export async function sendParticipantInviteEmails(
       emailFailures: BulkInviteEmailFailure[]
     }
 > {
+  await requireWorkspaceFeature('participantInvitations')
+
   try {
     await requireCampaignAccess(campaignId)
   } catch (error) {
@@ -1437,6 +1485,8 @@ export async function sendParticipantInviteEmail(
   participantId: string,
   opts: { systemScope?: AuthorizedScope } = {},
 ): Promise<{ success: boolean; error?: string }> {
+  if (opts.systemScope !== PUBLIC_BUILDS_SYSTEM_SCOPE) await requireWorkspaceFeature('participantInvitations')
+
   try {
     await requireCampaignManage(campaignId, opts)
   } catch (error) {
@@ -1518,6 +1568,9 @@ export async function bulkInviteParticipants(
   participants: { email: string; firstName?: string; lastName?: string }[],
   options?: { allowExisting?: boolean; deferEmail?: boolean },
 ) {
+  await requireWorkspaceFeature('participantInvitations')
+  await requireWorkspaceFeature('assessmentDelivery')
+
   let access
   try {
     access = await requireCampaignManage(campaignId)
@@ -1755,6 +1808,8 @@ export async function removeParticipant(campaignId: string, participantId: strin
 }
 
 export async function restoreParticipant(campaignId: string, participantId: string) {
+  await requireWorkspaceFeature('participantInvitations')
+
   let access
   try {
     access = await requireCampaignManage(campaignId)
@@ -1798,6 +1853,9 @@ export async function restoreParticipant(campaignId: string, participantId: stri
 // ---------------------------------------------------------------------------
 
 export async function createAccessLink(campaignId: string, payload: Record<string, unknown>) {
+  await requireWorkspaceFeature('participantInvitations')
+  await requireWorkspaceFeature('assessmentDelivery')
+
   const parsed = accessLinkSchema.safeParse(payload)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
@@ -1849,6 +1907,8 @@ export async function createAccessLink(campaignId: string, payload: Record<strin
 }
 
 export async function deactivateAccessLink(campaignId: string, linkId: string) {
+  await requireWorkspaceFeature('campaignManagement')
+
   let access
   try {
     access = await requireCampaignManage(campaignId)
@@ -1885,6 +1945,9 @@ export async function deactivateAccessLink(campaignId: string, linkId: string) {
 }
 
 export async function reactivateAccessLink(campaignId: string, linkId: string) {
+  await requireWorkspaceFeature('participantInvitations')
+  await requireWorkspaceFeature('assessmentDelivery')
+
   let access
   try {
     access = await requireCampaignManage(campaignId)
@@ -1921,6 +1984,8 @@ export async function reactivateAccessLink(campaignId: string, linkId: string) {
 }
 
 export async function deleteAccessLink(campaignId: string, linkId: string) {
+  await requireWorkspaceFeature('campaignManagement')
+
   let access
   try {
     access = await requireCampaignManage(campaignId)
@@ -1993,6 +2058,8 @@ export type CampaignAssessmentOption = {
 export async function getParticipantsForClient(
   clientId: string,
 ): Promise<ClientParticipant[]> {
+  await requireWorkspaceFeature('campaignViewing')
+
   await requireClientAccess(clientId)
   const db = await createClient()
 
@@ -2056,6 +2123,8 @@ export async function getOperationalCampaignsForClient(
   clientId: string,
   options?: { limit?: number }
 ): Promise<OperationalClientCampaign[]> {
+  await requireWorkspaceFeature('campaignViewing')
+
   await requireClientAccess(clientId)
 
   // Campaigns and their access links are independent fetches — the links
@@ -2126,6 +2195,8 @@ export async function getRecentClientResults(
   clientId: string,
   options?: { limit?: number }
 ): Promise<ClientRecentResult[]> {
+  await requireWorkspaceFeature('campaignViewing')
+
   await requireClientAccess(clientId)
   const db = await createClient()
 
@@ -2201,6 +2272,8 @@ export async function getCompletionTimeline(
   clientId: string,
   options?: { days?: number },
 ): Promise<CompletionTimelinePoint[]> {
+  await requireWorkspaceFeature('campaignViewing')
+
   await requireClientAccess(clientId)
   const days = options?.days ?? 14
   const db = await createClient()
@@ -2257,6 +2330,8 @@ export type UniqueClientParticipant = {
 export async function getUniqueParticipantsForClient(
   clientId: string,
 ): Promise<UniqueClientParticipant[]> {
+  await requireWorkspaceFeature('campaignViewing')
+
   await requireClientAccess(clientId)
   const db = await createClient()
 
@@ -2321,6 +2396,8 @@ export async function getUniqueParticipantsForClient(
 // ---------------------------------------------------------------------------
 
 export async function getActiveAssessments(): Promise<CampaignAssessmentOption[]> {
+  await requireWorkspaceFeature('assessmentDelivery')
+
   const scope = await resolveAuthorizedScope()
 
   // Scope-aware: partners see their own + platform-owned assessments; the
@@ -2345,13 +2422,14 @@ export async function getActiveAssessments(): Promise<CampaignAssessmentOption[]
 
 async function assertCanManageCampaigns(
   ids: string[],
+  disallowLeadership360 = false,
 ): Promise<{ error: string } | null> {
   if (ids.length === 0) return null
   const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
   const { data: rows, error } = await db
     .from('campaigns')
-    .select('id, client_id, partner_id')
+    .select('id, client_id, partner_id, kind')
     .in('id', ids)
 
   if (error) return { error: error.message }
@@ -2364,10 +2442,15 @@ async function assertCanManageCampaigns(
       return { error: 'Not authorized to manage one or more campaigns.' }
     }
   }
+  if (disallowLeadership360 && rows.some(row => row.kind === 'leadership_360')) {
+    return { error: '360 feedback is not enabled for your workspace.' }
+  }
   return null
 }
 
 export async function bulkDeleteCampaigns(ids: string[]) {
+  await requireWorkspaceFeature('campaignManagement')
+
   if (ids.length === 0) return
   const authErr = await assertCanManageCampaigns(ids)
   if (authErr) return authErr
@@ -2386,8 +2469,12 @@ export async function bulkDeleteCampaigns(ids: string[]) {
 }
 
 export async function bulkUpdateCampaignStatus(ids: string[], status: string) {
+  await requireWorkspaceFeature('campaignManagement')
+  if (status === 'active') await requireWorkspaceFeature('assessmentDelivery')
+
   if (ids.length === 0) return
-  const authErr = await assertCanManageCampaigns(ids)
+  const disallowLeadership360 = status === 'active' && !(await isWorkspaceFeatureEnabled('feedback360'))
+  const authErr = await assertCanManageCampaigns(ids, disallowLeadership360)
   if (authErr) return authErr
 
   const db = createAdminClient()
@@ -2432,6 +2519,8 @@ export async function getCampaignAssessmentId(
 // ---------------------------------------------------------------------------
 
 export async function getFavoriteCampaignIds(): Promise<string[]> {
+  await requireWorkspaceFeature('campaignViewing')
+
   const db = await createClient()
   const { data, error } = await db
     .from('campaign_favorites')
@@ -2444,6 +2533,8 @@ export async function getFavoriteCampaignIds(): Promise<string[]> {
 }
 
 export async function favoriteCampaign(campaignId: string) {
+  await requireWorkspaceFeature('campaignViewing')
+
   const db = await createClient()
   const userId = await getVerifiedUserId(db)
   if (!userId) return { error: 'Not authenticated' }
@@ -2461,6 +2552,8 @@ export async function favoriteCampaign(campaignId: string) {
 }
 
 export async function unfavoriteCampaign(campaignId: string) {
+  await requireWorkspaceFeature('campaignViewing')
+
   const db = await createClient()
   const userId = await getVerifiedUserId(db)
   if (!userId) return { error: 'Not authenticated' }
@@ -2501,6 +2594,8 @@ export async function updateCampaignConsultantSettings(
   campaignId: string,
   input: Partial<CampaignConsultantSettings>,
 ): Promise<{ success: true } | { error: string }> {
+  await requireWorkspaceFeature('campaignManagement')
+
   const access = await requireCampaignManage(campaignId)
   if (!canManageCampaign(access.scope, access.partnerId, access.clientId)) {
     return { error: 'You do not have permission to modify this campaign.' }
@@ -2560,6 +2655,8 @@ export type CampaignSessionRow = {
 export async function getCampaignSessions(
   campaignId: string,
 ): Promise<CampaignSessionRow[]> {
+  await requireWorkspaceFeature('campaignViewing')
+
   await requireCampaignAccess(campaignId)
 
   // Access verified above; the DAL read uses the admin client (RLS would block
@@ -2582,6 +2679,8 @@ export async function getUniqueParticipantsForClientPaginated(
   page: number
   pageSize: number
 }> {
+  await requireWorkspaceFeature('campaignViewing')
+
   await requireClientAccess(clientId)
 
   const { listUniqueParticipantsForClient } = await import('@/lib/dal/participants')

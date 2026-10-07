@@ -18,6 +18,7 @@ import {
 } from '@/lib/dal/chat-search'
 
 export const findAssessmentTool = defineChatTool({
+  requiredFeatures: ['assessmentLibrary'],
   name: 'find_assessment',
   description:
     'Find assessments (the instruments themselves) by title. Returns assessment ids. Call with no query to list the assessments visible to the user.',

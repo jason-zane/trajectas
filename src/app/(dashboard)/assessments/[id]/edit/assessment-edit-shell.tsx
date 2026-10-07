@@ -1,5 +1,6 @@
 "use client"
 
+import { usePortal } from "@/components/portal-context"
 import { usePathname } from "next/navigation"
 import { Lock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -36,6 +37,8 @@ export function AssessmentEditShell({
   basePath?: string
   children: React.ReactNode
 }) {
+  const { features } = usePortal()
+  const tabs = TABS.filter(tab => tab.segment !== "reports" || features.reportTemplateLibrary)
   const pathname = usePathname()
   const editRoot = basePath ?? `/assessments/${assessment.id}/edit`
 
@@ -76,7 +79,7 @@ export function AssessmentEditShell({
         </div>
       )}
 
-      <RouteTabs tabs={TABS} basePath={editRoot} activeSegment={activeSegment} />
+      <RouteTabs tabs={tabs} basePath={editRoot} activeSegment={activeSegment} />
 
       {children}
     </div>

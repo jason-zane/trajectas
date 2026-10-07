@@ -1,4 +1,5 @@
 'use server'
+
 import { requireWorkspaceFeature } from '@/lib/features/access'
 
 /**
@@ -417,6 +418,8 @@ export async function linkParticipantsToSamePerson(
   targetCampaignParticipantId: string,
   reason?: string,
 ): Promise<{ targetPersonKey: string; mergedCount: number }> {
+  await requireWorkspaceFeature('personIdentityManagement')
+
   await requireWorkspaceFeature('trajectory')
   if (sourceCampaignParticipantIds.length === 0) {
     return { targetPersonKey: '', mergedCount: 0 }
@@ -505,6 +508,8 @@ export async function unlinkParticipant(
   campaignParticipantId: string,
   reason?: string,
 ): Promise<{ newPersonKey: string }> {
+  await requireWorkspaceFeature('personIdentityManagement')
+
   await requireWorkspaceFeature('trajectory')
   await requireParticipantAccess(campaignParticipantId)
   const scope = await resolveAuthorizedScope()

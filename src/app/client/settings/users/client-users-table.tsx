@@ -1,5 +1,8 @@
 "use client";
 
+import { usePortal } from '@/components/portal-context'
+import { WorkspaceTeamControls } from '@/components/workspace-team-controls'
+
 import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -49,6 +52,8 @@ export function ClientPortalUsersTable({
   workspaceId: string;
   members: ClientMember[];
 }) {
+  const { portal, features } = usePortal();
+  const canManageTeam = features.teamManagement && (portal !== 'partner' || features.clientManagement);
   const router = useRouter();
   const [removeTarget, setRemoveTarget] = useState<ClientMember | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -146,7 +151,7 @@ export function ClientPortalUsersTable({
             onValueChange={(v) => {
               if (v) handleRoleChange(row.original, v);
             }}
-            disabled={isPending}
+            disabled={isPending || !canManageTeam}
           >
             <SelectTrigger size="sm" className="w-[110px]">
               <SelectValue>
@@ -180,7 +185,7 @@ export function ClientPortalUsersTable({
       id: "actions",
       enableSorting: false,
       cell: ({ row }) => (
-        <DataTableActionsMenu
+        <WorkspaceTeamControls clientScope={true}><DataTableActionsMenu
           label={`Open actions for ${row.original.displayName}`}
         >
           <DropdownMenuItem
@@ -191,7 +196,7 @@ export function ClientPortalUsersTable({
             <UserX className="size-4" />
             Remove member
           </DropdownMenuItem>
-        </DataTableActionsMenu>
+        </DataTableActionsMenu></WorkspaceTeamControls>
       ),
     },
   ];

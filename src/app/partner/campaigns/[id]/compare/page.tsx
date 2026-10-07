@@ -21,6 +21,8 @@ export default async function PartnerCompareCampaignPage({
     saved?: string;
   }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   if (!await isWorkspaceFeatureEnabled('compare')) return <WorkspaceFeatureUnavailable feature="compare" />
   const { id: campaignId } = await params;
   const sp = await searchParams;

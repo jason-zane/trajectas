@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from "next/navigation";
 
 import { getCampaignHeader } from "@/app/actions/campaigns";
@@ -9,6 +11,10 @@ export default async function ClientCampaignBrandingPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('campaignBranding')) return <WorkspaceFeatureUnavailable feature="campaignBranding" />
+
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   const { id } = await params;
 
   // The layout only hides the tab; this route is reachable directly, so it

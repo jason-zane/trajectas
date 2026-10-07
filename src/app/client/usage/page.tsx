@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { UsagePeriodControls } from "@/components/usage/usage-period-controls";
@@ -15,6 +17,8 @@ export default async function ClientUsagePage({
 }: {
   searchParams: Promise<UsageSearchParams>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('usageVisibility')) return <WorkspaceFeatureUnavailable feature="usageVisibility" />
+
   const [{ clientId }, query] = await Promise.all([
     resolveClientOrg("/client/usage"),
     searchParams,

@@ -1,5 +1,8 @@
 "use client";
 
+import { usePortal } from '@/components/portal-context'
+import { WorkspaceFeatureVisibility } from '@/components/workspace-feature-visibility'
+
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -36,7 +39,7 @@ type ReportTemplateRow = ReportTemplate & {
   blocksCount: number;
 };
 
-function getColumns(basePath: string): ColumnDef<ReportTemplateRow>[] {
+function getColumns(basePath: string, canAuthor: boolean): ColumnDef<ReportTemplateRow>[] {
   return [
     {
       accessorKey: "name",
@@ -44,7 +47,7 @@ function getColumns(basePath: string): ColumnDef<ReportTemplateRow>[] {
         <DataTableColumnHeader column={column} title="Template" />
       ),
       cell: ({ row }) => (
-        <DataTableRowLink
+        canAuthor ? <DataTableRowLink
           href={`${basePath}/${row.original.id}/builder`}
           ariaLabel={`Open ${row.original.name}`}
         >
@@ -61,7 +64,7 @@ function getColumns(basePath: string): ColumnDef<ReportTemplateRow>[] {
               ) : null}
             </div>
           </div>
-        </DataTableRowLink>
+        </DataTableRowLink> : <span className="font-semibold">{row.original.name}</span>
       ),
     },
     {
@@ -104,7 +107,7 @@ function getColumns(basePath: string): ColumnDef<ReportTemplateRow>[] {
       ),
       cell: ({ row }) => (
         <div data-stop-row-click onClick={(event) => event.stopPropagation()}>
-          <ActiveToggle templateId={row.original.id} isActive={row.original.isActive} />
+          <WorkspaceFeatureVisibility features={["reportTemplateAuthoring"]}><ActiveToggle templateId={row.original.id} isActive={row.original.isActive} /></WorkspaceFeatureVisibility>
         </div>
       ),
     },
@@ -116,7 +119,7 @@ function getColumns(basePath: string): ColumnDef<ReportTemplateRow>[] {
       id: "actions",
       enableSorting: false,
       cell: ({ row }) => (
-        <ReportTemplateRowActions template={row.original} basePath={basePath} />
+        <WorkspaceFeatureVisibility features={["reportTemplateAuthoring"]}><ReportTemplateRowActions template={row.original} basePath={basePath} /></WorkspaceFeatureVisibility>
       ),
     },
   ];
@@ -217,6 +220,7 @@ export function ReportTemplatesTable({
   templates: ReportTemplate[];
   basePath?: string;
 }) {
+  const { features } = usePortal();
   const rows = templates.map((template) => ({
     ...template,
     blocksCount: template.blocks.length,
@@ -224,17 +228,17 @@ export function ReportTemplatesTable({
 
   return (
     <DataTable
-      columns={getColumns(basePath)}
+      columns={getColumns(basePath, features.reportTemplateAuthoring)}
       data={rows}
       searchableColumns={["name"]}
       searchPlaceholder="Search templates"
       defaultSort={{ id: "updated_at", desc: true }}
       hiddenColumns={["updated_at"]}
-      rowHref={(row) => `${basePath}/${row.id}/builder`}
+      rowHref={features.reportTemplateAuthoring ? (row) => `${basePath}/${row.id}/builder` : undefined}
       pageSize={20}
-      enableRowSelection
+      enableRowSelection={features.reportTemplateAuthoring}
       getRowId={(row) => row.id}
-      bulkActions={bulkActions}
+      bulkActions={features.reportTemplateAuthoring ? bulkActions : []}
       emptyState={
         <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
           <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">

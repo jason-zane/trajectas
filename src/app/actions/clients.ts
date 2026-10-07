@@ -1,5 +1,8 @@
 'use server'
+import { getEffectiveWorkspaceFeatures } from '@/lib/dal/workspace-features'
+import { requireWorkspaceFeature, requirePartnerWorkspaceFeature } from '@/lib/features/access'
 
+import { provisionWorkspaceWithFeatures } from '@/lib/dal/workspace-provisioning'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createSupabaseClient } from '@/lib/supabase/server'
@@ -84,6 +87,8 @@ async function validateAssignablePartner(partnerId: string) {
 }
 
 export async function getClients(): Promise<ClientWithCounts[]> {
+  await requirePartnerWorkspaceFeature('clientDirectory')
+
   const scope = await resolveAuthorizedScope()
   const db = await createSupabaseClient()
   let query = db
@@ -107,6 +112,8 @@ export async function getClients(): Promise<ClientWithCounts[]> {
 }
 
 export async function getClientDirectoryEntries(): Promise<ClientWithCounts[]> {
+  await requirePartnerWorkspaceFeature('clientDirectory')
+
   const scope = await resolveAuthorizedScope()
   const db = await createSupabaseClient()
   let query = db
@@ -162,6 +169,8 @@ export async function getClientBySlug(
 }
 
 export async function createClient(formData: FormData) {
+  await requirePartnerWorkspaceFeature('clientProvisioning')
+
   const raw = {
     partnerId: (formData.get('partnerId') as string) || undefined,
     name: formData.get('name') as string,
@@ -205,13 +214,16 @@ export async function createClient(formData: FormData) {
     isActive: parsed.data.isActive,
   })
 
-  const { data: created, error } = await db
-    .from('clients')
-    .insert(insert)
-    .select('id')
-    .single()
-
-  if (error) return { error: { _form: [error.message] } }
+  let created: { id: string }
+  if (formData.has('featurePreset') || formData.has('featureConfiguration')) {
+    try { created = await provisionWorkspaceWithFeatures('client', insert, formData) }
+    catch (error) { return { error: { _form: [error instanceof AuthorizationError ? error.message : 'Unable to create client with its features.'] } } }
+  } else {
+    // Partner-created clients preserve their published legacy experience and create no feature override row.
+    const result = await db.from('clients').insert(insert).select('id').single()
+    if (result.error || !result.data) return { error: { _form: [result.error?.message ?? 'Unable to create client.'] } }
+    created = result.data
+  }
 
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
@@ -232,6 +244,8 @@ export async function createClient(formData: FormData) {
 }
 
 export async function updateClient(id: string, formData: FormData) {
+  await requirePartnerWorkspaceFeature('clientManagement', id)
+
   const raw = {
     partnerId: (formData.get('partnerId') as string) || undefined,
     name: formData.get('name') as string,
@@ -312,6 +326,8 @@ export async function updateClient(id: string, formData: FormData) {
 }
 
 export async function deleteClient(id: string) {
+  await requirePartnerWorkspaceFeature('clientManagement', id)
+
   let access
   try {
     access = await requireClientAccess(id)
@@ -368,6 +384,7 @@ export async function getClientStats(clientId: string): Promise<{
   reportsGenerated: number
 }> {
   await requireClientAccess(clientId)
+  const features = await getEffectiveWorkspaceFeatures()
   const db = await createSupabaseClient()
 
   // Group A: four independent queries scoped by client_id.
@@ -379,26 +396,26 @@ export async function getClientStats(clientId: string): Promise<{
     assignedAssessmentsResult,
     reportsGeneratedResult,
   ] = await Promise.all([
-    db
+    features.campaignViewing ? db
       .from('campaigns')
       .select('*', { count: 'exact', head: true })
       .eq('client_id', clientId)
       .eq('status', 'active')
-      .is('deleted_at', null),
-    db
+      .is('deleted_at', null) : Promise.resolve({ data: [] as { id: string }[], count: 0, error: null }),
+    features.campaignViewing ? db
       .from('campaigns')
       .select('id')
       .eq('client_id', clientId)
-      .is('deleted_at', null),
-    db
+      .is('deleted_at', null) : Promise.resolve({ data: [] as { id: string }[], count: 0, error: null }),
+    features.assessmentLibrary ? db
       .from('client_assessment_assignments')
       .select('*', { count: 'exact', head: true })
       .eq('client_id', clientId)
-      .eq('is_active', true),
-    db
+      .eq('is_active', true) : Promise.resolve({ count: 0, error: null }),
+    features.orgDiagnostics && features.reportViewing ? db
       .from('diagnostic_sessions')
       .select('*', { count: 'exact', head: true })
-      .eq('client_id', clientId),
+      .eq('client_id', clientId) : Promise.resolve({ count: 0, error: null }),
   ])
 
   if (activeCampaignsResult.error) {
@@ -446,6 +463,7 @@ export async function getRecentClientCampaigns(clientId: string): Promise<
     completedCount: number
   }>
 > {
+  await requireWorkspaceFeature('campaignViewing')
   await requireClientAccess(clientId)
   const db = await createSupabaseClient()
 
@@ -472,6 +490,8 @@ export async function getRecentClientCampaigns(clientId: string): Promise<
 }
 
 export async function restoreClient(id: string) {
+  await requirePartnerWorkspaceFeature('clientManagement', id)
+
   let access
   try {
     access = await requireClientAccess(id, { includeArchived: true })
@@ -605,6 +625,8 @@ export async function inviteUserToClient(
   clientId: string,
   input: { email: string; role: 'admin' | 'member' }
 ) {
+  await requirePartnerWorkspaceFeature('clientManagement', clientId); await requireWorkspaceFeature('teamManagement')
+
   let access
   try {
     access = await requireClientAccess(clientId)
@@ -687,6 +709,8 @@ export async function reissueClientInvite(
   clientId: string,
   inviteId: string
 ): Promise<{ inviteLink: string } | { error: string }> {
+  await requirePartnerWorkspaceFeature('clientManagement', clientId); await requireWorkspaceFeature('teamManagement')
+
   let access
   try {
     access = await requireClientAccess(clientId)
@@ -712,6 +736,8 @@ export async function changeClientMemberRole(
   membershipId: string,
   role: 'admin' | 'member'
 ) {
+  await requirePartnerWorkspaceFeature('clientManagement', clientId); await requireWorkspaceFeature('teamManagement')
+
   let access
   try {
     access = await requireClientAccess(clientId)
@@ -755,6 +781,8 @@ export async function removeClientMember(
   clientId: string,
   membershipId: string
 ) {
+  await requirePartnerWorkspaceFeature('clientManagement', clientId); await requireWorkspaceFeature('teamManagement')
+
   let access
   try {
     access = await requireClientAccess(clientId)
@@ -801,6 +829,8 @@ export async function revokeClientInvite(
   clientId: string,
   inviteId: string
 ) {
+  await requirePartnerWorkspaceFeature('clientManagement', clientId); await requireWorkspaceFeature('teamManagement')
+
   let access
   try {
     access = await requireClientAccess(clientId)
@@ -834,6 +864,8 @@ export async function revokeClientInvite(
 // ---------------------------------------------------------------------------
 
 export async function bulkDeleteClients(ids: string[]): Promise<void> {
+  await requirePartnerWorkspaceFeature('clientManagement')
+
   if (ids.length === 0) return
   const scope = await resolveAuthorizedScope()
   if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
@@ -847,6 +879,8 @@ export async function bulkDeleteClients(ids: string[]): Promise<void> {
 }
 
 export async function bulkUpdateClientStatus(ids: string[], status: 'active' | 'inactive'): Promise<void> {
+  await requirePartnerWorkspaceFeature('clientManagement')
+
   if (ids.length === 0) return
   const scope = await resolveAuthorizedScope()
   if (!scope.isPlatformAdmin) throw new Error('Unauthorized')

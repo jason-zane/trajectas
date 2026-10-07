@@ -1,3 +1,5 @@
+import { WorkspaceFeatureVisibility } from '@/components/workspace-feature-visibility'
+import type { WorkspaceFeature } from '@/lib/features/workspace-features'
 import Link from "next/link";
 import {
   ArrowRight,
@@ -71,9 +73,9 @@ export function ClientOverview({
       ? `/partners/${partnerSlug ?? client.partnerId}/overview`
       : partnerHref;
   const quickActions = [
-    { title: "View Campaigns", href: campaignsHref ?? `${root}/campaigns`, icon: Megaphone, description: "Manage campaign activity" },
-    { title: "Manage Assessments", href: `${root}/assessments`, icon: ClipboardList, description: "Assessment assignments" },
-    { title: "Invite User", href: `${root}/users`, icon: UserPlus, description: "Add a team member" },
+    { features: ["campaignViewing"] as WorkspaceFeature[], title: "View Campaigns", href: campaignsHref ?? `${root}/campaigns`, icon: Megaphone, description: "Manage campaign activity" },
+    { features: ["clientAssessmentAllocation"] as WorkspaceFeature[], title: "Manage Assessments", href: `${root}/assessments`, icon: ClipboardList, description: "Assessment assignments" },
+    { features: ["teamManagement", "clientManagement"] as WorkspaceFeature[], title: "Invite User", href: `${root}/users`, icon: UserPlus, description: "Add a team member" },
   ];
 
   return (
@@ -89,9 +91,9 @@ export function ClientOverview({
             <CardHeader>
               <CardTitle>Client Profile</CardTitle>
               <CardDescription>
-                <Link href={`${root}/details`} className="text-primary hover:underline">
+                <WorkspaceFeatureVisibility features={["clientManagement"]}><Link href={`${root}/details`} className="text-primary hover:underline">
                   Edit details &rarr;
-                </Link>
+                </Link></WorkspaceFeatureVisibility>
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -124,9 +126,9 @@ export function ClientOverview({
               {!client.industry && !client.sizeRange && !client.partnerId && (
                 <p className="text-sm text-muted-foreground">
                   No profile details yet.{" "}
-                  <Link href={`${root}/details`} className="text-primary hover:underline">
+                  <WorkspaceFeatureVisibility features={["clientManagement"]}><Link href={`${root}/details`} className="text-primary hover:underline">
                     Add details &rarr;
-                  </Link>
+                  </Link></WorkspaceFeatureVisibility>
                 </p>
               )}
               <div>
@@ -158,8 +160,7 @@ export function ClientOverview({
               )}
               <div className="space-y-1">
                 {quickActions.map((action) => (
-                  <Link
-                    key={action.href}
+                  <WorkspaceFeatureVisibility key={action.href} features={action.features}><Link
                     href={action.href}
                     className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted group"
                   >
@@ -169,7 +170,7 @@ export function ClientOverview({
                       <p className="text-caption text-muted-foreground truncate">{action.description}</p>
                     </div>
                     <ArrowRight className="size-3.5 text-muted-foreground opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                  </Link>
+                  </Link></WorkspaceFeatureVisibility>
                 ))}
               </div>
             </CardContent>
@@ -178,7 +179,7 @@ export function ClientOverview({
       </div>
 
       {/* Recent Campaigns */}
-      <ScrollReveal delay={120}>
+      <WorkspaceFeatureVisibility features={["campaignViewing"]}><ScrollReveal delay={120}>
         <Card>
           <CardHeader>
             <CardTitle>Recent Campaigns</CardTitle>
@@ -209,7 +210,7 @@ export function ClientOverview({
             )}
           </CardContent>
         </Card>
-      </ScrollReveal>
+      </ScrollReveal></WorkspaceFeatureVisibility>
     </div>
   );
 }

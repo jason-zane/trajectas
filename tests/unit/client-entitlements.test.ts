@@ -1,3 +1,8 @@
+// Existing behavior fixtures explicitly retain the published legacy capabilities.
+vi.mock('@/lib/dal/workspace-features', async () => {
+  const { defaultWorkspaceFeatures } = await import('@/lib/features/workspace-features')
+  return { getEffectiveWorkspaceFeatures: async () => defaultWorkspaceFeatures('partner') }
+})
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
@@ -60,6 +65,7 @@ vi.mock("@/lib/auth/authorization", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/auth/authorization")>();
   return {
     ...actual,
+    resolveAuthorizedScope: async () => ({ requestSurface: 'partner', isPlatformAdmin: false, activeContext: null }),
     requireClientAccess: auth.requireClientAccess,
   };
 });

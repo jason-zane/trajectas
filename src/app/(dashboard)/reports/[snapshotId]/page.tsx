@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { PageHeader } from '@/components/page-header'
@@ -54,6 +56,8 @@ async function getSnapshotForReportTokenAccess(
 }
 
 export default async function ReportViewerPage({ params, searchParams }: Props) {
+  if (!await isWorkspaceFeatureEnabled('reportViewing')) return <WorkspaceFeatureUnavailable feature="reportViewing" />
+
   const { snapshotId } = await params
   const { reportToken } = await searchParams
   const hasTokenAccess = Boolean(reportToken)

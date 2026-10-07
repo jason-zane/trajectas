@@ -1,3 +1,5 @@
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { getReportTemplateAssignments } from "@/app/actions/client-entitlements";
 import { getReportTemplates } from "@/app/actions/reports";
 import { ReportAssignments } from "@/app/(dashboard)/clients/[slug]/reports/report-assignments";
@@ -8,6 +10,7 @@ export default async function PartnerClientReportsPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  if (!await isWorkspaceFeatureEnabled('clientTemplateAllocation')) return <WorkspaceFeatureUnavailable feature="clientTemplateAllocation" />
   const { slug } = await params;
   const { client, partnerId } = await requirePartnerClient(slug);
 

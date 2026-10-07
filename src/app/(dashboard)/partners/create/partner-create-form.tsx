@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
+import { ProvisioningFeatureSelection } from '@/components/provisioning-feature-selection';
 import { createPartner } from "@/app/actions/partners";
 
 function slugify(text: string): string {
@@ -88,6 +89,7 @@ export function PartnerCreateForm() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <ProvisioningFeatureSelection type="partner" />
             {error && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
                 {error}

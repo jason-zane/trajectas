@@ -63,10 +63,13 @@ export function CampaignDetailShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { portal, href } = usePortal();
+  const { portal, href, features } = usePortal();
 
   const showAssessmentsAlert = campaign.assessmentCount === 0;
   const tabs = allTabs(showAssessmentsAlert, campaign.kind).filter((tab) => {
+    const availability = { settings: 'campaignManagement', assessments: 'campaignManagement', experience: 'participantExperience', branding: 'campaignBranding', raters: 'feedback360', results: 'feedback360' } as const;
+    const key = availability[tab.segment as keyof typeof availability];
+    if (key && !features[key]) return false;
     // Branding is feature-gated on both tenant portals: the client's own flag
     // for the client portal, the partner's flag for the partner portal (D11).
     if (

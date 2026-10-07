@@ -1,5 +1,7 @@
 'use server'
 
+import { requireWorkspaceFeature } from '@/lib/features/access'
+
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -45,6 +47,8 @@ const addRaterSchema = z.object({
  * campaign access resolution, then requires platform admin specifically.
  */
 async function require360Admin(campaignId: string) {
+  await requireWorkspaceFeature('feedback360')
+
   const access = await requireCampaignAccess(campaignId)
   if (!access.scope.isPlatformAdmin) {
     throw new Error('360 management is restricted to platform admins.')
@@ -237,6 +241,8 @@ export async function removeRater(campaignId: string, raterId: string) {
  * access link from the table; email delivery is wired in a later phase).
  */
 export async function markApprovedRatersInvited(campaignId: string) {
+  await requireWorkspaceFeature('participantInvitations')
+
   const access = await require360Admin(campaignId)
   const db = createAdminClient()
   const now = new Date().toISOString()
@@ -335,6 +341,8 @@ export async function sendRaterReminders(
   campaignId: string,
   raterIds: string[],
 ): Promise<SendRemindersResult> {
+  await requireWorkspaceFeature('participantInvitations')
+
   const access = await require360Admin(campaignId)
   const db = createAdminClient()
   const ids = Array.from(new Set(raterIds))

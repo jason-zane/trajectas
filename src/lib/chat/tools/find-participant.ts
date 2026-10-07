@@ -20,6 +20,7 @@ import { toolOk, toolFail, type ChatBlock } from '../envelope'
 import { searchPeople, ChatSearchError, CHAT_SEARCH_LIMIT } from '@/lib/dal/chat-search'
 
 export const findParticipantTool = defineChatTool({
+  requiredFeatures: ['campaignViewing'],
   name: 'find_participant',
   description:
     'Find people by name or email. A full name works ("Jason Hunt"). Returns one entry per person with how many campaigns they appear in. Use this to confirm who is meant; to show their results, prefer passing the name or email straight to get_session_scores.',

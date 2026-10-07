@@ -1,3 +1,8 @@
+
+import { WorkspaceFeatureVisibility } from '@/components/workspace-feature-visibility'
+import { getEffectiveWorkspaceFeatures } from '@/lib/dal/workspace-features';
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
@@ -13,6 +18,9 @@ import { LaunchCampaignButton } from "@/components/campaigns/launch-campaign-but
 import { ClientCampaignList } from "./client-campaign-list";
 
 export default async function ClientCampaignsPage() {
+  const features = await getEffectiveWorkspaceFeatures();
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   const { clientId } = await resolveClientOrg("/client/campaigns");
 
   if (!clientId) {
@@ -21,7 +29,7 @@ export default async function ClientCampaignsPage() {
 
   const [campaigns, libraryAssessments, favoriteCampaignIds] = await Promise.all([
     getOperationalCampaignsForClient(clientId),
-    getClientAssessmentLibrary(clientId),
+    features.assessmentLibrary ? getClientAssessmentLibrary(clientId) : Promise.resolve([]),
     getFavoriteCampaignIds(),
   ]);
 
@@ -63,13 +71,13 @@ export default async function ClientCampaignsPage() {
             forcedClientId={clientId}
             successHrefPrefix="/client/campaigns"
           />
-          <Link
+          <WorkspaceFeatureVisibility features={["campaignManagement","assessmentDelivery"]}><Link
             href="/client/campaigns/create"
             className={buttonVariants({ variant: "outline" })}
           >
             <Plus className="size-4" />
             New Campaign
-          </Link>
+          </Link></WorkspaceFeatureVisibility>
         </div>
       </PageHeader>
       <ClientCampaignList campaigns={campaigns} favoriteCampaignIds={favoriteCampaignIds} />

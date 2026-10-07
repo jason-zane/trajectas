@@ -1,3 +1,8 @@
+
+import { WorkspaceFeatureVisibility } from '@/components/workspace-feature-visibility'
+import { getEffectiveWorkspaceFeatures } from '@/lib/dal/workspace-features';
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
@@ -10,10 +15,13 @@ import { CampaignsTable } from "./campaigns-table";
 import { QuickLaunchButton } from "@/components/campaigns/quick-launch-button";
 
 export default async function PartnerCampaignsPage() {
+  const features = await getEffectiveWorkspaceFeatures();
+  if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
+
   const [campaigns, assessments, clients, actor] = await Promise.all([
     getCampaigns(),
-    getActiveAssessments(),
-    getClients(),
+    features.assessmentDelivery ? getActiveAssessments() : Promise.resolve([]),
+    features.clientDirectory ? getClients() : Promise.resolve([]),
     resolveSessionActor(),
   ]);
 
@@ -31,13 +39,13 @@ export default async function PartnerCampaignsPage() {
             clients={clients.map((c) => ({ id: c.id, name: c.name }))}
             successHrefPrefix="/partner/campaigns"
           />
-          <Link
+          <WorkspaceFeatureVisibility features={["campaignManagement","assessmentDelivery"]}><Link
             href="/partner/campaigns/create"
             className={buttonVariants({ variant: "outline" })}
           >
             <Plus className="size-4" />
             New Campaign
-          </Link>
+          </Link></WorkspaceFeatureVisibility>
         </div>
       </PageHeader>
       {campaigns.length === 0 ? (

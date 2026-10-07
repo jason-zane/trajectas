@@ -1,5 +1,7 @@
 "use client";
 
+import { usePortal } from '@/components/portal-context'
+
 import { useState } from "react";
 import { Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +18,7 @@ interface QuickLaunchButtonProps {
   allowLeadership360?: boolean;
 }
 
-export function QuickLaunchButton(props: QuickLaunchButtonProps) {
+function QuickLaunchButtonContent(props: QuickLaunchButtonProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -28,4 +30,9 @@ export function QuickLaunchButton(props: QuickLaunchButtonProps) {
       <QuickLaunchModal open={open} onOpenChange={setOpen} {...props} />
     </>
   );
+}
+
+export function QuickLaunchButton(props: QuickLaunchButtonProps) {
+  const { features } = usePortal()
+  return features.campaignManagement && features.assessmentDelivery ? <QuickLaunchButtonContent {...props} /> : null
 }

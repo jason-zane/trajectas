@@ -1,3 +1,5 @@
+import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
+import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { Suspense } from "react";
 import Link from "next/link";
 import { Plus, Settings2 } from "lucide-react";
@@ -15,6 +17,8 @@ async function DiagnosticsTableSection() {
 }
 
 export default async function DiagnosticsPage() {
+  if (!await isWorkspaceFeatureEnabled('orgDiagnostics')) return <WorkspaceFeatureUnavailable feature="orgDiagnostics" />
+
   return (
     <div className="space-y-8 max-w-6xl">
       <PageHeader

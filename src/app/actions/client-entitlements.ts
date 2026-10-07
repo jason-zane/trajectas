@@ -1,5 +1,7 @@
 'use server'
 
+import { requireWorkspaceFeature, requirePartnerWorkspaceFeature } from '@/lib/features/access'
+
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
@@ -174,6 +176,8 @@ export type ClientAssessmentLibraryDetail = ClientAssessmentLibrarySummary & {
 export async function getClientAssessmentLibrary(
   clientId: string,
 ): Promise<ClientAssessmentLibrarySummary[]> {
+  await requireWorkspaceFeature('assessmentLibrary')
+
   const parsed = clientIdSchema.safeParse({ clientId })
   if (!parsed.success) return []
   await requireClientAccess(clientId)
@@ -373,6 +377,8 @@ export async function getClientAssessmentLibraryDetail(
   clientId: string,
   assessmentId: string,
 ): Promise<ClientAssessmentLibraryDetail | null> {
+  await requireWorkspaceFeature('assessmentLibrary')
+
   const parsed = clientAssessmentDetailSchema.safeParse({ clientId, assessmentId })
   if (!parsed.success) return null
   await requireClientAccess(clientId)
@@ -827,6 +833,8 @@ export async function assignAssessment(
   clientId: string,
   input: { assessmentId: string; quotaLimit?: number | null },
 ): Promise<{ success: true; id: string } | { error: string }> {
+  await requireWorkspaceFeature('clientAssessmentAllocation')
+
   const parsed = assignAssessmentSchema.safeParse({ clientId, ...input })
   if (!parsed.success) return { error: 'Invalid input' }
   const { scope, partnerId } = await requireClientAccess(clientId)
@@ -891,6 +899,8 @@ export async function updateAssessmentAssignment(
   clientId: string,
   updates: { quotaLimit?: number | null; isActive?: boolean },
 ): Promise<{ success: true; id: string } | { error: string }> {
+  await requireWorkspaceFeature('clientAssessmentAllocation')
+
   const parsed = updateAssessmentAssignmentSchema.safeParse({ assignmentId, clientId, ...updates })
   if (!parsed.success) return { error: 'Invalid input' }
   const { scope, partnerId } = await requireClientAccess(clientId)
@@ -967,6 +977,8 @@ export async function removeAssessmentAssignment(
   assignmentId: string,
   clientId: string,
 ): Promise<{ success: true; id: string } | { error: string }> {
+  await requireWorkspaceFeature('clientAssessmentAllocation')
+
   const parsed = removeAssessmentAssignmentSchema.safeParse({ assignmentId, clientId })
   if (!parsed.success) return { error: 'Invalid input' }
   return updateAssessmentAssignment(assignmentId, clientId, {
@@ -979,6 +991,8 @@ export async function toggleReportTemplateAssignment(
   reportTemplateId: string,
   assigned: boolean,
 ): Promise<{ success: true; id: string } | { error: string }> {
+  await requireWorkspaceFeature('clientTemplateAllocation')
+
   const parsed = toggleReportTemplateAssignmentSchema.safeParse({ clientId, reportTemplateId, assigned })
   if (!parsed.success) return { error: 'Invalid input' }
   const { scope, partnerId } = await requireClientAccess(clientId)
@@ -1127,6 +1141,7 @@ export async function toggleClientBranding(
   clientId: string,
   canCustomize: boolean,
 ): Promise<{ success: true; id: string } | { error: string }> {
+  await requirePartnerWorkspaceFeature('clientManagement', clientId)
   const parsed = toggleClientBrandingSchema.safeParse({ clientId, canCustomize })
   if (!parsed.success) return { error: 'Invalid input' }
   const { scope, partnerId } = await requireClientAccess(clientId)

@@ -36,7 +36,7 @@ const matches = (row: Row, query: Query) => query.filters.every(([op, key, value
 })
 const event = (id: string, fields: Row = {}): Row => ({ id, client_id: 'client', attempts: 0,
   event_type: 'integration.launch.created', aggregate_type: 'launch', aggregate_id: id,
-  status: 'pending', available_at: iso(), dispatched_at: null, updated_at: iso(), created_at: iso(),
+  requires_review: false, held_at: null, status: 'pending', available_at: iso(), dispatched_at: null, updated_at: iso(), created_at: iso(),
   payload: { campaignId: id }, ...fields })
 
 let rows: Record<string, Row[]>
@@ -75,6 +75,24 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe('webhook outbox recovery', () => {
+  it('does not consume saved events or attempts when delivery is re-enabled without review', async () => {
+    rows.integration_events_outbox = [event('first', { status:'failed', requires_review:true, held_at:iso(), attempts:2 })]
+    const before = structuredClone(rows.integration_events_outbox)
+    expect(await dispatchPendingIntegrationEvents(10)).toEqual({ processed:0, delivered:0 })
+    expect(rows.integration_events_outbox).toEqual(before)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+  it('stops the next HTTP request when a pause invalidates an already claimed event', async () => {
+    rows.integration_events_outbox = [event('first')]
+    intercept = query => {
+      if (query.table === 'integration_webhook_endpoints' && query.operation === 'select') Object.assign(rows.integration_events_outbox[0], { status:'failed', requires_review:true, held_at:iso() })
+      return undefined
+    }
+    expect(await dispatchPendingIntegrationEvents(1)).toEqual({ processed:1, delivered:0 })
+    expect(rows.integration_events_outbox[0]).toMatchObject({ status:'failed', requires_review:true, dispatched_at:null })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it.each(['missing campaign', 'transient database error'])('retries %s for the first event and still dispatches the second', async (failure) => {
     intercept = query => {
       if (query.table !== 'campaigns' || !query.filters.some(([, key, value]) => key === 'id' && value === 'first')) return undefined
