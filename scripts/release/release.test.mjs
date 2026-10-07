@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { needsSeededE2E, changedPaths } from "./change-scope.mjs";
@@ -106,13 +106,41 @@ test("every validation child receives the isolated environment and all checks st
   const commands = ["test:release", "lint", "typecheck", "test:unit", "test:component", "test:architecture", "build", "test:e2e:smoke"];
   try {
     // Only synthetic scripts run here: no application server, provider or DB.
-    writeFileSync(join(cwd, "check.cjs"), 'if (process.env.FUTURE_PROVIDER_SECRET || process.env.NODE_OPTIONS || process.env.CI !== "true" || process.env.NEXT_TELEMETRY_DISABLED !== "1") process.exit(19);');
+    const home = join(cwd, 'fake-home'); mkdirSync(home);
+    const fakeUser = join(home, '.npmrc'); const fakeGlobal = join(cwd, 'fake-global.npmrc');
+    writeFileSync(fakeUser, 'node-options=--no-warnings\n');
+    writeFileSync(fakeGlobal, 'node-options=--trace-warnings\n');
+    writeFileSync(join(cwd, 'baseline.cjs'), 'require("node:fs").writeFileSync("baseline.json", JSON.stringify({options:process.env.NODE_OPTIONS}));');
+    writeFileSync(join(cwd, 'package.json'), JSON.stringify({ scripts: { baseline: 'node baseline.cjs' } }));
+    // Real npm, with BOTH config paths explicitly pointed at synthetic files.
+    // This proves reload behavior without consulting personal/global npmrc.
+    for (const options of ['--no-warnings', '--trace-warnings']) {
+      writeFileSync(fakeUser, options === '--no-warnings' ? `node-options=${options}\n` : '');
+      const baseline = spawnSync('npm', ['--userconfig', fakeUser, '--globalconfig', fakeGlobal, 'run', 'baseline'], { cwd, env: { PATH: process.env.PATH, HOME: home }, encoding: 'utf8' });
+      assert.equal(baseline.status, 0, baseline.stderr);
+      assert.equal(JSON.parse(readFileSync(join(cwd, 'baseline.json'), 'utf8')).options, options);
+    }
+    writeFileSync(fakeUser, 'node-options=--no-warnings\n');
+    writeFileSync(join(cwd, "check.cjs"), `
+      const fs = require('node:fs');
+      if (process.env.FUTURE_PROVIDER_SECRET || process.env.NODE_OPTIONS || process.env.CI !== 'true' || process.env.NEXT_TELEMETRY_DISABLED !== '1') process.exit(19);
+      const user = process.env.npm_config_userconfig, global = process.env.npm_config_globalconfig;
+      if (!user || !global || user === global || fs.readFileSync(user, 'utf8') !== '' || fs.readFileSync(global, 'utf8') !== '') process.exit(20);
+      fs.appendFileSync('observed-configs.jsonl', JSON.stringify({ user, global }) + '\\n');
+    `);
     writeFileSync(join(cwd, "package.json"), JSON.stringify({ scripts: Object.fromEntries(commands.map((name) => [name, "node check.cjs"])) }));
-    const result = spawnSync(process.execPath, [script], { cwd, env: { PATH: process.env.PATH, FUTURE_PROVIDER_SECRET: "fixture-private-value", NODE_OPTIONS: "--no-warnings", CI: "false", NEXT_TELEMETRY_DISABLED: "0" }, encoding: "utf8" });
+    const result = spawnSync(process.execPath, [script], { cwd, env: { PATH: process.env.PATH, HOME: home, npm_config_userconfig: fakeUser, npm_config_globalconfig: fakeGlobal, FUTURE_PROVIDER_SECRET: "fixture-private-value", NODE_OPTIONS: "--no-warnings", CI: "false", NEXT_TELEMETRY_DISABLED: "0" }, encoding: "utf8" });
     assert.equal(result.status, 0, result.stderr);
     for (const command of commands) assert.ok(result.stdout.includes(`Running ${command}`), command);
     assert.ok(!result.stdout.includes("fixture-private-value"));
     assert.ok(!result.stderr.includes("fixture-private-value"));
+    const configs = readFileSync(join(cwd, 'observed-configs.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+    assert.equal(configs.length, commands.length);
+    for (const { user, global } of configs) {
+      assert.notEqual(user, fakeUser); assert.notEqual(global, fakeGlobal);
+      assert.equal(dirname(user), dirname(global));
+      assert.equal(existsSync(dirname(user)), false, 'owned configuration directory cleaned after success');
+    }
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 
@@ -120,11 +148,15 @@ test("local runner stops on a failed check instead of claiming later checks ran"
   const cwd = mkdtempSync(join(tmpdir(), "release-stop-"));
   const script = fileURLToPath(new URL("./validate-local.mjs", import.meta.url));
   try {
-    writeFileSync(join(cwd, "package.json"), JSON.stringify({ scripts: { "test:release": "node -e 'process.exit(7)'" } }));
+    writeFileSync(join(cwd, 'fail.cjs'), 'require("node:fs").writeFileSync("failed-configs.json", JSON.stringify({user:process.env.npm_config_userconfig,global:process.env.npm_config_globalconfig})); process.exit(7);');
+    writeFileSync(join(cwd, "package.json"), JSON.stringify({ scripts: { "test:release": "node fail.cjs" } }));
     const result = spawnSync(process.execPath, [script], { cwd, env: { PATH: process.env.PATH }, encoding: "utf8" });
     assert.equal(result.status, 7);
     assert.ok(result.stdout.includes("Running test:release"));
     assert.ok(!result.stdout.includes("Running lint"));
     assert.ok(result.stderr.includes("later checks were not run"));
+    const configs = JSON.parse(readFileSync(join(cwd, 'failed-configs.json'), 'utf8'));
+    assert.notEqual(configs.user, configs.global);
+    assert.equal(existsSync(dirname(configs.user)), false, 'owned configuration directory cleaned after failure');
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });

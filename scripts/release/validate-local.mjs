@@ -1,5 +1,7 @@
-import { readdirSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { applicationVariableNames, localCheckEnvironment } from "./local-environment.mjs";
 
 // A dedicated env-free worktree avoids Next/Vitest loading the founder's
@@ -15,12 +17,24 @@ if (envFiles.length || appEnv.length) {
 
 // CI=true prevents test-server discovery/downloads and reusing another
 // session's app server. All smoke URLs use the local managed server.
-const env = localCheckEnvironment(process.env);
-for (const command of ["test:release", "lint", "typecheck", "test:unit", "test:component", "test:architecture", "build", "test:e2e:smoke"]) {
-  console.log(`Running ${command}`);
-  const result = spawnSync("npm", ["run", command], { env, stdio: "inherit" });
-  if (result.error || result.status !== 0) {
-    console.error(`Local validation stopped at ${command}; later checks were not run.`);
-    process.exit(result.status || 1);
+const configurationDirectory = mkdtempSync(join(tmpdir(), "trajectas-local-npm-"));
+try {
+  // Distinct files prevent npm from falling back to $HOME/.npmrc or its global
+  // config. The known paths also propagate to nested npm lifecycle commands.
+  const userConfig = join(configurationDirectory, "user.npmrc");
+  const globalConfig = join(configurationDirectory, "global.npmrc");
+  writeFileSync(userConfig, "", { mode: 0o600 });
+  writeFileSync(globalConfig, "", { mode: 0o600 });
+  const env = { ...localCheckEnvironment(process.env), npm_config_userconfig: userConfig, npm_config_globalconfig: globalConfig };
+  for (const command of ["test:release", "lint", "typecheck", "test:unit", "test:component", "test:architecture", "build", "test:e2e:smoke"]) {
+    console.log(`Running ${command}`);
+    const result = spawnSync("npm", ["--userconfig", userConfig, "--globalconfig", globalConfig, "run", command], { env, stdio: "inherit" });
+    if (result.error || result.status !== 0) {
+      console.error(`Local validation stopped at ${command}; later checks were not run.`);
+      process.exitCode = result.status || 1;
+      break;
+    }
   }
+} finally {
+  rmSync(configurationDirectory, { recursive: true, force: true });
 }
