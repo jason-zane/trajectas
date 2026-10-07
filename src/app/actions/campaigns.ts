@@ -1768,6 +1768,8 @@ export async function bulkInviteParticipants(
 }
 
 export async function removeParticipant(campaignId: string, participantId: string) {
+  await requireWorkspaceFeature('campaignManagement')
+
   let access
   try {
     access = await requireCampaignManage(campaignId)
@@ -1808,7 +1810,7 @@ export async function removeParticipant(campaignId: string, participantId: strin
 }
 
 export async function restoreParticipant(campaignId: string, participantId: string) {
-  await requireWorkspaceFeature('participantInvitations')
+  await requireWorkspaceFeature('campaignManagement')
 
   let access
   try {
