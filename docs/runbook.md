@@ -53,7 +53,9 @@ branch protections are separate owner decisions, not effects of this PR.
 2. Make a small focused change. Install locked dependencies in that worktree.
    Do not copy `.env.local` from the primary checkout: historically it targets
    production. Use `npm run release:validate` for ordinary local evidence. The
-   runner refuses env files and inherited application/provider variables, then
+   runner refuses env files and known inherited application/provider variables,
+   passes only system paths/directories and locale to child checks (excluding
+   unknown variables, Node options and inherited npm configuration), then
    runs release-logic tests, lint, typecheck, unit, component, architecture,
    build and local smoke checks, stopping on the first failure. Playwright's
    Chromium installation is a prerequisite; it does not install browsers.
