@@ -10,7 +10,8 @@ actual scripts/workflows when validating automation claims.
 
 Identify the branch, base and exact final commit, changed paths and worktree
 status. Preserve other sessions' files. Run `npm run test:release` and, when
-dependencies are available, `npm run release:validate` in an isolated env-free
+dependencies are available, `node scripts/release/validate-local.mjs` directly
+from a trusted shell in an isolated env-free
 worktree. Record individual command outcomes. For database evidence, use the
 runbook's isolated local-stack procedure; do not reset a shared stack.
 

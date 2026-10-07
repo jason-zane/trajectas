@@ -52,10 +52,17 @@ branch protections are separate owner decisions, not effects of this PR.
    current remote main. Preserve concurrent branches and unrelated files.
 2. Make a small focused change. Install locked dependencies in that worktree.
    Do not copy `.env.local` from the primary checkout: historically it targets
-   production. Use `npm run release:validate` for ordinary local evidence. The
+   production. Start `node scripts/release/validate-local.mjs` directly from a
+   trusted shell for ordinary local evidence. The `npm run release:validate`
+   convenience alias cannot isolate its outer npm/Node launcher, which has
+   already loaded configuration before the validator starts. The
    runner refuses env files and known inherited application/provider variables,
    passes only system paths/directories and locale to child checks (excluding
-   unknown variables, Node options and inherited npm configuration), then
+   unknown variables, Node options and inherited npm configuration). Each child
+   npm uses distinct known-empty user/global config files, cleaned up after
+   success or failure, so it cannot reload personal/global npmrc settings. These
+   controls isolate the child checks, not the initial launcher or arbitrary
+   project configuration. The runner then
    runs release-logic tests, lint, typecheck, unit, component, architecture,
    build and local smoke checks, stopping on the first failure. Playwright's
    Chromium installation is a prerequisite; it does not install browsers.

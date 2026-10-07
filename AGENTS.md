@@ -27,7 +27,7 @@ for the evidence readout. The skill is not permission to merge or deploy.
   primary `.env.local`, credentials or production assessment data. Do not
   run blanket live migrations before a PR. Follow the runbook's ordered
   rollout and separate app rollback from database recovery.
-- `npm run release:validate` runs ordinary local checks in an isolated
+- `node scripts/release/validate-local.mjs` runs ordinary local checks in an isolated
   worktree without environment files. Database checks use
   `npm run test:integration:local` against an isolated local stack; CI is the
   source of final-commit automated evidence. Commands and exceptions are in
