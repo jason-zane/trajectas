@@ -316,8 +316,9 @@ function shouldSkipMutationOriginCheck(
 export async function proxy(request: NextRequest) {
   const proxyStartedAt = performance.now();
   // Server-Timing phases (visible in browser DevTools → Network → Timing):
-  // rl = rate-limit check, auth = local JWT verification + activity check,
-  // proxy = total middleware time. Durations only — no sensitive data.
+  // rl = rate-limit check, auth = local JWT verification,
+  // auth_role = profile lookup after 30 minutes idle, proxy = total time.
+  // Durations only — no sensitive data.
   const serverTimings: Array<{ name: string; durationMs: number }> = [];
   const { pathname, search } = request.nextUrl;
   const host = request.headers.get("host");
@@ -408,17 +409,23 @@ export async function proxy(request: NextRequest) {
         // Only resolve the role once the shorter admin window has elapsed.
         // Active requests keep local JWT verification without a DB round trip.
         // Read the account role, not the selected workspace or editable metadata.
+        const roleLookupStartedAt = performance.now();
         const { data: profile, error } = await supabase
           .from("profiles")
           .select("role")
           .eq("id", userId)
           .maybeSingle();
+        serverTimings.push({ name: "auth_role", durationMs: performance.now() - roleLookupStartedAt });
         const { inactivityTimeoutSeconds } = getSessionTimeouts(
           error ? null : profile?.role
         );
 
         if (isSessionExpired(lastActivity, inactivityTimeoutSeconds)) {
-          return NextResponse.redirect(new URL("/auth/expire", request.url));
+          return applyHeaders(
+            NextResponse.redirect(new URL("/auth/expire", request.url)),
+            configuredSurface,
+            pathname
+          );
         }
       }
 

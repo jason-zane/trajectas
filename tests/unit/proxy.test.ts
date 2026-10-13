@@ -469,6 +469,17 @@ describe("proxy role-based inactivity", () => {
     expect(mockProfileEq).toHaveBeenCalledWith("id", "test-user-id");
   });
 
+  it("reports the role lookup separately in Server-Timing", async () => {
+    let elapsed = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => elapsed);
+    mockProfileLookup.mockImplementation(async () => {
+      elapsed += 125;
+      return { data: { role: "consultant" }, error: null };
+    });
+    const response = await proxy(requestAfter(3600));
+    expect(response.headers.get("Server-Timing")).toContain("auth_role;dur=125.0");
+  });
+
   it("allows regular users just before 90 minutes", async () => {
     const response = await proxy(requestAfter(5399));
     expect(response.headers.get("location")).toBeNull();
@@ -493,6 +504,7 @@ describe("proxy role-based inactivity", () => {
     const response = await proxy(requestAfter(1799));
     expect(response.headers.get("location")).toBeNull();
     expect(mockProfileFrom).not.toHaveBeenCalled();
+    expect(response.headers.get("Server-Timing")).not.toContain("auth_role");
   });
 
   it.each([
