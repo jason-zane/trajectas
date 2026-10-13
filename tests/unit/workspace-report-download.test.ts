@@ -6,14 +6,16 @@ vi.mock('@/lib/auth/authorization', async original => ({ ...await original<typeo
 vi.mock('@/lib/auth/support-sessions', () => ({ logAuditEvent: vi.fn(), logReportViewed: vi.fn(), logSupportSessionDataAccess: vi.fn() }))
 vi.mock('@/lib/reports/pdf-access', () => ({ getSignedReportPdfUrl: state.sign, downloadSnapshotPdfBase64: vi.fn() }))
 const id = '11111111-1111-4111-8111-111111111111'
-vi.mock('@/lib/supabase/server', () => ({ createClient: async () => ({ from: (table: string) => {
+function syntheticDb() { return { from: (table: string) => {
   const query: Record<string, unknown> = {}
   for (const method of ['select','eq','in','order']) query[method] = () => query
   const snapshot = { id: '11111111-1111-4111-8111-111111111111', pdf_url: 'reports/synthetic.pdf', content: { synthetic: true }, status: 'released' }
   query.maybeSingle = async () => ({ data: snapshot, error: null })
   query.then = (resolve: (value: unknown) => unknown) => Promise.resolve({ data: table === 'participant_sessions' ? [{ id: 'synthetic-session' }] : [snapshot], error: null }).then(resolve)
   return query
-} }) }))
+} } }
+vi.mock('@/lib/supabase/server', () => ({ createClient: async () => syntheticDb() }))
+vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => syntheticDb() }))
 import { getReportSnapshot, getReportSnapshotsForParticipant } from '@/app/actions/reports'
 beforeEach(() => { state.features=defaultWorkspaceFeatures('client'); state.sign.mockReset().mockResolvedValue('https://synthetic.test/signed.pdf'); state.access.mockReset().mockResolvedValue({ scope: { isPlatformAdmin: true }, confidentialityMode: 'standard' }) })
 describe('staff report viewing and PDF issuance remain separate', () => {

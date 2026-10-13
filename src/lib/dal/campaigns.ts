@@ -89,6 +89,24 @@ export async function listCampaigns(
   return mapCampaignWithCountsRows(data ?? []);
 }
 
+/** Count delivered sessions before an authorized campaign ownership change.
+ * Scope through the participant so older sessions without campaign_id also count.
+ * A failed/unknown count is never permission to move historical results.
+ */
+export async function getCampaignSessionCount(
+  db: DbClient,
+  campaignId: string,
+): Promise<number | null> {
+  const { count, error } = await db.from("participant_sessions")
+    .select("id, campaign_participants!inner(campaign_id)", { count: "exact", head: true })
+    .eq("campaign_participants.campaign_id", campaignId);
+  if (error) {
+    logActionError("getCampaignSessionCount", error);
+    return null;
+  }
+  return count;
+}
+
 /**
  * Flat list of a campaign's participant_sessions (joined to their participant +
  * assessment), newest first, with per-(participant, assessment) attempt numbers.

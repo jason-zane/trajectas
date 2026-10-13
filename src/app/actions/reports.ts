@@ -1528,7 +1528,13 @@ export async function getReportSnapshotsForParticipant(
   if (!canViewIndividualResults(access.confidentialityMode, access.scope)) {
     return []
   }
-  const db = await createClient()
+  // Session metadata follows the authorized campaign, including clientless
+  // partner campaigns. Report previews use the same management gate as the
+  // session view; ordinary members retain release and audience RLS filtering.
+  const db = createAdminClient()
+  const canPreviewReports = access.scope.isPlatformAdmin || access.scope.isLocalDevelopmentBypass ||
+    canManageCampaign(access.scope, access.partnerId, access.clientId)
+  const reportDb = canPreviewReports ? db : await createClient()
   const { data: sessions, error: sessionsError } = await db
     .from('participant_sessions')
     .select('id')
@@ -1536,7 +1542,7 @@ export async function getReportSnapshotsForParticipant(
   if (sessionsError) throwActionError('getReportSnapshotsForParticipant', 'Unable to load report snapshots.', sessionsError)
   const sessionIds = (sessions ?? []).map((s) => s.id)
   if (sessionIds.length === 0) return []
-  const { data: snapshots, error } = await db
+  const { data: snapshots, error } = await reportDb
     .from('report_snapshots')
     .select('*')
     .in('participant_session_id', sessionIds)

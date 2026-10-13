@@ -3,10 +3,10 @@
 import { requireWorkspaceFeature } from '@/lib/features/access'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   AuthorizationError,
+  assertIndividualResultsAccess,
   canManageCampaign,
   getAccessibleCampaignIds,
   requireCampaignAccess,
@@ -27,6 +27,7 @@ import {
   getParticipantResponses as dalGetParticipantResponses,
 } from '@/lib/dal/participants'
 import { postgresUuid } from '@/lib/validations/uuid'
+import { canViewIndividualResults } from '@/lib/reports/confidentiality'
 import {
   getParticipantsFiltersSchema,
   getUniqueParticipantsFiltersSchema,
@@ -129,7 +130,6 @@ export async function getParticipants(filters?: {
   const parsed = getParticipantsFiltersSchema.safeParse(filters ?? {})
   if (!parsed.success) return { data: [], total: 0 }
   const scope = await resolveAuthorizedScope()
-  const db = await createClient()
   const page = filters?.page ?? 1
   const perPage = filters?.perPage ?? 50
   const offset = (page - 1) * perPage
@@ -152,7 +152,7 @@ export async function getParticipants(filters?: {
     }
   }
 
-  return dalListParticipants(db, {
+  return dalListParticipants(createAdminClient(), {
     scopedCampaignIds,
     status: filters?.status,
     search: filters?.search,
@@ -172,7 +172,6 @@ export async function getUniqueParticipants(filters?: {
   const parsed = getUniqueParticipantsFiltersSchema.safeParse(filters ?? {})
   if (!parsed.success) return { data: [], total: 0 }
   const scope = await resolveAuthorizedScope()
-  const db = await createClient()
   const page = filters?.page ?? 1
   const perPage = filters?.perPage ?? 50
   const offset = (page - 1) * perPage
@@ -183,7 +182,7 @@ export async function getUniqueParticipants(filters?: {
     return { data: [], total: 0 }
   }
 
-  return dalListUniqueParticipants(db, {
+  return dalListUniqueParticipants(createAdminClient(), {
     scopedCampaignIds,
     status: filters?.status,
     search: filters?.search,
@@ -249,7 +248,9 @@ export async function getParticipantSessions(participantId: string): Promise<Par
     throw error
   }
 
-  const db = await createClient()
+  // The participant gate above resolves campaign ownership, including
+  // clientless partner campaigns whose sessions are hidden by client-only RLS.
+  const db = createAdminClient()
   const sessions = await dalGetParticipantSessions(db, participantId)
 
   try {
@@ -265,7 +266,9 @@ export async function getParticipantSessions(participantId: string): Promise<Par
     logActionError('getParticipantSessions.audit', error)
   }
 
-  return sessions
+  return canViewIndividualResults(access.confidentialityMode, access.scope)
+    ? sessions
+    : sessions.map(session => ({ ...session, scores: [] }))
 }
 
 // ---------------------------------------------------------------------------
@@ -286,7 +289,7 @@ export async function getParticipantActivity(participantId: string): Promise<Act
     throw error
   }
 
-  const db = await createClient()
+  const db = createAdminClient()
   const events = await dalGetParticipantActivity(db, participantId)
 
   try {
@@ -323,7 +326,11 @@ export async function getParticipantResponses(sessionId: string): Promise<Partic
     throw error
   }
 
-  const db = await createClient()
+  assertIndividualResultsAccess(access.scope, access.confidentialityMode)
+
+  // Workspace authorization above owns the boundary. Legacy token sessions
+  // can have no client_id, which makes the RLS client hide their saved answers.
+  const db = createAdminClient()
   const groups = await dalGetParticipantResponses(db, sessionId)
 
   try {

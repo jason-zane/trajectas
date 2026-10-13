@@ -112,6 +112,8 @@ export async function seedAssessmentPreview(
         slug: campaignSlug,
         status: 'active',
         brand_mode: 'platform',
+        consultant_emails: [],
+        consultant_notification_enabled: false,
       })
       .select('id')
       .single()

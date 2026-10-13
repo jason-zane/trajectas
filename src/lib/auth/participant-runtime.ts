@@ -14,6 +14,7 @@ export class ParticipantRuntimeAccessError extends Error {
 export type ParticipantRuntimeAccess = {
   participantId: string
   campaignId: string
+  clientId: string | null
 }
 
 export type ParticipantRuntimeSessionAccess = ParticipantRuntimeAccess & {
@@ -42,7 +43,7 @@ export async function requireParticipantRuntimeAccess(
 
   const { data: campaign, error: campaignError } = await db
     .from('campaigns')
-    .select('id, status, opens_at, closes_at, deleted_at')
+    .select('id, client_id, status, opens_at, closes_at, deleted_at')
     .eq('id', participant.campaign_id)
     .single()
 
@@ -68,6 +69,7 @@ export async function requireParticipantRuntimeAccess(
   return {
     participantId: String(participant.id),
     campaignId: String(participant.campaign_id),
+    clientId: campaign.client_id ? String(campaign.client_id) : null,
   }
 }
 

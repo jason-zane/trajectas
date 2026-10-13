@@ -33,6 +33,7 @@ interface PartnerDashboardProps {
   campaigns: CampaignWithMeta[];
   allocation: PartnerAssessmentAssignmentWithUsage[];
   launchAssessments: CampaignAssessmentOption[];
+  creatorEmail?: string;
   recentResults: PartnerRecentResult[];
   favoriteCampaignIds?: string[];
   completionTimeline?: CompletionTimelinePoint[];
@@ -161,6 +162,7 @@ export function PartnerDashboard({
   campaigns,
   allocation,
   launchAssessments,
+  creatorEmail,
   recentResults,
   favoriteCampaignIds = [],
   completionTimeline = [],
@@ -284,6 +286,7 @@ export function PartnerDashboard({
         </p>
         <div className="flex flex-wrap gap-3">
           <LaunchCampaignButton
+            creatorEmail={creatorEmail}
             label="Create campaign"
             assessments={launchAssessments}
             clients={clients.map((c) => ({ id: c.id, name: c.name }))}

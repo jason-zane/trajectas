@@ -332,6 +332,10 @@ export async function createIntegrationCampaign(
       allow_resume: input.allowResume,
       show_progress: input.showProgress,
       randomize_assessment_order: input.randomizeAssessmentOrder,
+      // API credentials do not identify a consultant recipient. Staff can enable
+      // these later by configuring recipients in the campaign settings.
+      consultant_emails: [],
+      consultant_notification_enabled: false,
     })
     .select('*')
     .single()

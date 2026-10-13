@@ -1,3 +1,4 @@
+import { resolveAuthorizedScope } from "@/lib/auth/authorization";
 import { getEffectiveWorkspaceFeatures } from '@/lib/dal/workspace-features';
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
 import {
@@ -37,6 +38,7 @@ export default async function ClientDashboardPage() {
     );
   }
 
+  const { actor } = await resolveAuthorizedScope();
   const features = await getEffectiveWorkspaceFeatures();
   const [
     campaigns,
@@ -72,6 +74,7 @@ export default async function ClientDashboardPage() {
 
   return (
     <ClientDashboard
+      creatorEmail={actor?.email}
       campaigns={campaigns}
       operationalCampaigns={operationalCampaigns}
       recentResults={recentResults}

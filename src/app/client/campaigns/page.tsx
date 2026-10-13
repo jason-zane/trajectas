@@ -1,3 +1,4 @@
+import { resolveAuthorizedScope } from "@/lib/auth/authorization";
 
 import { WorkspaceFeatureVisibility } from '@/components/workspace-feature-visibility'
 import { getEffectiveWorkspaceFeatures } from '@/lib/dal/workspace-features';
@@ -18,6 +19,7 @@ import { LaunchCampaignButton } from "@/components/campaigns/launch-campaign-but
 import { ClientCampaignList } from "./client-campaign-list";
 
 export default async function ClientCampaignsPage() {
+  const { actor } = await resolveAuthorizedScope();
   const features = await getEffectiveWorkspaceFeatures();
   if (!await isWorkspaceFeatureEnabled('campaignViewing')) return <WorkspaceFeatureUnavailable feature="campaignViewing" />
 
@@ -64,6 +66,7 @@ export default async function ClientCampaignsPage() {
       >
         <div className="flex items-center gap-3">
           <LaunchCampaignButton
+            creatorEmail={actor?.email}
             label="Launch campaign"
             assessments={assessmentsForPicker}
             clients={[{ id: clientId, name: "My organisation" }]}

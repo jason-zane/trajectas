@@ -6,7 +6,7 @@ vi.mock('@/lib/dal/workspace-features', async () => {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthorizedScope } from "@/lib/auth/authorization";
 
-const mocks = vi.hoisted(() => ({ scope: vi.fn(), manage: vi.fn(), insert: vi.fn(), update: vi.fn(), audit: vi.fn() }));
+const mocks = vi.hoisted(() => ({ scope: vi.fn(), manage: vi.fn(), insert: vi.fn(), update: vi.fn(), audit: vi.fn(), sessionCount: 0 as number | null, sessionReadError: false, readSessions: vi.fn() }));
 const client = "11111111-1111-4111-8111-111111111111";
 const target = "22222222-2222-4222-8222-222222222222";
 const partner = "33333333-3333-4333-8333-333333333333";
@@ -18,11 +18,12 @@ vi.mock("@/lib/auth/authorization", async (importOriginal) => ({
 }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({
   from: (table: string) => {
+    if (table === 'participant_sessions') mocks.readSessions()
     const query: Record<string, unknown> = {};
     for (const method of ["select", "eq", "is", "single"]) query[method] = () => query;
     query.insert = (row: unknown) => { mocks.insert(table, row); return query; };
     query.update = (row: unknown) => { mocks.update(table, row); return query; };
-    query.then = (resolve: (value: unknown) => unknown) => Promise.resolve({ data: table === "clients" ? { id: client, partner_id: partner } : { id: campaign }, error: null }).then(resolve);
+    query.then = (resolve: (value: unknown) => unknown) => Promise.resolve({ data: table === "clients" ? { id: client, partner_id: partner } : { id: campaign }, error: table === "participant_sessions" && mocks.sessionReadError ? { code: "XX000" } : null, count: mocks.sessionCount }).then(resolve);
     return query;
   },
 }) }));
@@ -40,6 +41,7 @@ function scope(overrides: Partial<AuthorizedScope> = {}): AuthorizedScope {
 }
 const payload = (clientId = client) => ({ title: "Test campaign", slug: "test-campaign", clientId });
 beforeEach(() => {
+  mocks.sessionCount = 0; mocks.sessionReadError = false;
   mocks.scope.mockResolvedValue(scope());
   mocks.manage.mockResolvedValue({ scope: scope({ managedClientIds: [client] }), campaignId: campaign, clientId: client, partnerId: partner });
 });
@@ -84,6 +86,28 @@ describe("campaign destination management", () => {
     mocks.scope.mockResolvedValue(scope({ isPlatformAdmin: true, clientIds: [], managedClientIds: [] }));
     expect(await createCampaign(payload(target))).toEqual({ success: true, id: campaign });
     expect(await createCampaign({ title: "Standalone", slug: "standalone" })).toEqual({ success: true, id: campaign });
+  });
+
+  it('refuses moving historical sessions even when the manager controls both clients', async () => {
+    mocks.manage.mockResolvedValue({ scope: scope({ managedClientIds: [client, target] }), clientId: client, partnerId: partner });
+    mocks.sessionCount = 1;
+    expect(await updateCampaign(campaign, payload(target))).toMatchObject({ error: { clientId: [expect.stringMatching(/assessment sessions cannot be moved/)] } });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it.each([null, 'error'])('fails closed if the historical session count is unavailable (%s)', async (failure) => {
+    mocks.manage.mockResolvedValue({ scope: scope({ managedClientIds: [client, target] }), clientId: client, partnerId: partner });
+    mocks.sessionCount = failure === null ? null : 0;
+    mocks.sessionReadError = failure === 'error';
+    expect(await updateCampaign(campaign, payload(target))).toMatchObject({ error: { _form: [expect.stringMatching(/Unable to verify campaign sessions/)] } });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it('allows ordinary same-client edits without reading or changing session ownership', async () => {
+    mocks.sessionCount = 10;
+    expect(await updateCampaign(campaign, payload())).toEqual({ success: true, id: campaign });
+    expect(mocks.readSessions).not.toHaveBeenCalled();
+    expect(mocks.update).toHaveBeenCalledWith('campaigns', expect.objectContaining({ client_id: client }));
   });
 
 });

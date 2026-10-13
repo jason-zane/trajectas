@@ -2,6 +2,7 @@
 
 import { finalizeCompletedSessionProcessing, getExistingCompletedSessionOutcome } from '@/lib/dal/session-processing'
 import { markPublicBuildStarted } from '@/lib/dal/public-builds'
+import { restoreMissingSessionClient } from '@/lib/dal/participant-session-ownership'
 import { createAssessSessionProof } from '@/lib/assess/session-proof'
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -384,8 +385,9 @@ export async function startSession(
     return { error: 'Invalid input' }
   }
 
+  let access: Awaited<ReturnType<typeof requireParticipantRuntimeCampaignAssessmentAccess>>
   try {
-    await requireParticipantRuntimeCampaignAssessmentAccess({
+    access = await requireParticipantRuntimeCampaignAssessmentAccess({
       token,
       participantId: campaignParticipantId,
       campaignId,
@@ -404,12 +406,15 @@ export async function startSession(
   // Check for existing session
   const { data: existing } = await db
     .from('participant_sessions')
-    .select('id')
+    .select('id, client_id')
     .eq('campaign_participant_id', campaignParticipantId)
     .eq('assessment_id', assessmentId)
     .single()
 
   if (existing) {
+    if (!await restoreMissingSessionClient(db, existing, access)) {
+      return { error: 'Unable to resume this assessment right now' }
+    }
     await markCampaignParticipantStarted(db, campaignParticipantId, startedAt)
     return { id: existing.id }
   }
@@ -421,6 +426,7 @@ export async function startSession(
       assessment_id: assessmentId,
       campaign_id: campaignId,
       campaign_participant_id: campaignParticipantId,
+      client_id: access.clientId,
       status: 'in_progress',
       processing_status: 'idle',
       started_at: startedAt,
@@ -430,9 +436,14 @@ export async function startSession(
 
   if (error) {
     if (error.code === '23505') {
-      const { data: winner } = await db.from('participant_sessions').select('id')
+      const { data: winner } = await db.from('participant_sessions').select('id, client_id')
         .eq('campaign_participant_id', campaignParticipantId).eq('assessment_id', assessmentId).single()
-      if (winner) return { id: winner.id }
+      if (winner) {
+        if (!await restoreMissingSessionClient(db, winner, access)) {
+          return { error: 'Unable to resume this assessment right now' }
+        }
+        return { id: winner.id }
+      }
     }
     logActionError('startSession.insert', error)
     return { error: 'Unable to start this assessment right now' }

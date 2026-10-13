@@ -94,7 +94,9 @@ export function NotificationsStep({ value, onChange }: Props) {
           <label className="text-sm font-medium">Recipients</label>
           {value.emails.length === 0 ? (
             <p className="text-sm text-muted-foreground py-2">
-              No recipients yet. Add one below.
+              {value.enabled
+                ? "Add a recipient to continue, or turn off completion notifications."
+                : "No recipients yet. Add one below."}
             </p>
           ) : (
             <ul className="space-y-1.5">

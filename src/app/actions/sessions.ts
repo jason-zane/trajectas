@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/server'
 import { resolveAuthorizedScope, AuthorizationError, isUnconfinedPlatformAdmin, requireSessionAccess, canManageCampaign } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
 import { byDisplayOrder } from '@/lib/taxonomy-order'
+import { deriveItemBounds } from '@/lib/scoring/ctt-session'
+import { toPomp } from '@/lib/scoring/transforms'
 import {
   bulkSessionIdsSchema,
   sessionIdSchema,
@@ -600,7 +602,7 @@ export async function getConstructScoresForFactor(
   // 2. Items in those constructs + scale ranges via response_formats.config.
   const { data: items, error: itemsErr } = await db
     .from('items')
-    .select('id, construct_id, reverse_scored, response_formats(config)')
+    .select('id, construct_id, reverse_scored, response_formats(type, config), item_options(value, exclude_from_scoring)')
     .in('construct_id', constructIds)
   if (itemsErr) throw new Error(itemsErr.message)
 
@@ -616,16 +618,19 @@ export async function getConstructScoresForFactor(
     construct_id: string
     reverse_scored: boolean | null
     response_formats:
-      | { config: Record<string, unknown> | null }
-      | { config: Record<string, unknown> | null }[]
+      | { type: string; config: Record<string, unknown> | null }
+      | { type: string; config: Record<string, unknown> | null }[]
       | null
+    item_options: { value: number; exclude_from_scoring: boolean | null }[] | null
   }>) {
     const rf = Array.isArray(row.response_formats)
       ? row.response_formats[0]
       : row.response_formats
     const config = (rf?.config ?? {}) as Record<string, unknown>
-    const minValue = typeof config.min === 'number' ? config.min : 1
-    const maxValue = typeof config.max === 'number' ? config.max : 5
+    const optionValues = (row.item_options ?? [])
+      .filter(option => !option.exclude_from_scoring)
+      .map(option => Number(option.value))
+    const { minValue, maxValue } = deriveItemBounds(config, optionValues, rf?.type)
     itemMeta.set(String(row.id), {
       constructId: String(row.construct_id),
       reverseScored: !!row.reverse_scored,
@@ -657,7 +662,7 @@ export async function getConstructScoresForFactor(
       : raw
     const range = meta.maxValue - meta.minValue
     if (range <= 0) continue
-    const pomp = ((effective - meta.minValue) / range) * 100
+    const pomp = toPomp(effective, meta.minValue, meta.maxValue)
     const bucket = sums.get(meta.constructId) ?? { sum: 0, count: 0 }
     bucket.sum += pomp
     bucket.count += 1
