@@ -42,6 +42,7 @@ interface LaunchCampaignButtonProps {
   successHrefPrefix?: string;
   label?: string;
   initialAssessmentId?: string;
+  creatorEmail?: string;
 }
 
 const STATUS_VARIANTS: Record<
@@ -63,6 +64,7 @@ function LaunchCampaignButtonContent({
   successHrefPrefix = "/campaigns",
   label = "Launch campaign",
   initialAssessmentId,
+  creatorEmail,
 }: LaunchCampaignButtonProps) {
   const [chooserOpen, setChooserOpen] = useState(false);
   const [showReuse, setShowReuse] = useState(false);
@@ -218,6 +220,7 @@ function LaunchCampaignButtonContent({
         forcedClientId={forcedClientId}
         successHrefPrefix={successHrefPrefix}
         initialAssessmentId={initialAssessmentId}
+        creatorEmail={creatorEmail}
       />
     </>
   );

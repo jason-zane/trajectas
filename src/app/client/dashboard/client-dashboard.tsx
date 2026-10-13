@@ -34,6 +34,7 @@ interface ClientDashboardProps {
   operationalCampaigns: OperationalClientCampaign[];
   recentResults: ClientRecentResult[];
   launchAssessments: CampaignAssessmentOption[];
+  creatorEmail?: string;
   clientId: string;
   favoriteCampaignIds?: string[];
   completionTimeline?: CompletionTimelinePoint[];
@@ -127,6 +128,7 @@ export function ClientDashboard({
   operationalCampaigns,
   recentResults,
   launchAssessments,
+  creatorEmail,
   clientId,
   favoriteCampaignIds = [],
   completionTimeline = [],
@@ -241,6 +243,7 @@ export function ClientDashboard({
         </p>
         <div className="flex flex-wrap gap-3">
           <LaunchCampaignButton
+            creatorEmail={creatorEmail}
             label="Create campaign"
             assessments={launchAssessments}
             clients={[{ id: clientId, name: "My organisation" }]}

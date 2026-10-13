@@ -398,8 +398,7 @@ export function QuickLaunchModal({
       );
     }
     if (stepId === "notifications") {
-      // No required fields — disabled is a valid choice.
-      return true;
+      return !state.notifications.enabled || state.notifications.emails.length > 0;
     }
     if (stepId === "subject") {
       return state.subjectEmail.trim().length > 0 && !subjectEmailError;
@@ -512,6 +511,12 @@ export function QuickLaunchModal({
       return;
     }
 
+    if (state.notifications.enabled && state.notifications.emails.length === 0) {
+      setStepId("notifications");
+      toast.error("Add a notification recipient or turn off completion notifications.");
+      return;
+    }
+
     setIsLaunching(true);
     let createdCampaignId: string | null = null;
 
@@ -545,19 +550,15 @@ export function QuickLaunchModal({
         throw new Error(addAssessmentResult.error);
       }
 
-      // Apply consultant notification settings from the wizard's Notifications step.
-      // createCampaign already seeds consultant_emails with the creator's email, but the
-      // wizard can override that and the two toggles. Best-effort: a failure here doesn't
-      // block the campaign from launching (the user can fix it in settings).
-      try {
-        await updateCampaignConsultantSettings(campaignId, {
-          emails: state.notifications.emails,
-          enabled: state.notifications.enabled,
-          includeSummary: state.notifications.includeSummary,
-          attachPdf: state.notifications.attachPdf,
-        });
-      } catch (notifyError) {
-        console.error('[quick-launch] consultant settings update failed', notifyError);
+      // Persist the reviewed recipients before activation and sending invitations.
+      const notificationsResult = await updateCampaignConsultantSettings(campaignId, {
+        emails: state.notifications.emails,
+        enabled: state.notifications.enabled,
+        includeSummary: state.notifications.includeSummary,
+        attachPdf: state.notifications.attachPdf,
+      });
+      if ("error" in notificationsResult) {
+        throw new Error(notificationsResult.error);
       }
 
       // Apply custom capability selection if the user limited the assessment.

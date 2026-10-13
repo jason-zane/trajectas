@@ -373,6 +373,27 @@ export async function getAssessmentItemCount(assessmentIds: string[]): Promise<n
 // Session management
 // ---------------------------------------------------------------------------
 
+async function restoreMissingSessionClient(
+  db: ReturnType<typeof createAdminClient>,
+  session: { id: string; client_id: string | null },
+  access: Awaited<ReturnType<typeof requireParticipantRuntimeCampaignAssessmentAccess>>,
+): Promise<boolean> {
+  if (!access.clientId || session.client_id !== null) return true
+  // Legacy token sessions omitted the owner. Heal only that missing value after
+  // token/campaign/assessment authorization; never overwrite an existing owner.
+  const { error } = await db.from('participant_sessions')
+    .update({ client_id: access.clientId })
+    .eq('id', session.id)
+    .eq('campaign_id', access.campaignId)
+    .eq('campaign_participant_id', access.participantId)
+    .is('client_id', null)
+  if (error) {
+    logActionError('startSession.restoreClient', error)
+    return false
+  }
+  return true
+}
+
 export async function startSession(
   token: string,
   campaignParticipantId: string,
@@ -384,8 +405,9 @@ export async function startSession(
     return { error: 'Invalid input' }
   }
 
+  let access: Awaited<ReturnType<typeof requireParticipantRuntimeCampaignAssessmentAccess>>
   try {
-    await requireParticipantRuntimeCampaignAssessmentAccess({
+    access = await requireParticipantRuntimeCampaignAssessmentAccess({
       token,
       participantId: campaignParticipantId,
       campaignId,
@@ -404,12 +426,15 @@ export async function startSession(
   // Check for existing session
   const { data: existing } = await db
     .from('participant_sessions')
-    .select('id')
+    .select('id, client_id')
     .eq('campaign_participant_id', campaignParticipantId)
     .eq('assessment_id', assessmentId)
     .single()
 
   if (existing) {
+    if (!await restoreMissingSessionClient(db, existing, access)) {
+      return { error: 'Unable to resume this assessment right now' }
+    }
     await markCampaignParticipantStarted(db, campaignParticipantId, startedAt)
     return { id: existing.id }
   }
@@ -421,6 +446,7 @@ export async function startSession(
       assessment_id: assessmentId,
       campaign_id: campaignId,
       campaign_participant_id: campaignParticipantId,
+      client_id: access.clientId,
       status: 'in_progress',
       processing_status: 'idle',
       started_at: startedAt,
@@ -430,9 +456,14 @@ export async function startSession(
 
   if (error) {
     if (error.code === '23505') {
-      const { data: winner } = await db.from('participant_sessions').select('id')
+      const { data: winner } = await db.from('participant_sessions').select('id, client_id')
         .eq('campaign_participant_id', campaignParticipantId).eq('assessment_id', assessmentId).single()
-      if (winner) return { id: winner.id }
+      if (winner) {
+        if (!await restoreMissingSessionClient(db, winner, access)) {
+          return { error: 'Unable to resume this assessment right now' }
+        }
+        return { id: winner.id }
+      }
     }
     logActionError('startSession.insert', error)
     return { error: 'Unable to start this assessment right now' }

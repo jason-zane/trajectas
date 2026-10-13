@@ -1,3 +1,4 @@
+import { resolveAuthorizedScope } from "@/lib/auth/authorization";
 import { getEffectiveWorkspaceFeatures } from '@/lib/dal/workspace-features';
 import { Building2 } from "lucide-react";
 
@@ -38,6 +39,7 @@ export default async function PartnerDashboardPage() {
     );
   }
 
+  const { actor } = await resolveAuthorizedScope();
   const features = await getEffectiveWorkspaceFeatures();
   const [
     clients,
@@ -59,6 +61,7 @@ export default async function PartnerDashboardPage() {
 
   return (
     <PartnerDashboard
+      creatorEmail={actor?.email}
       dashboardStyle={features.dashboardStyle}
       partnerName={partnerName ?? "your partner organisation"}
       clients={clients}

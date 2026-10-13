@@ -22,6 +22,21 @@ function createItem(overrides: Partial<ScoringItemMeta>): ScoringItemMeta {
 }
 
 describe("scoring pipeline", () => {
+  it.each([1, 6])("scores six balanced forward/reverse items as 50 when every response is %s", (responseValue) => {
+    // The incident's live bank has six items per construct, three reversed.
+    const items = new Map<string, ScoringItemMeta>(Array.from({ length: 6 }, (_, i) => {
+      const id = `item-${i}`;
+      return [id, createItem({ id, maxValue: 6, reverseScored: i >= 3 })];
+    }));
+    const responses = new Map(Array.from(items.keys(), id => [id, responseValue]));
+    const scored = scoreItems(responses, items);
+    expect(scored.map(item => item.pompValue).sort((a, b) => a - b)).toEqual([0, 0, 0, 100, 100, 100]);
+    const constructs = aggregateToConstructs(scored, items);
+    expect(constructs[0].itemCount).toBe(6);
+    expect(constructs[0].scores.pomp).toBe(50);
+    expect(aggregateToFactors(constructs, [{ factorId: "factor", constructId: "construct-1", weight: 1 }])[0].scaledScore).toBe(50);
+  });
+
   it("scores items, reverse-scores flagged items, and rolls up the taxonomy", () => {
     const items = new Map<string, ScoringItemMeta>([
       [

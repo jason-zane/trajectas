@@ -14,6 +14,7 @@ import {
   getCampaignHeader as dalGetCampaignHeader,
   getCampaignDetailParts as dalGetCampaignDetailParts,
   getCampaignSessions as dalGetCampaignSessions,
+  getCampaignSessionCount as dalGetCampaignSessionCount,
   getCampaignConsultantSettings as dalGetCampaignConsultantSettings,
 } from '@/lib/dal/campaigns'
 import { assembleCampaignDetail } from '@/lib/dal/campaigns-mappers'
@@ -293,6 +294,8 @@ export async function createCampaign(
       inviter_name: parsed.data.inviterName || null,
       inviter_role: parsed.data.inviterRole || null,
       consultant_emails: scope.actor?.email ? [scope.actor.email] : [],
+      // System-created campaigns have participant delivery but no staff recipient.
+      consultant_notification_enabled: Boolean(scope.actor?.email),
     })
     .select('id')
     .single()
@@ -363,7 +366,7 @@ export async function duplicateCampaignForReuse(sourceCampaignId: string) {
       db
         .from('campaigns')
         .select(
-          'id, title, description, client_id, partner_id, opens_at, closes_at, branding, allow_resume, show_progress, randomize_assessment_order, confidentiality_mode, inviter_name, inviter_role',
+          'id, title, description, client_id, partner_id, opens_at, closes_at, branding, allow_resume, show_progress, randomize_assessment_order, confidentiality_mode, inviter_name, inviter_role, consultant_emails, consultant_notification_enabled, consultant_notification_include_summary, consultant_notification_attach_pdf',
         )
         .eq('id', sourceCampaignId)
         .is('deleted_at', null)
@@ -398,6 +401,16 @@ export async function duplicateCampaignForReuse(sourceCampaignId: string) {
 
   const nextTitle = buildReusedCampaignTitle(String(sourceCampaign.title ?? 'Campaign'))
 
+  // Reuse preserves the explicitly chosen recipients and toggles. Legacy enabled
+  // campaigns with no recipient start with the authorized copier's staff email.
+  const sourceRecipients = (sourceCampaign.consultant_emails ?? []) as string[]
+  const notificationsEnabled = sourceCampaign.consultant_notification_enabled ?? true
+  const consultantEmails = sourceRecipients.length > 0
+    ? sourceRecipients
+    : notificationsEnabled && access.scope.actor?.email
+      ? [access.scope.actor.email]
+      : []
+
   const { data: duplicatedCampaign, error: duplicatedCampaignError } = await db
     .from('campaigns')
     .insert({
@@ -416,6 +429,10 @@ export async function duplicateCampaignForReuse(sourceCampaignId: string) {
       confidentiality_mode: sourceCampaign.confidentiality_mode ?? 'standard',
       inviter_name: sourceCampaign.inviter_name ?? null,
       inviter_role: sourceCampaign.inviter_role ?? null,
+      consultant_emails: consultantEmails,
+      consultant_notification_enabled: notificationsEnabled && consultantEmails.length > 0,
+      consultant_notification_include_summary: sourceCampaign.consultant_notification_include_summary ?? true,
+      consultant_notification_attach_pdf: sourceCampaign.consultant_notification_attach_pdf ?? true,
     })
     .select('id')
     .single()
@@ -587,6 +604,15 @@ export async function updateCampaign(id: string, payload: Record<string, unknown
   }
 
   const db = createAdminClient()
+  if (clientId !== (access.clientId ?? null)) {
+    const sessionCount = await dalGetCampaignSessionCount(db, id)
+    if (sessionCount === null) {
+      return { error: { _form: ['Unable to verify campaign sessions. Try again before moving this campaign.'] } }
+    }
+    if (sessionCount > 0) {
+      return { error: { clientId: ['Campaigns with assessment sessions cannot be moved to a different client. Reuse the campaign instead.'] } }
+    }
+  }
   const { error } = await db
     .from('campaigns')
     .update({
@@ -2619,6 +2645,17 @@ export async function updateCampaignConsultantSettings(
   if (input.attachPdf !== undefined) patch.consultant_notification_attach_pdf = input.attachPdf
   if (Object.keys(patch).length === 0) return { success: true }
   const db = createAdminClient()
+  if (input.enabled !== undefined || input.emails !== undefined) {
+    // Partial settings edits must validate against the stored counterpart: enabling
+    // an empty list and removing the last enabled recipient both suppress emails.
+    const current = await dalGetCampaignConsultantSettings(db, campaignId)
+    if (!current) return { error: 'Unable to load consultant settings.' }
+    const enabled = input.enabled ?? current.enabled
+    const emails = (patch.consultant_emails as string[] | undefined) ?? current.emails
+    if (enabled && emails.length === 0) {
+      return { error: 'Add a notification recipient or turn off completion notifications.' }
+    }
+  }
   const { error } = await db.from('campaigns').update(patch).eq('id', campaignId)
   if (error) {
     logActionError('updateCampaignConsultantSettings', error)

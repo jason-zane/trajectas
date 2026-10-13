@@ -451,9 +451,16 @@ export async function getParticipantResponses(
     .from("participant_sessions")
     .select("assessment_id")
     .eq("id", sessionId)
-    .single();
+    .maybeSingle();
 
-  if (sessionError || !session) return [];
+  if (sessionError) {
+    throwActionError(
+      "getParticipantResponses",
+      "Unable to load participant session.",
+      sessionError,
+    );
+  }
+  if (!session) return [];
 
   const { data: sections, error: sectionsError } = await db
     .from("assessment_sections")
