@@ -37,7 +37,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <SessionActivityProvider>
+    <SessionActivityProvider role={bootstrap.actor?.role}>
       <SessionExpiryWarning />
       <WorkspaceShell bootstrap={bootstrap}>{children}</WorkspaceShell>
     </SessionActivityProvider>

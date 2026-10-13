@@ -25,6 +25,10 @@ import {
   isSessionExpired,
   buildLastActivityCookieOptions,
 } from "@/lib/auth/session-activity";
+import {
+  getSessionTimeouts,
+  PLATFORM_ADMIN_INACTIVITY_TIMEOUT_SECONDS,
+} from "@/lib/auth/session-activity-constants";
 
 const mutationMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -397,8 +401,25 @@ export async function proxy(request: NextRequest) {
       const raw = request.cookies.get(ACTIVITY_COOKIE)?.value;
       const lastActivity = decodeLastActivity(raw);
 
-      if (lastActivity !== null && isSessionExpired(lastActivity)) {
-        return NextResponse.redirect(new URL("/auth/expire", request.url));
+      if (
+        lastActivity !== null &&
+        isSessionExpired(lastActivity, PLATFORM_ADMIN_INACTIVITY_TIMEOUT_SECONDS)
+      ) {
+        // Only resolve the role once the shorter admin window has elapsed.
+        // Active requests keep local JWT verification without a DB round trip.
+        // Read the account role, not the selected workspace or editable metadata.
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", userId)
+          .maybeSingle();
+        const { inactivityTimeoutSeconds } = getSessionTimeouts(
+          error ? null : profile?.role
+        );
+
+        if (isSessionExpired(lastActivity, inactivityTimeoutSeconds)) {
+          return NextResponse.redirect(new URL("/auth/expire", request.url));
+        }
       }
 
       // Slide the activity window

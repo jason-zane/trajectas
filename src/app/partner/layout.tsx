@@ -24,7 +24,7 @@ export default async function PartnerLayout({
   }
 
   return (
-    <SessionActivityProvider>
+    <SessionActivityProvider role={bootstrap.actor?.role}>
       <SessionExpiryWarning />
       <WorkspaceShell bootstrap={bootstrap}>{children}</WorkspaceShell>
     </SessionActivityProvider>

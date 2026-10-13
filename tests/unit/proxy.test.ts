@@ -4,6 +4,7 @@ import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { NextRequest } from "next/server";
 import { proxy } from "../../src/proxy";
+import { COOKIE_NAME, encodeLastActivity, decodeLastActivity } from "@/lib/auth/session-activity";
 import robots from "../../src/app/robots";
 import sitemap from "../../src/app/sitemap";
 import { MARKETING_PATHS } from "../../src/lib/seo/marketing-routes";
@@ -16,7 +17,16 @@ const MARKETING_GROUP = join(
 );
 
 // Mock Supabase middleware client
+const mockProfileLookup = vi.fn();
+const mockProfileEq = vi.fn(() => ({ maybeSingle: mockProfileLookup }));
+const mockProfileFrom = vi.fn(() => ({
+  select: vi.fn(() => ({
+    eq: mockProfileEq,
+  })),
+}));
+
 let mockSupabaseClient: {
+  from: typeof mockProfileFrom;
   auth: { getClaims: () => Promise<{ data: { claims: { sub: string } } | null; error: null }> };
 };
 
@@ -26,7 +36,9 @@ vi.mock("../../src/lib/supabase/middleware", () => ({
 
 // Default to unauthenticated; tests can override
 beforeEach(() => {
+  mockProfileLookup.mockResolvedValue({ data: { role: "consultant" }, error: null });
   mockSupabaseClient = {
+    from: mockProfileFrom,
     auth: { getClaims: async () => ({ data: null, error: null }) },
   };
 });
@@ -424,5 +436,88 @@ describe("proxy CSP header modes", () => {
     expect(response.headers.has("Content-Security-Policy")).toBe(true);
     const cspValue = response.headers.get("Content-Security-Policy");
     expect(cspValue).toContain("script-src");
+  });
+});
+
+describe("proxy role-based inactivity", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-13T00:00:00Z"));
+    vi.stubEnv("ADMIN_APP_URL", "https://admin.trajectas.test");
+    vi.stubEnv("PARTNER_APP_URL", "https://partner.trajectas.test");
+    vi.stubEnv("CLIENT_APP_URL", "https://client.trajectas.test");
+    vi.stubEnv("TRAJECTAS_CONTEXT_SECRET", "test-signing-secret-32-bytes-here");
+    mockSupabaseClient.auth.getClaims = async () => ({
+      data: { claims: { sub: "test-user-id" } }, error: null,
+    });
+  });
+
+  afterEach(() => { vi.useRealTimers(); });
+
+  function requestAfter(seconds: number, path = "https://client.trajectas.test/campaigns") {
+    const request = createRequest(path);
+    request.cookies.set(COOKIE_NAME, encodeLastActivity(Math.floor(Date.now() / 1000) - seconds));
+    return request;
+  }
+
+  it("lets a regular user return after 60 minutes and refreshes activity", async () => {
+    const response = await proxy(requestAfter(3600));
+    expect(response.headers.get("location")).toBeNull();
+    const refreshed = decodeLastActivity(response.cookies.get(COOKIE_NAME)?.value);
+    expect(refreshed).toBeGreaterThanOrEqual(Math.floor(Date.now() / 1000) - 1);
+    expect(mockProfileFrom).toHaveBeenCalledWith("profiles");
+    expect(mockProfileEq).toHaveBeenCalledWith("id", "test-user-id");
+  });
+
+  it("allows regular users just before 90 minutes", async () => {
+    const response = await proxy(requestAfter(5399));
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("expires regular users exactly at 90 minutes", async () => {
+    const response = await proxy(requestAfter(5400));
+    expect(response.headers.get("location")).toBe("https://client.trajectas.test/auth/expire");
+  });
+
+  it.each([
+    "https://admin.trajectas.test/dashboard",
+    "https://client.trajectas.test/campaigns",
+    "https://partner.trajectas.test/clients",
+  ])("expires platform admins at 30 minutes on %s", async (path) => {
+    mockProfileLookup.mockResolvedValue({ data: { role: "platform_admin" }, error: null });
+    const response = await proxy(requestAfter(1800, path));
+    expect(response.headers.get("location")).toBe(new URL("/auth/expire", path).toString());
+  });
+
+  it.each(["platform_admin", "consultant"])("avoids extra role queries while %s is active", async () => {
+    const response = await proxy(requestAfter(1799));
+    expect(response.headers.get("location")).toBeNull();
+    expect(mockProfileFrom).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { data: null, error: null },
+    { data: null, error: { message: "Profile lookup failed" } },
+    { data: { role: "consultant" }, error: { message: "Profile lookup failed" } },
+  ])("uses 30 minutes when the account role cannot be verified (%j)", async (result) => {
+    mockProfileLookup.mockResolvedValue(result);
+    const response = await proxy(requestAfter(1800));
+    expect(response.headers.get("location")).toBe("https://client.trajectas.test/auth/expire");
+  });
+
+  it("enforces the same policy on the keep-alive API", async () => {
+    mockProfileLookup.mockResolvedValue({ data: { role: "platform_admin" }, error: null });
+    const request = createRequest("https://client.trajectas.test/api/auth/activity", { "sec-fetch-site": "same-origin" }, "POST");
+    request.cookies.set(COOKIE_NAME, encodeLastActivity(Math.floor(Date.now() / 1000) - 1800));
+    const response = await proxy(request);
+    expect(response.headers.get("location")).toBe("https://client.trajectas.test/auth/expire");
+  });
+
+  it("keeps assessment and authentication routes outside the staff inactivity check", async () => {
+    for (const path of ["/assess/example", "/auth/callback", "/auth/expire", "/login"]) {
+      const response = await proxy(requestAfter(7200, `https://client.trajectas.test${path}`));
+      expect(response.headers.get("location")).not.toBe("https://client.trajectas.test/auth/expire");
+    }
+    expect(mockProfileFrom).not.toHaveBeenCalled();
   });
 });
