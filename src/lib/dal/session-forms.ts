@@ -553,7 +553,9 @@ async function assembleAndFreezeSectionForms(
       .upsert(toInsert, { onConflict: 'session_id,section_id', ignoreDuplicates: true })
 
     if (insertError) {
-      if (insertError.code === '40001' && attempt < 2) {
+      // PT409 is a changed assembly input, so retry with a fresh revision.
+      // Keep 40001 compatibility while older database functions drain.
+      if (['PT409', '40001'].includes(insertError.code) && attempt < 2) {
         return assembleAndFreezeSectionForms(db, input, attempt + 1)
       }
       throw new FormPersistenceError('sessionForms.insert', insertError)
