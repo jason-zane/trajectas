@@ -306,6 +306,10 @@ export function AppSidebar({ identity }: AppSidebarProps = {}) {
   const { isSectionOpen, setSectionOpen } = useSidebarSections(portal);
   const settingsHref = href("/settings");
   const clientUsageHref = href("/usage");
+  // Usage is available to client members; Brand requires a client admin.
+  const clientSettingsHref = features.usageVisibility
+    ? clientUsageHref
+    : href("/settings/brand/client");
   const isSettingsArea =
     pathname === settingsHref ||
     pathname.startsWith(`${settingsHref}/`) ||
@@ -487,7 +491,7 @@ export function AppSidebar({ identity }: AppSidebarProps = {}) {
               <SidebarMenuButton
                 isActive={isSettingsArea}
                 tooltip="Settings"
-                render={<Link href={href("/settings/brand/client")} />}
+                render={<Link href={clientSettingsHref} />}
               >
                 <Settings className="size-4" />
                 <span>Settings</span>
