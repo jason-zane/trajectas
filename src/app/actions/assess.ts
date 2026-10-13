@@ -2,6 +2,7 @@
 
 import { finalizeCompletedSessionProcessing, getExistingCompletedSessionOutcome } from '@/lib/dal/session-processing'
 import { markPublicBuildStarted } from '@/lib/dal/public-builds'
+import { restoreMissingSessionClient } from '@/lib/dal/participant-session-ownership'
 import { createAssessSessionProof } from '@/lib/assess/session-proof'
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -372,27 +373,6 @@ export async function getAssessmentItemCount(assessmentIds: string[]): Promise<n
 // ---------------------------------------------------------------------------
 // Session management
 // ---------------------------------------------------------------------------
-
-async function restoreMissingSessionClient(
-  db: ReturnType<typeof createAdminClient>,
-  session: { id: string; client_id: string | null },
-  access: Awaited<ReturnType<typeof requireParticipantRuntimeCampaignAssessmentAccess>>,
-): Promise<boolean> {
-  if (!access.clientId || session.client_id !== null) return true
-  // Legacy token sessions omitted the owner. Heal only that missing value after
-  // token/campaign/assessment authorization; never overwrite an existing owner.
-  const { error } = await db.from('participant_sessions')
-    .update({ client_id: access.clientId })
-    .eq('id', session.id)
-    .eq('campaign_id', access.campaignId)
-    .eq('campaign_participant_id', access.participantId)
-    .is('client_id', null)
-  if (error) {
-    logActionError('startSession.restoreClient', error)
-    return false
-  }
-  return true
-}
 
 export async function startSession(
   token: string,
