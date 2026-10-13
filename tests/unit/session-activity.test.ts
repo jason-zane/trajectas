@@ -7,6 +7,13 @@ import {
   COOKIE_NAME,
 } from "@/lib/auth/session-activity";
 
+import {
+  getSessionTimeouts,
+  WARNING_THRESHOLD_SECONDS,
+  PLATFORM_ADMIN_INACTIVITY_TIMEOUT_SECONDS,
+  PLATFORM_ADMIN_WARNING_THRESHOLD_SECONDS,
+} from "@/lib/auth/session-activity-constants";
+
 const TEST_SECRET = "test-secret-at-least-32-chars-long-ok";
 
 beforeEach(() => {
@@ -69,18 +76,53 @@ describe("isSessionExpired", () => {
     expect(isSessionExpired(now - INACTIVITY_TIMEOUT_SECONDS)).toBe(true);
   });
 
-  it("returns true for a timestamp >30 min ago", () => {
+  it("returns true for a timestamp >90 min ago", () => {
     const now = Math.floor(Date.now() / 1000);
-    expect(isSessionExpired(now - 1801)).toBe(true);
+    expect(isSessionExpired(now - 5401)).toBe(true);
   });
 });
 
 describe("constants", () => {
-  it("INACTIVITY_TIMEOUT_SECONDS is 1800", () => {
-    expect(INACTIVITY_TIMEOUT_SECONDS).toBe(1800);
+  it("INACTIVITY_TIMEOUT_SECONDS is 5400", () => {
+    expect(INACTIVITY_TIMEOUT_SECONDS).toBe(5400);
   });
 
   it("COOKIE_NAME is tf_last_activity", () => {
     expect(COOKIE_NAME).toBe("tf_last_activity");
+  });
+});
+
+
+describe("role-based session limits", () => {
+  it.each(["org_admin", "partner_admin", "consultant", "participant"])(
+    "gives %s 90 minutes with a warning at 85",
+    (role) => {
+      expect(getSessionTimeouts(role)).toEqual({
+        inactivityTimeoutSeconds: 5400,
+        warningThresholdSeconds: 5100,
+      });
+    }
+  );
+
+  it.each(["platform_admin", null, undefined])(
+    "keeps the shorter policy for role %s",
+    (role) => {
+      expect(getSessionTimeouts(role)).toEqual({
+        inactivityTimeoutSeconds: 1800,
+        warningThresholdSeconds: 1500,
+      });
+    }
+  );
+
+  it("keeps the warning five minutes before each timeout", () => {
+    expect(INACTIVITY_TIMEOUT_SECONDS - WARNING_THRESHOLD_SECONDS).toBe(300);
+    expect(PLATFORM_ADMIN_INACTIVITY_TIMEOUT_SECONDS - PLATFORM_ADMIN_WARNING_THRESHOLD_SECONDS).toBe(300);
+  });
+
+  it("expires platform admins exactly at 30 minutes", () => {
+    const now = Math.floor(Date.now() / 1000);
+    expect(isSessionExpired(now - 1799, PLATFORM_ADMIN_INACTIVITY_TIMEOUT_SECONDS)).toBe(false);
+    expect(isSessionExpired(now - 1800, PLATFORM_ADMIN_INACTIVITY_TIMEOUT_SECONDS)).toBe(true);
+    expect(isSessionExpired(now - 1800)).toBe(false);
   });
 });

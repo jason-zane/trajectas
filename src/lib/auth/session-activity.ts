@@ -74,9 +74,12 @@ export function decodeLastActivity(
   }
 }
 
-export function isSessionExpired(lastActivity: number): boolean {
+export function isSessionExpired(
+  lastActivity: number,
+  inactivityTimeoutSeconds = INACTIVITY_TIMEOUT_SECONDS
+): boolean {
   const now = Math.floor(Date.now() / 1000);
-  return now - lastActivity >= INACTIVITY_TIMEOUT_SECONDS;
+  return now - lastActivity >= inactivityTimeoutSeconds;
 }
 
 export function buildLastActivityCookieOptions(): CookieOptions {

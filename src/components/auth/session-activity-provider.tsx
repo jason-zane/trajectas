@@ -8,14 +8,9 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  WARNING_THRESHOLD_SECONDS,
-  INACTIVITY_TIMEOUT_SECONDS,
-} from "@/lib/auth/session-activity-constants";
+import { getSessionTimeouts } from "@/lib/auth/session-activity-constants";
 import { fetchWithTimeout } from "@/lib/net/fetch-with-timeout";
 
-const WARNING_MS = WARNING_THRESHOLD_SECONDS * 1000;
-const TIMEOUT_MS = INACTIVITY_TIMEOUT_SECONDS * 1000;
 const DEBOUNCE_MS = 60_000; // record activity max once per 60 seconds
 const BROADCAST_CHANNEL = "trajectas_session_activity";
 
@@ -38,11 +33,14 @@ export function useSessionActivity() {
 
 export function SessionActivityProvider({
   children,
+  role,
 }: {
   children: React.ReactNode;
+  role?: string | null;
 }) {
+  const { inactivityTimeoutSeconds, warningThresholdSeconds } = getSessionTimeouts(role);
   const [showWarning, setShowWarning] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(INACTIVITY_TIMEOUT_SECONDS);
+  const [timeRemaining, setTimeRemaining] = useState(inactivityTimeoutSeconds);
 
   const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const expiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -61,24 +59,26 @@ export function SessionActivityProvider({
 
     warningTimerRef.current = setTimeout(() => {
       setShowWarning(true);
+      const elapsed = Math.floor((Date.now() - lastResetRef.current) / 1000);
+      setTimeRemaining(Math.max(0, inactivityTimeoutSeconds - elapsed));
       // Start countdown
       countdownRef.current = setInterval(() => {
         const elapsed = Math.floor((Date.now() - lastResetRef.current) / 1000);
-        setTimeRemaining(Math.max(0, INACTIVITY_TIMEOUT_SECONDS - elapsed));
+        setTimeRemaining(Math.max(0, inactivityTimeoutSeconds - elapsed));
       }, 1000);
-    }, WARNING_MS);
+    }, warningThresholdSeconds * 1000);
 
     expiryTimerRef.current = setTimeout(() => {
       window.location.href = "/auth/expire";
-    }, TIMEOUT_MS);
-  }, [clearAllTimers]);
+    }, inactivityTimeoutSeconds * 1000);
+  }, [clearAllTimers, inactivityTimeoutSeconds, warningThresholdSeconds]);
 
   const startTimers = useCallback(() => {
     lastResetRef.current = Date.now();
     setShowWarning(false);
-    setTimeRemaining(INACTIVITY_TIMEOUT_SECONDS);
+    setTimeRemaining(inactivityTimeoutSeconds);
     scheduleTimers();
-  }, [scheduleTimers]);
+  }, [scheduleTimers, inactivityTimeoutSeconds]);
 
   const callKeepAlive = useCallback(async () => {
     try {
