@@ -217,10 +217,7 @@ const partnerNav: NavSection[] = [
 const clientNav: NavSection[] = [
   {
     label: "Overview",
-    items: [
-      { title: "Dashboard", href: "/dashboard", icon: Home },
-      { title: "Usage", href: "/usage", icon: BarChart3 },
-    ],
+    items: [{ title: "Dashboard", href: "/dashboard", icon: Home }],
   },
   {
     label: "Assessments",
@@ -263,6 +260,7 @@ const clientSettingsNav: NavSection[] = [
     items: [
       { title: "Brand", href: "/settings/brand/client", icon: Palette },
       { title: "Team", href: "/settings/users", icon: Users },
+      { title: "Usage", href: "/usage", icon: BarChart3 },
     ],
   },
 ];
@@ -307,13 +305,26 @@ export function AppSidebar({ identity }: AppSidebarProps = {}) {
   })).filter(section => section.items.length > 0);
   const { isSectionOpen, setSectionOpen } = useSidebarSections(portal);
   const settingsHref = href("/settings");
+  const clientUsageHref = href("/usage");
+  // Usage is available to client members; Brand requires a client admin.
+  const clientSettingsHref = features.usageVisibility
+    ? clientUsageHref
+    : href("/settings/brand/client");
   const isSettingsArea =
-    pathname === settingsHref || pathname.startsWith(`${settingsHref}/`);
+    pathname === settingsHref ||
+    pathname.startsWith(`${settingsHref}/`) ||
+    (portal === "client" &&
+      (pathname === clientUsageHref || pathname.startsWith(`${clientUsageHref}/`)));
   const displayNav = isSettingsArea
     ? portal === "admin"
       ? settingsNav
       : portal === "client"
-        ? clientSettingsNav
+        ? clientSettingsNav.map(section => ({
+            ...section,
+            items: section.items.filter(item =>
+              item.href !== "/usage" || features.usageVisibility
+            ),
+          }))
         : portal === "partner"
           ? partnerSettingsNav
         : navSections
@@ -480,7 +491,7 @@ export function AppSidebar({ identity }: AppSidebarProps = {}) {
               <SidebarMenuButton
                 isActive={isSettingsArea}
                 tooltip="Settings"
-                render={<Link href={href("/settings/brand/client")} />}
+                render={<Link href={clientSettingsHref} />}
               >
                 <Settings className="size-4" />
                 <span>Settings</span>
