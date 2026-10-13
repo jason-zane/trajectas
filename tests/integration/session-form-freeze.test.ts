@@ -191,7 +191,8 @@ describe.skipIf(!canRun)("getOrCreateSectionForms — frozen per-session forms",
       const staleRevision = await revision();
       optionId = await insertRow("item_options", { item_id: ids.itemOne, label: "Yes", value: 1, display_order: 1 });
       const stale = await adminDb.from("participant_section_forms").insert(formPayload(session.sessionId, staleRevision));
-      expect(stale.error?.code).toBe("40001");
+      expect(stale.error?.code).toBe("PT409");
+      expect(stale.status).toBe(409);
       const forms = await getOrCreateSectionForms(adminDb, {
         sessionId: session.sessionId, assessmentId: ids.assessment, campaignId: ids.campaign,
       });
@@ -260,7 +261,7 @@ describe.skipIf(!canRun)("getOrCreateSectionForms — frozen per-session forms",
         adminDb.from("participant_section_forms").insert(payload),
         adminDb.from("items").update({ stem: "Racing edit" }).eq("id", ids.itemOne),
       ]);
-      expect(freeze.error?.code === "40001" || edit.error?.code === "23514").toBe(true);
+      expect(freeze.error?.code === "PT409" || edit.error?.code === "23514").toBe(true);
       expect(freeze.error === null && edit.error === null).toBe(false);
     } finally {
       await cleanupSession(session);
