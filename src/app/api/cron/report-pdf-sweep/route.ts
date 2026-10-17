@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isSupabaseGatewayError } from '@/lib/supabase/gateway-error'
 import { drainReportPdfJobs } from '@/lib/reports/pdf-jobs'
 import { reportError } from '@/lib/observability/report-error'
 import {
@@ -47,6 +48,12 @@ export async function GET(request: Request): Promise<Response> {
       ...result,
     })
   } catch (error) {
+    // The sweep runs every minute and every job it touches is durable, so a
+    // one-off gateway blip heals on the next run. Record it; don't page.
+    if (isSupabaseGatewayError(error)) {
+      await reportError(error, { source: 'cron.report-pdf-sweep', severity: 'warning', alert: false })
+      return Response.json({ error: 'PDF sweep deferred: database gateway unavailable' }, { status: 503 })
+    }
     await reportError(error, { source: 'cron.report-pdf-sweep', severity: 'error', alert: true })
     return Response.json({ error: 'PDF sweep failed' }, { status: 500 })
   }
