@@ -8,25 +8,31 @@ npm run dev
 
 Open `http://localhost:3002`.
 
-## Safe-To-Deploy Workflow
+Normal development uses the existing hosted **Trajectas (Dev)** Supabase project:
+`https://bgrvqvtlhmfmvcytncgw.supabase.co`. Docker is not required. Configure
+client and server values for that project through authorized development-only
+secret handling; do not copy the primary checkout's production `.env.local`.
+Use synthetic data and preserve other tasks' fixtures. Never reset shared
+hosted development.
 
-Keep this simple. Before shipping changes:
+## Validation and releases
 
-1. Run `npm run lint`
-2. Run `npm run typecheck`
-3. Run `npm run test:coverage`
-4. Run `npm run build`
-5. Run `npm run test:e2e:smoke`
-6. Run the seeded full-stack check when you changed auth, campaigns, participants, reports/PDFs, or runner flows:
+Follow [the canonical release and recovery runbook](docs/runbook.md) for target
+verification, ordered migrations, testing, acceptance and release decisions.
+`node scripts/release/validate-local.mjs` runs ordinary checks in an isolated
+environment-free worktree. CI provisions disposable local Supabase stacks for
+full migration replay, integration and seeded browser tests. Those CI commands
+are not a requirement to run Docker during normal development.
 
-```bash
-npm run db:test:start
-npm run db:test:reset
-npm run test:e2e:seeded
-npm run db:test:stop
-```
+`npm run db:status` and `npm run db:push -- --dry-run` require an explicit
+`TRAJECTAS_DEVELOPMENT_DATABASE_URL` and refuse production targets. Inspect
+migration history before any apply; do not force bootstrap history or reset the
+shared database. The authorized Supabase connector can apply reviewed migrations.
 
-Do not lower lint/test thresholds or skip jobs to get green. Fix the code or the stale tests.
+Green checks are evidence for review. Jason approves a release for an identified
+commit; database changes and provider/security settings have their applicable
+separate approval. Use verified development for synthetic write acceptance.
+Production acceptance is bounded and read-only under the runbook.
 
 ## Launch Env Checklist
 
@@ -59,36 +65,10 @@ Notes:
 - Keep the current env names and casing exactly as shown above. Do not rename `OpenRouter_API_KEY` before launch.
 - Keep `INTERNAL_INTEGRATIONS_API_ENABLED=false` unless integrations are explicitly part of the launch scope and separately verified.
 
-## Pre-Deploy Manual Steps
+## Environment and recovery evidence
 
-1. In the Supabase dashboard, manually set the existing `reports` storage bucket to private before launch. The code now creates new buckets as private, but that does not change an already-created production bucket.
-2. Confirm the preview or production environment has `REPORT_PDF_TOKEN_SECRET` set and that report/PDF access still works through the tokenized flow.
-3. If you changed campaign readiness logic, make sure any seeded campaign fixtures used in E2E still satisfy activation/readiness requirements.
-
-## What GitHub Checks
-
-GitHub blocks changes automatically if any of these fail:
-
-- dependency vulnerability audit
-- committed secret scan
-- lint
-- typecheck
-- unit, integration, and component tests
-- production build
-- browser smoke tests
-
-That means the simplest rule is:
-
-- if GitHub is green and your local checks are green, it is safe to deploy
-
-## After Deploy
-
-Do one manual production smoke on every launch:
-
-1. open the public site and `/surface-coming-soon`
-2. open admin dashboard, campaigns, participants, and reports
-3. open one live assessment link and complete the core runner flow
-4. verify one report PDF download/render path
-5. verify one participant invite send path through Resend
-6. verify one auth email path through the Supabase `send_email` hook
-7. confirm partner and client surfaces load on their intended hosts or routed paths with no auth or loading errors
+The runbook owns the maintained provider, storage, auth/email, Preview mapping
+and recovery requirements. Verify actual settings through permitted access;
+source defaults do not establish current provider state. Report unavailable
+or unrun checks explicitly. Do not submit a live assessment, send invitations,
+change customer data or invoke side-effecting jobs as a production smoke test.

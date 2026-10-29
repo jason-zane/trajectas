@@ -143,7 +143,7 @@ an applied migration to imply the live database changed.
   equivalents. New scoring versions must not silently recompute delivered
   evidence. Billing evidence includes test-mode invoices/webhooks, duplicate
   delivery/idempotency and expected amounts; it must not charge a live customer.
-- On an isolated synthetic local/CI target (or separately approved staging),
+- On verified hosted development or a disposable synthetic CI target,
   demonstrate a fresh assessment → submission → scoring
   → stored report snapshot → downloadable PDF, plus relevant retry behavior.
   Existing seeded E2E is partial evidence, so record the missing steps explicitly
@@ -151,9 +151,8 @@ an applied migration to imply the live database changed.
   changing the numerical worker (`python -m unittest discover -s tests/outcomes -v`).
 - Prefer expand → compatible app → verify → later contract. Show current app
   with expanded schema, new app with expanded schema, and the rollback app with
-  the schema that will remain. Replay reviewed migrations on an isolated local/CI
-  target before a PR, and on hosted staging if such a target is approved and
-  available; **never require a production migration just to open one**. Missing
+  the schema that will remain. Replay reviewed migrations in disposable CI and verify them against hosted
+  development within the approved scope; **never require a production migration just to open one**. Missing
   staging does not remove production schema, compatibility or recovery checks.
 - At production action time, obtain explicit approval for the exact migration,
   target, order and side effects. If a compatible additive migration must precede
