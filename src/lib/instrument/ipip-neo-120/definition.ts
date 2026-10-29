@@ -68,7 +68,7 @@ export const IPIP_FORM: IpipForm = Object.freeze({
   items: IPIP_ITEMS,
 })
 
-/** A future delivery adapter must resolve UUIDs to these stable IDs before use. */
+/** The database adapter resolves canonical UUIDs to these stable IDs. */
 export function assertIpipNeo120Form(form: IpipForm): void {
   if (form.formVersion !== IPIP_FORM_VERSION || form.itemsetSha256 !== IPIP_ITEMSET_SHA256) {
     throw new Error('IPIP-NEO-120 form version or source itemset does not match')
@@ -84,7 +84,7 @@ export function assertIpipNeo120Form(form: IpipForm): void {
   }
 }
 
-/** This pure guard is not yet connected to campaign assembly or activation. */
+/** Pure selection validation; database delivery also rejects facet subsets. */
 export function assertIpipNeo120Selection(
   facetCodes: readonly string[] | null,
   itemsPerConstruct: number | null,

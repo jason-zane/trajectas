@@ -56,7 +56,7 @@
   "requiredScoringProfile": {
     "proposedName": "ipip_neo_120_v1",
     "coreImplemented": true,
-    "installed": false
+    "installed": true
   },
   "requiresUuidResolution": true,
   "section": {

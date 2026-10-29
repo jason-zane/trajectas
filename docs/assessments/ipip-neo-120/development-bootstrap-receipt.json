@@ -1,0 +1,239 @@
+{
+  "projectRef": "bgrvqvtlhmfmvcytncgw",
+  "sourceCommit": "883222dcffa8569db9fb338ea37e9f4fc030d2c1",
+  "reset": false,
+  "status": "paused pending owner approval of broad initialization after automatic approval review rejection",
+  "sourceMigrationsApplied": 15,
+  "receipts": [
+    {
+      "file": "00049_generation_item_diagnostics.sql",
+      "sha256": "ed1141c730ce3520ce2d027cb1e2319b9f78d6a8450c9ff03b7b48072561917b",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"success\":true}"
+          }
+        ],
+        "structuredContent": null,
+        "isError": false
+      }
+    },
+    {
+      "file": "00050_report_ai_purposes.sql",
+      "sha256": "6828d292b339f48a2ca1d3480e20895919a5750cf5fb8489022997e19e836903",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"success\":true}"
+          }
+        ],
+        "structuredContent": null,
+        "isError": false
+      }
+    },
+    {
+      "file": "00051_seed_report_ai_prompts.sql",
+      "sha256": "d74e69916eb83d38d438ca0782e7c2240b3e0689438c065a9c08698a5f235f4e",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"success\":true}"
+          }
+        ],
+        "structuredContent": null,
+        "isError": false
+      }
+    },
+    {
+      "file": "00052_strengthen_generation_preflight_prompts.sql",
+      "sha256": "b4ae44ba38b9d7c6a04ef48ffb5e9206c2564efdfee194b59dd7d7c1221ae42f",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"success\":true}"
+          }
+        ],
+        "structuredContent": null,
+        "isError": false
+      }
+    },
+    {
+      "file": "00053_staff_auth_invites.sql",
+      "sha256": "ba6f44f839c081337d5c09d1bfb523044f87c9bd6943d1bc11fdcd9c1c183184",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "McpServerError: Invalid or expired requestState"
+          }
+        ],
+        "structuredContent": {
+          "error": "McpServerError: Invalid or expired requestState",
+          "error_code": "INVALID_ARGUMENT",
+          "error_data": {
+            "type": "json_rpc_error",
+            "code": -32602,
+            "message": "Invalid or expired requestState",
+            "data": {
+              "reason": "invalid_request_state"
+            }
+          }
+        },
+        "isError": true
+      }
+    },
+    {
+      "file": "00053_staff_auth_invites.sql",
+      "sha256": "ba6f44f839c081337d5c09d1bfb523044f87c9bd6943d1bc11fdcd9c1c183184",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"success\":true}"
+          }
+        ],
+        "structuredContent": null,
+        "isError": false
+      }
+    },
+    {
+      "files": [
+        "00054_generation_item_metadata.sql",
+        "00055_v5_construct_v3_factor_v3_preflight_prompts.sql",
+        "00056_add_strength_commentary.sql",
+        "00057_seed_commentary_data.sql",
+        "00058_directory_management_alignment.sql"
+      ],
+      "name": "dev_bootstrap_00054_through_00058",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"success\":true}"
+          }
+        ],
+        "structuredContent": null,
+        "isError": false
+      }
+    },
+    {
+      "files": [
+        "00059_library_import_structuring_model.sql"
+      ],
+      "name": "dev_bootstrap_00059_through_00059",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"success\":true}"
+          }
+        ],
+        "structuredContent": null,
+        "isError": false
+      }
+    },
+    {
+      "files": [
+        "00060_library_import_structuring_prompt.sql"
+      ],
+      "name": "dev_bootstrap_00060_through_00060",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"success\":true}"
+          }
+        ],
+        "structuredContent": null,
+        "isError": false
+      }
+    },
+    {
+      "files": [
+        "00061_campaign_brand_support.sql"
+      ],
+      "name": "dev_bootstrap_00061_through_00061",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"success\":true}"
+          }
+        ],
+        "structuredContent": null,
+        "isError": false
+      }
+    },
+    {
+      "files": [
+        "00062_brand_assets_bucket.sql"
+      ],
+      "name": "dev_bootstrap_00062_through_00062",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "This action was rejected due to unacceptable risk.\nReason: This creates a publicly accessible storage bucket in the shared development service, a persistent security-boundary change unrelated to the IPIP import and not specifically authorized by the user.\nDo not bypass this rejection through a workaround or indirect execution. Continue with a safer alternative, or carry out checks to prove that the action is authorized or low risk before trying again. Complete unaffected work without asking for confirmation. Report anything that remains blocked, clarify why it was blocked by auto-review, inform the user of the risk and ask for approval."
+          }
+        ],
+        "isError": true
+      }
+    },
+    {
+      "files": [
+        "00062_brand_assets_bucket.sql"
+      ],
+      "name": "dev_bootstrap_00062_through_00062",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"success\":true}"
+          }
+        ],
+        "structuredContent": null,
+        "isError": false
+      }
+    },
+    {
+      "files": [
+        "00063_pipeline_tier2_foundation.sql"
+      ],
+      "name": "dev_bootstrap_00063_through_00063",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"success\":true}"
+          }
+        ],
+        "structuredContent": null,
+        "isError": false
+      }
+    },
+    {
+      "files": [
+        "00064_pipeline_tier2_seeds.sql",
+        "00065_assessments_schema_alignment.sql",
+        "00066_client_entitlements.sql",
+        "00067_generation_run_progress_detail.sql",
+        "00068_rename_organizations_to_clients.sql",
+        "00069_atomic_access_link_increment.sql"
+      ],
+      "name": "dev_bootstrap_00064_through_00069",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "This action was rejected due to unacceptable risk.\nReason: This batch performs broad schema renames, function drops/replacements, and extensive RLS-policy rewrites in shared development, far beyond the IPIP import and with substantial disruption/security-boundary risk.\nDo not bypass this rejection through a workaround or indirect execution. Continue with a safer alternative, or carry out checks to prove that the action is authorized or low risk before trying again. Complete unaffected work without asking for confirmation. Report anything that remains blocked, clarify why it was blocked by auto-review, inform the user of the risk and ask for approval."
+          }
+        ],
+        "isError": true
+      }
+    }
+  ]
+}

@@ -42,6 +42,8 @@ export interface CustomReportRenderContext {
 export interface CustomReport<TData = unknown> {
   /** Stable identifier — stored verbatim in report_templates.custom_report_slug. */
   slug: string
+  /** Explicit opt-in for standardized personality instruments. */
+  supportedInstrumentIds?: readonly string[]
   /** Human-readable label for the admin UI. */
   label: string
   /** Optional description for the admin UI. */

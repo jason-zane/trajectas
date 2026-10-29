@@ -26,6 +26,7 @@ export default async function PartnerAssessmentEditLayout({
         title: assessment.title,
         status: assessment.status,
       }}
+      standardized={assessment.scoringProfile === 'ipip_neo_120_v1'}
       customReportLockName={customReportLockName}
       basePath={`/partner/assessments/${assessment.id}/edit`}
     >

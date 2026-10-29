@@ -28,6 +28,7 @@ import { getEffectiveBrand } from '@/lib/dal/brand'
 import { enqueueReportSnapshotEvent } from '@/lib/integrations/events'
 import { notifyConsultantsForSnapshot } from '@/lib/notifications/consultant-notification'
 import { reportError } from '@/lib/observability/report-error'
+import { IPIP_DATABASE } from '@/lib/instrument/ipip-neo-120/database-form'
 import { buildReportContext } from './report-context'
 import { getCustomReport } from './custom'
 import type { ReportTheme } from './presentation'
@@ -203,6 +204,10 @@ async function processSnapshotWithinBudget(snapshotId: string): Promise<void> {
     if (template.customReportSlug) {
       await runCustomReport(db, snapshotId, snapshot, template)
       return
+    }
+
+    if (sessionResult.data.assessment_id === IPIP_DATABASE.assessmentId) {
+      throw new Error('IPIP-NEO-120 requires a compatible personality report template')
     }
 
     const blocks = parseBlocks(template.blocks)
@@ -530,6 +535,9 @@ async function runCustomReport(
   }
 
   const ctx = await buildReportContext(db, snapshotId)
+  if (ctx.personalityResult && !report.supportedInstrumentIds?.includes(ctx.personalityResult.instrumentId)) {
+    throw new Error('This report is not registered for IPIP-NEO-120 personality results')
+  }
   const payload = await report.buildData(ctx)
 
   const resolvedBlock: ResolvedBlockData = {

@@ -204,6 +204,7 @@ export function SessionView({
           <SessionScoresPanel
             scores={session.scores}
             dimensionScores={session.dimensionScores}
+            personalityProfile={Boolean(session.personalityResult)}
             compositeScore={session.compositeScore}
             sessionStatus={session.status}
             processingStatus={session.processingStatus}

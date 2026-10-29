@@ -46,8 +46,7 @@ function statistics(rawSum: number, itemsUsed: number): IpipScaleStatistics {
 /**
  * Published native scoring, with separately versioned presentation.
  * No database writes, normative interpretation, imputation or overall score.
- * This core is deliberately not registered in session dispatch until the
- * UUID/form adapter, persistence and result surfaces have acceptance evidence.
+ * Session dispatch uses the frozen UUID adapter and atomic persistence RPC.
  */
 export function scoreIpipNeo120(
   responses: readonly IpipResponse[],

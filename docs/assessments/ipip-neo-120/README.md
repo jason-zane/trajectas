@@ -1,149 +1,165 @@
-# IPIP-NEO-120 preparation and integration status
+# IPIP-NEO-120 implementation
 
-Prepared 29 October 2026 on `codex/ipip-neo-120-preparation`. This is a draft
-instrument implementation, not an activated assessment or an import receipt.
-No database, invitation, provider setting or production record was changed.
+Draft instrument, approved display names and POMP scoring, prepared 29 October
+2026. The assessment stays **draft** and its taxonomy stays **inactive**.
+Production has not been migrated. Environment execution evidence belongs with
+the PR and the development bootstrap receipt; generated files are not receipts.
 
-Jason approved the display labels in `label-map.csv`, including Social
-Confidence and Stress Tolerance. The published scientific names, slugs, item
-wording, item order, key directions and native domain aggregation are retained.
-The itemset remains `johnson-2014-table1-v1`, scoring remains
-`ipip-neo-120-raw-v1`, and presentation is separately versioned as
-`trajectas-personality-labels-v1`.
+## Native assessment contract
 
-## Implemented
+- Five dimensions, 30 facets, 30 locked one-to-one factor mirrors and 120 items.
+- Scientific names, slugs, stems, ordering and published item keys are preserved.
+- Original itemset `johnson-2014-table1-v1`; scoring `ipip-neo-120-raw-v1`;
+  presentation `trajectas-personality-labels-v1`.
+- Native forward response = value; reverse = `6-value`. Four items per facet
+  give totals 4–20; 24 items per dimension give totals 24–120.
+- POMP = `100 * (sum - itemCount) / (4 * itemCount)`.
+- The primary display is **Scale score (0–100)**. Native totals and means remain
+  in the versioned result. There is no overall personality score or percentile.
+- N4 Social Confidence and N6 Stress Tolerance reverse **for display only**:
+  displayed sum = `24-nativeSum`; displayed mean = `6-nativeMean`;
+  displayed POMP = `100-nativePOMP`. Emotional Reactivity always aggregates
+  the original six native facet totals, never the two reversed displays.
+- Fairness describes reported avoidance of cheating, exploitation, manipulation
+  and obstruction. Perceived Competence is self-report, not tested ability.
 
-- All five domain and 30 facet labels, with canonical aliases retained.
-- Complete library descriptors; N4 and N6 low/high text and anchors reverse
-  with their display direction. Fairness is explicitly limited to reported
-  avoidance of manipulation, exploitation, cheating and obstruction; Perceived
-  Competence describes self-report rather than demonstrated ability.
-- Reproducible 155-row CSV: five dimensions, 30 constructs, 120 draft items.
-  Existing importer mirroring would create 30 locked factors. Taxonomy records
-  are inactive. Item keys are never inverted to implement a display rename.
-- A pure server-side scoring core, `scoreIpipNeo120`, that requires 120 unique,
-  known integer responses in 1–5 and produces 30 facets and five dimensions.
-  Facet native totals are 4–20; domain totals 24–120. Means and POMP are retained.
-  There is no overall score or normative interpretation.
-- Pure exact-form and campaign-selection guards, with tests. They are not yet
-  connected to the application's delivery or activation paths.
-- Preserved source files with checksums and a separately pinned itemset hash.
+Descriptors, low/high indicators, anchors, context and reflection text are
+complete in the library import. They are authored Trajectas descriptions, not a
+published interpretive manual or evidence of leadership effectiveness.
+`label-map.csv` gives every scientific-to-display name and direction.
 
-Jason selected 0–100 POMP scale scores as the primary display, with native raw
-totals retained. The participant-facing label is “Scale score (0–100)”. A POMP
-score is not a percentile. It must not acquire population bands or effectiveness
-labels from generic report or comparison defaults.
+## Delivery, scoring and persistence
 
-## Score direction and compatibility
+`ipip_neo_120_v1` dispatches completed sessions to the strict native scorer.
+Canonical UUIDs resolve to stable q001–q120 identities. Both application and
+Postgres validate the entire frozen form, item versions/hash, order, section and
+120 valid unique answers. Campaigns cannot select a subset; generic item caps
+and randomization do not apply. Native items and facets cannot be reused in a
+partial custom assessment. Imported library content and form configuration are
+immutable; a changed instrument needs a new explicit version.
 
-Each item retains its published key: forward `response`, reverse `6-response`.
-Four items form each facet; six original facet totals form each domain, once.
-The factor mirror must not be counted again.
+`persist_ipip_neo_120_result` independently checks native sums against responses,
+checks display statistics, and atomically stores 30 factor score rows plus the
+35-scale envelope in `participant_instrument_results`. Identical submission
+retries converge on the stored result. Native raw totals are retained separately
+from display POMP. Score rows use `metric=personality_pomp`, so competency claims guards refuse
+them. No composite or norm fields are populated. Result edits are
+blocked; deletion through the parent session's authorized cascade remains
+possible for privacy/retention compatibility.
 
-For N4 and N6 only, the result contains both `native` and `display` statistics:
+Existing assessment profiles and delivered snapshots retain their behavior.
+New schema is additive, and the new assessment is locked in draft. Importing the
+CSV through the generic importer is unnecessary: the dedicated migration creates
+all required records atomically and checks collisions on repeat execution.
 
-- `display.rawSum = 24 - native.rawSum`.
-- `display.itemMean = 6 - native.itemMean`.
-- `display.pomp = 100 - native.pomp`.
+## Database and acceptance
 
-For example, native N4 Self-Consciousness total 8 has mean 2 and POMP 25.
-Displayed as Social Confidence, its total is 16, mean 4 and POMP 75. The native
-8 still contributes to Emotional Reactivity. Social Confidence and Stress
-Tolerance increase as native Self-Consciousness and Vulnerability decrease.
+Normal development uses hosted **Trajectas (Dev)**,
+`bgrvqvtlhmfmvcytncgw`; Docker is not required. Initial inspection found a partial
+bootstrap through 00048, zero users, campaigns, assessments, sessions and report
+snapshots, and 15 seed items. The ordered source-hash plan is
+`development-bootstrap-plan.json`. Do not infer parity from project health, reset
+shared development, copy production data/credentials, or bypass provider denials.
+See `docs/runbook.md` for the target and release policy.
 
-Existing scoring profiles, delivered forms, report snapshots and session
-processing are untouched by this preparation. There are no migrations in this
-change. The new scorer is not registered in session dispatch, so this change
-cannot silently rescore an existing assessment.
+Apply reviewed migrations in order:
 
-## Application work required before use
+1. `20261029023753_ipip_neo_120_scoring_profile.sql` (commit enum first).
+2. `20261029023754_ipip_neo_120_fixed_form.sql` (service-only persistence/guards).
+3. `20261029040600_ipip_neo_120_draft.sql` (atomic inactive draft data).
 
-1. Create/verify the exact source and response format and check slug collisions
-   in an isolated synthetic target. Import the inactive bundle and verify
-   5/30/30/120 records, source links and locked one-to-one factor links. The
-   current importer creates records, is not idempotent and can omit an unknown
-   source; a partial run must be inspected before retry.
-2. Resolve UUIDs to stable instrument IDs and build a frozen form binding the
-   canonical 120-item identity, key/mapping, form, scoring and presentation
-   versions. Persist immutable native and display results atomically and make
-   submission retries return the same stored result.
-3. Add the IPIP scoring dispatch profile and connect the exact-form/selection
-   guards to activation, assembly and submission. Prevent filters, item caps,
-   substitutions, random ordering and library edits from changing the form.
-   A locked factor composition alone does not lock the entire assessment.
-4. Wire the results API, reports and comparisons to the explicit display
-   direction. Existing generic scoring writes POMP into `raw_score` and an
-   overall mean composite; those conventions must not be reused for IPIP.
-   Store actual native raw totals, expose the 35 scientific scores and omit
-   the overall composite and automatic competency/effectiveness rankings.
-5. Prove import → fresh session → 120-item delivery → resume → submit → stored
-   results, including retries, malformed/incomplete input and attempted campaign
-   shortening, on an isolated synthetic stack. Add compatibility evidence for
-   existing profiles and frozen snapshots before the application change ships.
+The third migration is generated by `build-ipip-neo-120-database.mjs` and is also
+available as `database-import.sql`. It inserts only deterministic namespaced
+records, detects conflicting content, and safely repeats without activating or
+rewriting records. Do not run it before schema prerequisites are verified.
+Activation remains blocked in the definition and database. Complete synthetic
+runner acceptance and report acceptance before a separately reviewed activation
+change. Production migration/release approval remains separate.
 
-The current CSV has inverse display labels and descriptors but unchanged native
-item keys. **Do not activate it under the generic POMP profile.** The generic
-profile cannot apply these presentation inversions or guarantee this full form.
-No report template is assigned. Follow `docs/runbook.md` for subsequent scoring,
-schema, migration, acceptance and release work; production approval is separate.
+CI's disposable database replays the migrations and runs
+`tests/integration/ipip-neo-120.test.ts`, including complete fixtures, frozen
+resume, native/display arithmetic, retries, incomplete answers, immutable
+content and refused activation. Local unit tests cover all 120 item keys and
+adapter errors. Those are distinct from browser delivery and report/PDF evidence;
+record what actually ran in the PR.
 
-## Norm-data access and remaining evidence
+## Report-builder interface
 
-No respondent dataset or norms are included or loaded. The original archive's
-norm status remains a preparation claim, not evidence of installed norms.
+`ReportContext.personalityResult` and authorized session detail expose the
+immutable `IpipNeo120Result`. It contains `dimensions.N/E/O/A/C`,
+`facets.N1…C6`, scientific/display names, orientation, `native` and `display`
+statistics, and form/scoring/presentation versions. `scores` maps dimension,
+factor and construct UUIDs to the corresponding **display** POMP; dimensions are
+read from the envelope, never averaged from reversed display facets.
 
-The original locator is [IPIP's norms page](https://ipip.ori.org/newNorms.htm),
-which points to [Johnson's OSF repository](https://osf.io/tbmh5/). Automated access
-returned HTTP 403 during this work. No alternate route, mirror or account was
-used to bypass that denial. A normal authorised download of the original
-120-item response file and its codebook, supplied by Jason or the repository
-owner, would unblock data validation. File names and the raw-data licence have
-not been independently verified here.
+Register the new report with
+`supportedInstrumentIds: ['ipip-neo-120-johnson-2014']`. Use
+`personalityResult` for its native data and labels. Generic block reports,
+effectiveness bands and incompatible custom reports fail closed. No report
+template is assigned by the import; report creation is a separate workstream.
+The existing competency comparison/chat timeline paths exclude this instrument
+until they implement personality-specific interpretation. A high trait score is
+not automatically better, stronger, more effective or more suitable.
 
-There is a concrete Australian reference lead. [NovoPsych's January 2026
-technical paper](https://novopsych.com/wp-content/uploads/2026/01/IPIP-NEO-120-Review-Paper.pdf),
-pp. 3–4, describes starting from Johnson's 619,150 responses, excluding records
-with zero-valued answers, retaining respondents aged at least 16, and selecting
-14,163 Australian respondents (5,252 male and 8,911 female). It documents
-age/gender modelling with cNORM. That publication is methodological evidence;
-we have not obtained a machine-readable fitted model or checked its complete
-reproduction from the original data. Its reuse statement addresses researchers
-and clinicians; commercial reuse of underlying files/models needs an explicit
-applicable licence, rather than an assumption from the IPIP items' public-domain
-status.
+## Supplied norm data
 
-After legitimate raw-data access:
+Jason supplied the original OSF archives. `wxvth-osfstorage-archive.zip` contains
+**IPIP120.dat** and its **DAT120.doc** codebook. The other archives contain
+scoring tools/questionnaires and 300-item/development data, which are not silently
+substituted for a 120-item reference.
 
-1. Record the exact file hash, licence and codebook. Confirm whether responses
-   are already keyed, how missing values are encoded, country/age/gender coding,
-   and alignment to this 120-item form including item 58.
-2. Reproduce and audit cleaning, documenting exclusions and subgroup sizes.
-   Do not silently substitute a 300-item administration or an IPIP-50 dataset.
-3. Agree the reference population and age/gender policy with Jason after
-   reviewing those sample properties. An Australian Internet sample must not be
-   presented as an executive, applicant or representative population sample.
-4. Calculate versioned distributions for all 35 scales. Use empirical percentile
-   lookup or a validated fitted model with documented tie/tail conventions.
-   Existing `scoreToPercentile` assumes a normal distribution and is not a
-   replacement for the chosen empirical reference model.
-5. Preserve canonical native orientation in the reference dataset and apply the
-   same explicit N4/N6 reversal to the displayed score and its reference. Do
-   not assume reversed percentiles equal `100 - percentile` without a defined
-   tie convention. Freeze the reference/version with each stored result.
+The streaming audit reproduced these counts:
 
-[UK/Ireland published norms](https://bpb-us-e1.wpmucdn.com/sites.psu.edu/dist/1/163537/files/2023/07/UKnorms.pdf)
-are for the 300-item instrument and are not drop-in norms for this 120-item form.
+| Complete-response cohort | N |
+| --- | ---: |
+| All recorded ages | 410,376 |
+| Age 16+ | 385,902 |
+| Age 18+ | 339,977 |
+| Australia, age 16+ | 14,163 |
+| Australia, age 18+ | 12,685 |
 
-## Reproduce and verify
+The archive contains 619,150 records with distinct case IDs and 208,774
+incomplete cases. No malformed-width, invalid-numeric or out-of-range response
+records were observed. Case-ID uniqueness does not establish unique people.
+The Australian 16+ group has 5,252 coded male and 8,911 coded female respondents,
+matching the sample described in [NovoPsych's January 2026 technical
+paper](https://novopsych.com/wp-content/uploads/2026/01/IPIP-NEO-120-Review-Paper.pdf),
+pp. 3–4.
+
+**The raw archive responses are already reverse-keyed.** Sum those effective
+values directly; never apply the app's item key again. Zero means missing;
+complete-case candidate distributions exclude any zero. Codebook fields are
+fixed width: case 1–6, sex 7, age 8–9, country 23–31 and responses 32–151.
+
+`norm-data-audit.json` retains archive/member hashes, exclusion counts,
+demographic counts and candidate raw-score histograms for all 35 scales. No raw
+respondent rows are committed. The distributions are **not installed norms**.
+
+Before norm activation, agree the reference population (including 16+ versus
+18+, country and any age/sex adjustment), verify applicable dataset/model reuse
+terms, and validate a versioned percentile method with explicit ties and tails.
+These are self-selected Internet samples, not leadership or representative
+population norms. The raw archives do not contain NovoPsych's fitted cNORM
+model. IPIP item public-domain status does not itself establish reuse terms for
+that model or every raw dataset. The [UK/Ireland
+norms](https://bpb-us-e1.wpmucdn.com/sites.psu.edu/dist/1/163537/files/2023/07/UKnorms.pdf)
+are for the 300-item instrument.
+
+Maintain original native orientation in the reference distributions. Reversed
+N4/N6 percentiles require the same tie convention; do not blindly compute
+`100-percentile` without one. Freeze the chosen reference/version with results.
+
+## Reproduce
 
 ```sh
-node scripts/instruments/prepare-ipip-neo-120.mjs
 node scripts/instruments/prepare-ipip-neo-120.mjs --check
-npx vitest run tests/unit/ipip-neo-120.test.ts
+node scripts/instruments/build-ipip-neo-120-database.mjs --check
+python3 scripts/instruments/audit-ipip-neo-120-norms.py /path/to/wxvth-osfstorage-archive.zip /tmp/ipip-norm-audit.json
+npx vitest run tests/unit/ipip-neo-120.test.ts tests/unit/ipip-neo-120-session.test.ts
 node scripts/release/validate-local.mjs
 ```
 
-The generator has no database or network operations. `--check` writes nothing.
-Source hashes and fixed fixtures are verified independently of generated output.
-Application integration, database import and end-to-end acceptance remain unrun;
-the focused tests prove arithmetic, identity, preparation and pure guards only.
+Generators are offline; `--check` writes nothing. The norm auditor streams the
+provided archive and emits aggregates only. It never extracts or uploads raw
+respondent records. Database commands require a separately verified development
+target. CI continues to provision disposable local Supabase stacks.

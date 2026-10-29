@@ -28,6 +28,7 @@
 // =============================================================================
 
 import 'server-only'
+import ipipIds from '@/lib/instrument/ipip-neo-120/database-ids.json'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
@@ -154,7 +155,7 @@ export async function getPersonTimeline(
 
   if (error) throw new ChatTimelineError(error.message)
 
-  const rows = (data ?? []) as unknown as SessionRow[]
+  const rows = ((data ?? []) as unknown as SessionRow[]).filter(row => row.assessment_id !== ipipIds.assessmentId)
   const { map, dropped } = await loadScoresBySession(
     db,
     rows.map((r) => r.id),
@@ -273,6 +274,7 @@ export async function comparePeopleOnCommonAssessment(
   people: Array<{ name: string; participantIds: string[] }>,
   preferredAssessmentId?: string,
 ): Promise<PeopleComparison | null> {
+  if (preferredAssessmentId === ipipIds.assessmentId) return null
   const timelines = await Promise.all(
     people.map(async (person) => ({
       person,

@@ -4,6 +4,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { logActionError } from '@/lib/security/action-errors'
 import { selectItemsByDifficulty } from '@/lib/item-selection/distribution'
 import { applyItemOrdering } from '@/lib/item-ordering'
+import { IPIP_DATABASE, assertIpipDatabaseEntries, assertIpipDatabaseForms } from '@/lib/instrument/ipip-neo-120/database-form'
+import { IPIP_FORM_VERSION } from '@/lib/instrument/ipip-neo-120/definition'
 import type { ItemOrdering } from '@/types/database'
 
 type DbClient = SupabaseClient
@@ -458,6 +460,12 @@ async function assembleAndFreezeSectionForms(
     throw new FormPersistenceError('sessionForms.authoringRevision', revisionError ?? new Error('Missing authoring revision'))
   }
 
+  const isIpip = assessmentId === IPIP_DATABASE.assessmentId
+  if (isIpip) {
+    const { error } = await db.rpc('get_ipip_neo_120_delivery', { p_assessment_id: assessmentId, p_campaign_id: campaignId })
+    if (error) throw new FormPersistenceError('sessionForms.ipipCanonicalForm', error)
+  }
+
   const results = await Promise.allSettled([
     db.from('participant_section_forms').select(FORM_COLUMNS).eq('session_id', sessionId),
     db
@@ -472,7 +480,7 @@ async function assembleAndFreezeSectionForms(
       `,
       )
       .eq('assessment_id', assessmentId),
-    resolveFactorSelection(db, assessmentId, campaignId),
+    isIpip ? Promise.resolve({ allowedConstructIds: null, itemsPerConstruct: null }) : resolveFactorSelection(db, assessmentId, campaignId),
   ])
   // Finish all parallel reads before retrying an assembly, so failed socket
   // retries cannot stack another wave over unfinished requests.
@@ -499,7 +507,10 @@ async function assembleAndFreezeSectionForms(
   // overlap with our (runtime-accurate) row type — hence the `unknown` hop.
   const sectionRows = (sectionsResult.data ?? []) as unknown as FormSectionRow[]
   const missingSections = sectionRows.filter((s) => !forms.has(s.id))
-  if (missingSections.length === 0) return forms
+  if (missingSections.length === 0) {
+    if (isIpip) assertIpipDatabaseForms(forms)
+    return forms
+  }
 
   const missingSectionIds = missingSections.map((s) => s.id)
 
@@ -532,6 +543,7 @@ async function assembleAndFreezeSectionForms(
       sessionId,
       answeredBySection.get(section.id) ?? new Set(),
     )
+    if (isIpip) assertIpipDatabaseEntries(entries)
     // No items delivered to this section (e.g. an instructions-only section,
     // or every item filtered out) — nothing to freeze, matches the existing
     // "sections with zero items are dropped" behaviour downstream.
@@ -542,6 +554,7 @@ async function assembleAndFreezeSectionForms(
       assembly_seed: `${sessionId}:${section.id}`,
       assembler_version: ASSEMBLER_VERSION,
       authoring_revision: authoringRevision,
+      ...(isIpip ? { form_code: IPIP_FORM_VERSION } : {}),
       entries,
       entry_count: entries.length,
     })
@@ -580,5 +593,6 @@ async function assembleAndFreezeSectionForms(
     }
   }
 
+  if (isIpip) assertIpipDatabaseForms(forms)
   return forms
 }

@@ -19,7 +19,7 @@ These are source facts, not proof of current provider settings:
 | Seeded E2E coverage | Existing campaign states, participant entry/completion routing, partner portal and editor-save journeys. It does **not** prove completing a fresh assessment, generating its report/PDF, or restoring it. Those need explicit synthetic acceptance evidence. |
 | Production target | Last permitted read identified Supabase `rwpfwfcaxoevnvtkdmkx` / main as `ACTIVE_HEALTHY`; its migration metadata was stale. Health and history do not establish schema parity, backups or recovery. |
 | Hosting source | `vercel.json` requests `sin1` and defines cron schedules. GitHub records successful Production deployments of merged main commits `f4f0f179` and `701a111b`; normal main merge must therefore be treated as a production release. Provider-specific READY, configuration, rollback availability, plan and actual region remain unverified. |
-| Hosted staging / recovery | Jason confirmed no Preview Supabase exists and approved the interim workflow below. Isolated hosted staging and recovery rehearsal remain future setup decisions; they are not blanket prerequisites for migration-free releases. Historic Free/Pro statements are not current billing evidence. |
+| Hosted development / recovery | Jason identified existing Supabase development project `bgrvqvtlhmfmvcytncgw` on 2026-10-29. The connector verified **Trajectas (Dev)**, `ACTIVE_HEALTHY`, Sydney region. Initial inspection found a partial schema (through migration 00048), 15 library items, no assessments and no participant sessions. Health is not schema parity. Preview mapping and recovery rehearsal remain separate setup evidence. |
 | Access blocks | Vercel project/environment/deployment detail reads and full GitHub protection reads returned 403 in the prior audit. Do not inspect those through browser/CLI alternatives. Request narrowly scoped read access or owner-provided redacted evidence. |
 
 This repository change does not provision services or credentials, apply a
@@ -28,22 +28,40 @@ Merging uses the existing deployment path. Journal is a separate project.
 
 ## Current approved interim workflow
 
-Until a separately approved isolated hosted target exists, use synthetic local
-and disposable CI stacks for automated writes, migration replay and browser
-journeys. Jason approved bounded read-only production acceptance and normal
-reviewed releases after applicable exact-head checks. Production is not a test
-fixture: never seed it, send/reissue/revoke invitations, submit assessments,
-change customer settings or invoke side-effecting jobs to obtain acceptance.
-Record unrun acceptance and unavailable provider evidence explicitly for the
-owner's release decision; do not label them passed. Provider denials remain
-blocked and must not be retried through another tool, account or interface.
+Use the existing hosted **Trajectas (Dev)** project,
+`https://bgrvqvtlhmfmvcytncgw.supabase.co`, for normal development database work.
+Docker is not required. Verify the project reference through the permitted
+Supabase connection before every write or migration. A paused or inaccessible
+project is an access/setup issue; do not silently substitute production or
+create another database.
 
-Missing hosted isolation alone does not block a migration-free release under
-this interim workflow. Database, scoring and billing changes still require the
-ordered compatibility, target/schema and recovery evidence below; a green
-disposable-stack replay is not production schema or recovery verification.
-Creating staging, changing credentials/provider settings and activating new
-branch protections are separate owner decisions, not effects of this PR.
+`npm run db:status` and `npm run db:push -- --dry-run` now require an explicit
+`TRAJECTAS_DEVELOPMENT_DATABASE_URL` and accept only this project's direct or
+project-scoped pooler URL. They never read the primary `.env.local`, accept
+production, or forward target overrides. Configure the development-only value
+through authorized secret handling; do not paste it into evidence. Legacy
+bootstrap history must be reconciled before any push; do not force `--include-all`.
+The authorized Supabase connector can apply reviewed migrations individually.
+
+Development holds isolated synthetic data. Use task-scoped fixture IDs and
+clean up only those fixtures. Never copy production participant data or the
+primary checkout's environment/credentials. Never run a blanket database reset
+against this shared hosted target. Inspect schema and migration history first;
+apply reviewed missing migrations in order and record exact outcomes. A partial
+bootstrap must not be treated as current schema merely because it is healthy.
+
+CI continues to use disposable local Supabase stacks for full migration replay,
+integration and seeded browser tests. Those workflows can use Docker without
+making Docker a normal developer prerequisite. Do not redirect the existing
+local-only suites to hosted development: add explicitly allowlisted, scoped
+hosted acceptance when needed and preserve the production refusal guards.
+
+Jason approved bounded read-only production acceptance and normal reviewed
+releases after applicable exact-commit checks. Production is never a test
+fixture. Record unrun acceptance and unavailable provider evidence explicitly.
+Provider denials stay blocked until access changes; do not switch interfaces or
+accounts to evade a denial. Creating services, changing provider settings and
+production migration/release decisions still require their applicable approval.
 
 ## Normal change: branch → local/CI → acceptance → review → release
 
@@ -66,26 +84,20 @@ branch protections are separate owner decisions, not effects of this PR.
    runs release-logic tests, lint, typecheck, unit, component, architecture,
    build and local smoke checks, stopping on the first failure. Playwright's
    Chromium installation is a prerequisite; it does not install browsers.
-3. For database work, replay migrations and run
-   `npm run test:integration:local` on an **isolated local synthetic stack**.
-   Before starting/resetting, confirm the local project, ports and containers
-   belong to this task. The default `trajectas-local` stack/ports can be shared
-   with another session; do not reset it under that session. Use the existing
-   CLI's `--help` to plan isolation rather than guessing flags. Never run
-   `test:integration` directly using production env. Seeded E2E likewise needs
-   that local stack and local env; do not set `PLAYWRIGHT_BASE_URL` to production
-   or an unverified Preview. Keep existing local-host guards when adding tests.
-   CI provisions disposable local stacks for both.
-4. Open a PR and fill its evidence template. Under the interim workflow,
-   synthetic acceptance runs only on verified local/disposable CI targets.
-   An unverified Preview must not be used for authenticated write tests.
-   Where authorized, inspect existing production views through bounded read-only
-   acceptance, preserving customer data and normal role/tenant boundaries.
-   Record unavailable or unrun live checks and their limits; absent Preview
-   infrastructure is not by itself a migration-free release blocker. For
-   docs/CI-only changes, explain hosted acceptance N/A and verify automation.
-   Once isolated hosted staging is approved and verified, use that target for
-   synthetic Preview acceptance as described in the future setup checklist.
+3. For database work, inspect the approved hosted development schema and
+   migration history through its authorized Supabase connection. Apply only
+   reviewed, ordered migrations needed for the task; retain an execution receipt
+   and verify constraints and privileges. Use synthetic fixtures confined to the
+   task. Do not run `db reset` on shared development. The existing
+   `npm run test:integration:local` remains a disposable-stack/CI command, not a
+   requirement to start Docker during normal development. Never run raw
+   integration suites against inherited `.env.local` or production credentials.
+4. Open a PR and fill its evidence template. Use verified development for
+   scoped synthetic acceptance and disposable CI for full replay and suites.
+   Verify client/server environment values all target development before browser
+   write tests. Preview is usable only after its database mapping is verified;
+   do not point tests at production or an unverified Preview. Report missing
+   environment, migration, report/PDF or recovery evidence explicitly.
 5. Review the diff and findings; resolve review conversations. After the last
    edit/rebase, require CI for the **final SHA**. Do not reuse earlier green runs.
    `release-gate` has no workflow path filter and runs with `always()` even if
@@ -214,7 +226,7 @@ contain server secrets. Production settings are reviewed, not rewritten here.
 
 | Variables / setting | Development / local CI | Hosted Preview / staging | Production / side effects |
 | --- | --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`; `DATABASE_URL` if used | Disposable local stack; integration runner derives local keys without printing them | Same isolated project/branch across client and server values; server role is server-only | Production-only mapping; wrong scope sends reads/writes to the wrong DB |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`; `DATABASE_URL` if used | Hosted development for normal work; disposable local keys for CI | Same isolated project/branch across client and server values; server role is server-only | Production-only mapping; wrong scope sends reads/writes to the wrong DB |
 | `PUBLIC_APP_URL`, `ADMIN_APP_URL`, `ASSESS_APP_URL`, `PARTNER_APP_URL`, `CLIENT_APP_URL`, `NEXT_PUBLIC_APP_URL`, `SERVER_ACTION_ALLOWED_ORIGINS` | Local host/port | Exact Preview/staging origins; no production links | Production domains; wrong scope redirects people/mail to another environment |
 | `COOKIE_DOMAIN`, `NEXT_PUBLIC_COOKIE_DOMAIN` | Usually unset on local host | Unset or limited to owned staging domains; never shared production cookie domain | Production scope only; changes affect sessions |
 | `TRAJECTAS_CONTEXT_SECRET`, `INTERNAL_API_KEY`, `REPORT_ACCESS_TOKEN_SECRET`, `REPORT_PDF_TOKEN_SECRET` | Local test-only values | Dedicated staging signing values | Production-only; rotation may invalidate sessions/links; no automatic rotation |

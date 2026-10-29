@@ -1,0 +1,66 @@
+import { describe, expect, it } from 'vitest'
+import { canRun, createAdminClient } from './_helpers/rls-fixture'
+import { getOrCreateSectionForms } from '@/lib/dal/session-forms'
+import { scoreIpipNeo120Session } from '@/lib/dal/ipip-neo-120'
+import { getAuthorizedIpipNeo120Result } from '@/lib/dal/ipip-neo-120'
+import { IPIP_DATABASE, assertIpipDatabaseForms } from '@/lib/instrument/ipip-neo-120/database-form'
+import { IPIP_ITEMS } from '@/lib/instrument/ipip-neo-120/definition'
+import { scoreIpipNeo120 } from '@/lib/scoring/ipip-neo-120'
+import fixtures from '@/lib/instrument/ipip-neo-120/source/scoring-fixtures.json'
+
+// CI/disposable stack only. Immutable result rows intentionally survive until
+// stack disposal; cleanup must never weaken the result immutability trigger.
+describe.skipIf(!canRun)('IPIP-NEO-120 native draft integration', () => {
+  it('imports exact inactive content, refuses modification and remains draft', async () => {
+    const db = createAdminClient()
+    const { data: assessment, error } = await db.from('assessments').select('status,scoring_profile').eq('id',IPIP_DATABASE.assessmentId).single()
+    expect(error).toBeNull()
+    expect(assessment).toMatchObject({status:'draft',scoring_profile:'ipip_neo_120_v1'})
+    const edit = await db.from('items').update({stem:'Changed'}).eq('id',IPIP_DATABASE.items.q001)
+    expect(edit.error?.code).toBe('23514')
+    const activate = await db.from('assessments').update({status:'active'}).eq('id',IPIP_DATABASE.assessmentId)
+    expect(activate.error?.code).toBe('23514')
+    const shorten = await db.from('assessment_section_items').delete().eq('section_id',IPIP_DATABASE.sectionId).eq('item_id',IPIP_DATABASE.items.q001)
+    expect(shorten.error?.code).toBe('23514')
+  })
+  it.each(fixtures)('freezes, resumes, scores and retries fixture $id without changing native direction', async fixture => {
+    const db = createAdminClient()
+    const { data: session,error } = await db.from('participant_sessions').insert({assessment_id:IPIP_DATABASE.assessmentId,status:'completed',is_internal:true}).select('id').single()
+    expect(error).toBeNull()
+    const sessionId = String(session!.id)
+    const input = {sessionId,assessmentId:IPIP_DATABASE.assessmentId,campaignId:null}
+    const forms = await getOrCreateSectionForms(db,input)
+    expect('error' in forms).toBe(false)
+    if ('error' in forms) throw new Error(forms.error)
+    assertIpipDatabaseForms(forms)
+    expect(await getOrCreateSectionForms(db,input)).toEqual(forms)
+    const values = fixture.responses as Record<string,number>
+    const answers = await db.from('participant_responses').insert(IPIP_ITEMS.map(item => ({session_id:sessionId,section_id:IPIP_DATABASE.sectionId,
+      item_id:IPIP_DATABASE.items[item.itemId as keyof typeof IPIP_DATABASE.items],response_value:values[item.itemId]})))
+    expect(answers.error).toBeNull()
+    const expected = scoreIpipNeo120(IPIP_ITEMS.map(item=>({itemId:item.itemId,value:values[item.itemId]})))
+    expect(await scoreIpipNeo120Session(db,sessionId)).toEqual({success:true,scoreCount:30})
+    expect(await scoreIpipNeo120Session(db,sessionId)).toEqual({success:true,scoreCount:30})
+    expect(await getAuthorizedIpipNeo120Result(db,sessionId,IPIP_DATABASE.assessmentId)).toEqual(expected)
+    const scores = await db.from('participant_scores').select('factor_id,raw_score,scaled_score,percentile,metric').eq('session_id',sessionId)
+    expect(scores.error).toBeNull();expect(scores.data).toHaveLength(30)
+    const n4=scores.data!.find(row=>row.factor_id===IPIP_DATABASE.facets.N4.factorId)!
+    expect(Number(n4.raw_score)).toBe(expected.facets.N4.native.rawSum)
+    expect(Number(n4.scaled_score)).toBeCloseTo(expected.facets.N4.display.pomp)
+    expect(scores.data!.every(row=>row.percentile===null && row.metric==='personality_pomp')).toBe(true)
+    const overall=await db.from('participant_sessions').select('composite_score,composite_method').eq('id',sessionId).single()
+    expect(overall.data).toEqual({composite_score:null,composite_method:null})
+    const mutation=await db.from('participant_instrument_results').update({result:{}}).eq('session_id',sessionId)
+    expect(mutation.error).not.toBeNull()
+  },60_000)
+  it('does not persist scores for incomplete responses', async () => {
+    const db=createAdminClient()
+    const {data,error}=await db.from('participant_sessions').insert({assessment_id:IPIP_DATABASE.assessmentId,status:'completed',is_internal:true}).select('id').single()
+    expect(error).toBeNull()
+    const sessionId=String(data!.id)
+    expect(await scoreIpipNeo120Session(db,sessionId)).toHaveProperty('error')
+    const stored=await db.from('participant_instrument_results').select('session_id').eq('session_id',sessionId)
+    expect(stored.data).toEqual([])
+    // No result exists, but the frozen form is immutable: disposable stack owns cleanup.
+  })
+})
