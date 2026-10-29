@@ -25,6 +25,7 @@ export default async function CompletePage({
   // carry the fresh one.
   let effectiveToken = token;
   let bounceToRunner = false;
+  let incompleteQualitySession: string | null = null;
 
   try {
     const result = await validateAccessToken(token);
@@ -52,6 +53,7 @@ export default async function CompletePage({
       );
       if (!submitResult || !submitResult.ok) {
         bounceToRunner = true;
+        if (submitResult && !submitResult.ok && submitResult.error === 'response_quality_incomplete') incompleteQualitySession = inProgressSession.id;
       } else if (submitResult.refreshedAccessToken) {
         effectiveToken = submitResult.refreshedAccessToken;
       }
@@ -62,7 +64,7 @@ export default async function CompletePage({
 
   if (bounceToRunner) {
     // Outside the try/catch: Next's redirect works by throwing.
-    redirect(`/assess/${token}`);
+    redirect(incompleteQualitySession ? `/assess/${token}/quality/${incompleteQualitySession}` : `/assess/${token}`);
   }
 
   // Fallback only when token validation fails / no campaign. This preserves

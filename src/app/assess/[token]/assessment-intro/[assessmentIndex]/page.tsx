@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import { PERSONALITY_PROFILE_ASSESSMENT_ID } from '@/lib/instrument/ipip-neo-120/catalogue'
 import { validateAccessToken, getAssessmentItemCount } from "@/app/actions/assess"
 import { RunnerCtaLink } from "@/components/assess/runner-cta-link"
 import { getCachedEffectiveBrand } from "@/lib/dal/brand"
@@ -225,6 +226,8 @@ async function AssessmentIntroContent({
               ~{estimatedMinutes} MIN
             </span>
           </div>
+
+          {assessment.assessmentId === PERSONALITY_PROFILE_ASSESSMENT_ID ? <p className="text-sm" style={{ color: 'var(--runner-text-muted)' }}>New attempts include 120 personality statements followed by eight supplementary statements used separately to review response quality.</p> : null}
 
           {/* CTA — client component: this page is a Server Component and
               must not pass event handlers across the RSC boundary. */}

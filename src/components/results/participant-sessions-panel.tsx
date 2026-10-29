@@ -7,6 +7,9 @@ import { bulkDeleteParticipantSessions } from "@/app/actions/sessions";
 import type { ParticipantSession } from "@/app/actions/participants";
 import { DataTable, DataTableColumnHeader, DataTableRowLink, type BulkAction } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
+import { Badge } from '@/components/ui/badge';
+import { QUALITY_STATUS_LABELS } from '@/lib/instrument/ipip-neo-120/response-quality';
+import { PERSONALITY_PROFILE_ASSESSMENT_ID } from '@/lib/instrument/ipip-neo-120/catalogue';
 import { LocalTime } from "@/components/local-time";
 import {
   SessionStatusBadge,
@@ -81,6 +84,11 @@ function getColumns(sessionBaseHref: string): ColumnDef<SessionRow>[] {
           )}
         </div>
       ),
+    },
+    {
+      id: 'responseQuality',
+      header: 'Response quality',
+      cell: ({ row }) => row.original.responseQualityStatus ? <a href={`${sessionBaseHref}/${row.original.id}`}><Badge variant="outline">{QUALITY_STATUS_LABELS[row.original.responseQualityStatus]}</Badge></a> : <span className="text-muted-foreground">{row.original.responseQualityUnavailable ? 'Unavailable' : row.original.assessmentId === PERSONALITY_PROFILE_ASSESSMENT_ID ? 'Not assessed' : '—'}</span>,
     },
     {
       id: "startedAt",

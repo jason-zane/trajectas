@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { PERSONALITY_PROFILE_ASSESSMENT_ID } from '@/lib/instrument/ipip-neo-120/catalogue'
+vi.mock('@/lib/security/action-errors', () => ({ logActionError: vi.fn(), throwActionError: vi.fn() }))
 
 const mocks = vi.hoisted(() => ({ access: vi.fn(), scope: vi.fn(), campaigns: vi.fn(), from: vi.fn(), predicates: vi.fn() }))
 vi.mock('@/lib/auth/authorization', () => ({
@@ -31,6 +33,7 @@ function query(data: unknown) {
   return chain
 }
 beforeEach(() => {
+  session.assessment_id = 'assessment'
   mocks.access.mockResolvedValue(access)
   mocks.scope.mockResolvedValue(scope)
   mocks.campaigns.mockResolvedValue(['campaign'])
@@ -50,6 +53,26 @@ describe('clientless campaign participant session visibility', () => {
   it('retains completion metadata but withholds aggregate-only scores', async () => {
     mocks.access.mockResolvedValue({ ...access, confidentialityMode: 'aggregate_only' })
     expect(await getParticipantSessions(participantId)).toEqual([expect.objectContaining({ status: 'completed', scores: [] })])
+  })
+  it('shows quality status only for sessions from the authorised participant listing', async () => {
+    session.assessment_id = PERSONALITY_PROFILE_ASSESSMENT_ID
+    mocks.from.mockImplementation((table: string) => query(table === 'participant_sessions' ? [session] : [{ session_id: 'session', status: 'review_recommended' }]))
+    expect((await getParticipantSessions(participantId))[0].responseQualityStatus).toBe('review_recommended')
+    expect(mocks.predicates).toHaveBeenCalledWith('session_id', ['session'])
+  })
+  it('does not fetch individual quality flags for an aggregate-only tenant viewer', async () => {
+    session.assessment_id = PERSONALITY_PROFILE_ASSESSMENT_ID
+    mocks.access.mockResolvedValue({ ...access, confidentialityMode: 'aggregate_only' })
+    const rows = await getParticipantSessions(participantId)
+    expect(rows[0].responseQualityStatus).toBeUndefined()
+    expect(mocks.from).not.toHaveBeenCalledWith('participant_response_quality_results')
+  })
+  it('keeps the session list usable and marks unavailable quality data explicitly', async () => {
+    session.assessment_id = PERSONALITY_PROFILE_ASSESSMENT_ID
+    mocks.from.mockImplementation((table: string) => { if (table === 'participant_response_quality_results') throw new Error('Synthetic storage unavailable'); return query([session]) })
+    const rows = await getParticipantSessions(participantId)
+    expect(rows[0]).toMatchObject({ status: 'completed', responseQualityUnavailable: true })
+    expect(rows[0].scores).toHaveLength(1)
   })
   it('shows completed session counts in a scoped participant list', async () => {
     const result = await getParticipants()

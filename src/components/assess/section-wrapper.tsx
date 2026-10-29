@@ -34,6 +34,8 @@ interface SectionWrapperProps {
   section: SectionForRunner;
   sectionIndex: number;
   totalSections: number;
+  /** Separately stored quality supplement, outside the frozen personality form. */
+  supplementItemCount?: number;
   /** All sections' items flattened for global progress tracking. */
   allSections: SectionForRunner[];
   existingResponses: Record<
@@ -87,6 +89,7 @@ export function SectionWrapper({
   section,
   sectionIndex,
   totalSections,
+  supplementItemCount = 0,
   allSections,
   existingResponses,
   assessmentName,
@@ -136,7 +139,7 @@ export function SectionWrapper({
   }, [lostSaves]);
 
   // Total item count across all sections — denominator for the progress bar.
-  const totalItems = countAllItems(allSections);
+  const totalItems = countAllItems(allSections) + supplementItemCount;
 
   // Find the first unanswered item in this section as the start point,
   // or resume from where we left off

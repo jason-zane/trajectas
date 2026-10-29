@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { LocalTime } from "@/components/local-time";
 import { SessionScoresPanel } from "./session-scores-panel";
 import { SessionResponsesPanel } from "./session-responses-panel";
+import { SessionResponseQualityPanel } from './session-response-quality-panel';
+import { PERSONALITY_PROFILE_ASSESSMENT_ID } from '@/lib/instrument/ipip-neo-120/catalogue';
 import { CampaignSessionReportsPanel } from "./campaign-session-reports-panel";
 import {
   SessionStatusBadge,
@@ -185,6 +187,10 @@ export function SessionView({
         </Card>
       ) : (
       <div className="space-y-12">
+        {session.assessmentId === PERSONALITY_PROFILE_ASSESSMENT_ID ? <section className="space-y-5">
+          <h2 className="text-section">Response quality</h2>
+          <SessionResponseQualityPanel sessionId={session.id} />
+        </section> : null}
         <section className="space-y-5">
           <h2 className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             Reports

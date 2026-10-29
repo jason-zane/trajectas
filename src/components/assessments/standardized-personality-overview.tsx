@@ -5,6 +5,7 @@ import { PERSONALITY_PROFILE_PROMPT, PERSONALITY_PROFILE_SOURCE } from '@/lib/in
 import taxonomy from '@/lib/instrument/ipip-neo-120/source/authored-taxonomy.json'
 import presentation from '@/lib/instrument/ipip-neo-120/presentation.json'
 import format from '@/lib/instrument/ipip-neo-120/source/response-format.json'
+import { QUALITY_QUESTIONS, QUALITY_MODULE_VERSION, QUALITY_POLICY_VERSION } from '@/lib/instrument/ipip-neo-120/response-quality'
 
 /** Authorized authoring view. Scientific content stays readable and immutable. */
 export function StandardizedPersonalityOverview({ description }: { description?: string }) {
@@ -62,6 +63,18 @@ export function StandardizedPersonalityOverview({ description }: { description?:
             <ol aria-label="Personality statements" className="mt-4 list-decimal space-y-2 pl-6">
               {IPIP_ITEMS.map(item => <li key={item.itemId}>{item.stem}</li>)}
             </ol>
+          </details>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Response-quality supplement</CardTitle></CardHeader>
+        <CardContent className="space-y-4 text-sm">
+          <p>New attempts include eight supplementary statements after the original 120 personality items. They use agreement response options and are stored and evaluated separately. Previously frozen attempts retain their original format.</p>
+          <p>Pilot checks cover instructions, implausible endorsements, idealised self-description, repeated answers and available timing. Flags prompt assessor review; they do not change personality scores or establish dishonesty.</p>
+          <p className="text-muted-foreground">Module: {QUALITY_MODULE_VERSION} · Policy: {QUALITY_POLICY_VERSION}</p>
+          <details className="rounded-lg border p-4"><summary className="cursor-pointer font-medium">View supplementary statements</summary>
+            <ol className="mt-4 list-decimal space-y-2 pl-6">{QUALITY_QUESTIONS.map(q => <li key={q.id}>{q.stem}</li>)}</ol>
           </details>
         </CardContent>
       </Card>
