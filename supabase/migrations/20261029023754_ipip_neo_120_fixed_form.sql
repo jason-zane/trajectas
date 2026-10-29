@@ -197,14 +197,18 @@ CREATE FUNCTION private.guard_ipip_campaign_selection() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE ca_id uuid; ca record; config jsonb; total integer; valid integer;
 BEGIN
-  ca_id:=CASE WHEN TG_TABLE_NAME='campaign_assessments' THEN coalesce(to_jsonb(NEW)->>'id',to_jsonb(OLD)->>'id')::uuid ELSE coalesce(to_jsonb(NEW)->>'campaign_assessment_id',to_jsonb(OLD)->>'campaign_assessment_id')::uuid END;
-  SELECT * INTO ca FROM public.campaign_assessments WHERE id=ca_id AND deleted_at IS NULL;
-  IF NOT FOUND THEN RETURN NULL; END IF;
-  SELECT definition INTO config FROM public.standardized_assessment_forms WHERE assessment_id=ca.assessment_id;
-  IF config IS NULL THEN RETURN NULL; END IF;
-  SELECT count(*),count(*) FILTER(WHERE factor_id::text IN (SELECT value->>'factorId' FROM jsonb_each(config->'facets'))) INTO total,valid
-    FROM public.campaign_assessment_factors WHERE campaign_assessment_id=ca_id;
-  IF total NOT IN(0,30) OR total<>valid THEN RAISE EXCEPTION 'IPIP-NEO-120 must be used as one complete assessment' USING ERRCODE='23514'; END IF;
+  FOR ca_id IN SELECT DISTINCT value::uuid FROM unnest(ARRAY[
+    CASE WHEN TG_TABLE_NAME='campaign_assessments' THEN to_jsonb(NEW)->>'id' ELSE to_jsonb(NEW)->>'campaign_assessment_id' END,
+    CASE WHEN TG_TABLE_NAME='campaign_assessments' THEN to_jsonb(OLD)->>'id' ELSE to_jsonb(OLD)->>'campaign_assessment_id' END
+  ]) value WHERE value IS NOT NULL LOOP
+    SELECT * INTO ca FROM public.campaign_assessments WHERE id=ca_id AND deleted_at IS NULL;
+    IF NOT FOUND THEN CONTINUE; END IF;
+    SELECT definition INTO config FROM public.standardized_assessment_forms WHERE assessment_id=ca.assessment_id;
+    IF config IS NULL THEN CONTINUE; END IF;
+    SELECT count(*),count(*) FILTER(WHERE factor_id::text IN (SELECT value->>'factorId' FROM jsonb_each(config->'facets'))) INTO total,valid
+      FROM public.campaign_assessment_factors WHERE campaign_assessment_id=ca_id;
+    IF total NOT IN(0,30) OR total<>valid THEN RAISE EXCEPTION 'IPIP-NEO-120 must be used as one complete assessment' USING ERRCODE='23514'; END IF;
+  END LOOP;
   RETURN NULL;
 END $$;
 REVOKE ALL ON FUNCTION private.guard_ipip_campaign_selection() FROM PUBLIC,anon,authenticated,service_role;

@@ -48,6 +48,7 @@ add('assessment_sections',{id:ids.sectionId,assessment_id:ids.assessmentId,respo
   display_order:0,item_ordering:'fixed',section_role:'scored',time_limit_seconds:null,allow_back_nav:true})
 for (const item of manifest.items) add('assessment_section_items',{id:id(`section-item:${item.itemId}`),section_id:ids.sectionId,item_id:ids.items[item.itemId],display_order:item.itemNumber-1})
 const references = {
+  factors:{dimension_id:Object.values(ids.dimensions)},
   items:{construct_id:Object.values(ids.facets).map(x=>x.constructId),response_format_id:[ids.responseFormatId]},
   item_options:{item_id:Object.values(ids.items)},
   assessment_sections:{assessment_id:[ids.assessmentId]},

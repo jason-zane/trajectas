@@ -1,4 +1,6 @@
 import 'server-only'
+import { IPIP_DATABASE } from '@/lib/instrument/ipip-neo-120/database-form'
+import { selectIpipReportTemplateIds } from '@/lib/reports/personality-template-selection'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActionError } from '@/lib/security/action-errors'
@@ -112,7 +114,7 @@ async function ensureReportSnapshotsForSession(input: {
   }
 
   // Platform fallback (Layer 3): only when nothing more specific was bound.
-  if (desiredIds.size === 0) {
+  if (desiredIds.size === 0 && assessmentId !== IPIP_DATABASE.assessmentId) {
     const { data: platformDefaults, error: platformDefaultsError } = await db
       .from('report_templates')
       .select('id')
@@ -130,13 +132,15 @@ async function ensureReportSnapshotsForSession(input: {
     }
   }
 
+  const isIpip = assessmentId === IPIP_DATABASE.assessmentId
+
   // Final pass: keep only active, non-deleted templates so a stale link doesn't
   // produce an unrunnable snapshot.
   let desiredTemplateIds: string[] = []
   if (desiredIds.size > 0) {
     const { data: liveTemplates, error: liveTemplatesError } = await db
       .from('report_templates')
-      .select('id')
+      .select(isIpip ? 'id, custom_report_slug' : 'id')
       .in('id', Array.from(desiredIds))
       .eq('is_active', true)
       .is('deleted_at', null)
@@ -145,9 +149,16 @@ async function ensureReportSnapshotsForSession(input: {
       logActionError('submitSession.templateActivityCheck', liveTemplatesError)
       return { error: 'Unable to load this campaign report configuration' }
     }
-    desiredTemplateIds = (liveTemplates ?? [])
-      .map((r) => String((r as { id?: string }).id ?? ''))
-      .filter((id) => id.length > 0)
+    if (isIpip) {
+      const { CUSTOM_REPORTS } = await import('@/lib/reports/custom')
+      desiredTemplateIds = selectIpipReportTemplateIds(
+        (liveTemplates ?? []) as unknown as { id: string; custom_report_slug?: string | null }[], CUSTOM_REPORTS,
+      )
+    } else {
+      desiredTemplateIds = (liveTemplates ?? [])
+        .map((r) => String((r as { id?: string }).id ?? ''))
+        .filter((id) => id.length > 0)
+    }
   }
 
   if (desiredTemplateIds.length === 0) {

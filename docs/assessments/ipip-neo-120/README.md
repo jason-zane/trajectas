@@ -96,7 +96,8 @@ Register the new report with
 `supportedInstrumentIds: ['ipip-neo-120-johnson-2014']`. Use
 `personalityResult` for its native data and labels. Generic block reports,
 effectiveness bands and incompatible custom reports fail closed. No report
-template is assigned by the import; report creation is a separate workstream.
+template is assigned by the import; native completion skips generic platform
+defaults and filters shared campaign templates to registered compatible reports; report creation is a separate workstream.
 The existing competency comparison/chat timeline paths exclude this instrument
 until they implement personality-specific interpretation. A high trait score is
 not automatically better, stronger, more effective or more suitable.
