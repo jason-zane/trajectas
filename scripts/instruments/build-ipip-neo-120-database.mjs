@@ -16,7 +16,8 @@ const id = key => {
 const ids = { assessmentId: id('assessment-v1'), sectionId: id('section-v1'), responseFormatId: id('format-v1'), sourceId: id('source'),
   dimensions: Object.fromEntries(manifest.dimensions.map(d => [d.code,id(`dimension:${d.code}`)])),
   facets: Object.fromEntries(manifest.facets.map(f => [f.code,{factorId:id(`factor:${f.code}`),constructId:id(`construct:${f.code}`)}])),
-  items: Object.fromEntries(manifest.items.map(i => [i.itemId,id(`item:${i.itemId}`)])) }
+  items: Object.fromEntries(manifest.items.map(i => [i.itemId,id(`item:${i.itemId}`)])),
+  itemContentHashes: Object.fromEntries(manifest.items.map(i => [i.itemId,createHash('sha256').update(JSON.stringify({instrumentId:manifest.instrumentId,formVersion:manifest.formVersion,...i})).digest('hex')])) }
 const rows = {}
 const add = (table,row) => (rows[table] ??= []).push(row)
 add('content_sources',{id:ids.sourceId,...source})
@@ -38,7 +39,7 @@ for (const [index,f] of manifest.facets.entries()) {
 }
 for (const item of manifest.items) add('items',{id:ids.items[item.itemId],construct_id:ids.facets[item.facetCode].constructId,response_format_id:ids.responseFormatId,
   stem:item.stem,reverse_scored:item.reverseScored,weight:1,purpose:'construct',status:'draft',lifecycle_state:'draft',
-  display_order:item.displayOrder,source_id:ids.sourceId,item_version:1,content_hash:manifest.itemsetSha256,deleted_at:null})
+  display_order:item.displayOrder,source_id:ids.sourceId,item_version:1,content_hash:ids.itemContentHashes[item.itemId],deleted_at:null})
 add('assessments',{id:ids.assessmentId,title:setup.nativeDraftFields.title,slug:manifest.instrumentId,description:'A fixed 120-item personality assessment. Scale scores describe self-reported tendencies; no overall effectiveness score or percentile is provided.',
   scoring_profile:'ipip_neo_120_v1',scoring_method:'ctt',item_selection_strategy:'fixed',status:'draft',creation_mode:'manual',format_mode:'traditional',
   min_custom_factors:null,time_limit_minutes:null,source_id:ids.sourceId,deleted_at:null})

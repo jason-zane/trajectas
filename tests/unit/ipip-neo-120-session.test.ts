@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { IPIP_DATABASE, assertIpipDatabaseEntries, assertIpipDatabaseForms } from '@/lib/instrument/ipip-neo-120/database-form'
-import { IPIP_FORM_VERSION, IPIP_ITEMS, IPIP_ITEMSET_SHA256 } from '@/lib/instrument/ipip-neo-120/definition'
+import { IPIP_FORM_VERSION, IPIP_ITEMS } from '@/lib/instrument/ipip-neo-120/definition'
 import { scoreIpipNeo120Session } from '@/lib/dal/ipip-neo-120'
 import type { SectionFormDTO } from '@/lib/dal/session-forms'
 
@@ -13,7 +13,7 @@ function canonicalForms(): Map<string, SectionFormDTO> {
     sessionId: 'session', sectionId: IPIP_DATABASE.sectionId, assembledAt: '', assemblySeed: '', assemblerVersion: '',
     formCode: IPIP_FORM_VERSION,
     entries: IPIP_ITEMS.map((item,index) => ({ position: index + 1, itemId: IPIP_DATABASE.items[item.itemId as keyof typeof IPIP_DATABASE.items],
-      itemVersion: 1, contentHash: IPIP_ITEMSET_SHA256, purpose: 'construct', countsTowardScore: true })),
+      itemVersion: 1, contentHash: IPIP_DATABASE.itemContentHashes[item.itemId as keyof typeof IPIP_DATABASE.itemContentHashes], purpose: 'construct', countsTowardScore: true })),
   }]])
 }
 function database(options: { assessmentId?: string; status?: string; missing?: boolean; invalid?: boolean; persistenceError?: string } = {}) {
@@ -36,6 +36,7 @@ beforeEach(() => { getForms.mockReset(); getForms.mockResolvedValue(canonicalFor
 
 describe('native IPIP frozen delivery and scoring adapter', () => {
   it('accepts only the exact complete ordered frozen form', () => {
+    expect(new Set(Object.values(IPIP_DATABASE.itemContentHashes)).size).toBe(120)
     expect(() => assertIpipDatabaseForms(canonicalForms())).not.toThrow()
     const entries = canonicalForms().get(IPIP_DATABASE.sectionId)!.entries
     expect(() => assertIpipDatabaseEntries(entries.slice(1))).toThrow('120')

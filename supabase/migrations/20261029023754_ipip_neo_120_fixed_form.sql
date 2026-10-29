@@ -112,7 +112,7 @@ BEGIN
     OR EXISTS(SELECT 1 FROM jsonb_array_elements(NEW.entries) WITH ORDINALITY e(value,n)
       WHERE value->>'itemId' IS DISTINCT FROM config->'items'->>('q'||lpad(n::text,3,'0'))
         OR (value->>'position')::integer<>n OR (value->>'itemVersion')::integer<>1
-        OR value->>'contentHash' IS DISTINCT FROM config->>'itemsetSha256'
+        OR value->>'contentHash' IS DISTINCT FROM config->'itemContentHashes'->>('q'||lpad(n::text,3,'0'))
         OR value->>'purpose' IS DISTINCT FROM 'construct' OR value->'countsTowardScore' IS DISTINCT FROM 'true'::jsonb) THEN
     RAISE EXCEPTION 'IPIP-NEO-120 requires its exact complete frozen form' USING ERRCODE='23514';
   END IF;
@@ -152,7 +152,7 @@ BEGIN
   IF NOT EXISTS(SELECT 1 FROM public.participant_section_forms WHERE session_id=p_session_id AND section_id=(config->>'sectionId')::uuid AND entry_count=120 AND form_code=config->>'formVersion') THEN RAISE EXCEPTION 'Missing IPIP frozen form'; END IF;
   IF (SELECT count(*) FROM public.participant_responses WHERE session_id=p_session_id)<>120
     OR EXISTS(SELECT 1 FROM public.participant_responses r WHERE r.session_id=p_session_id AND
-      (r.item_id::text NOT IN (SELECT value#>>'{}' FROM jsonb_each(config->'items')) OR r.response_value IS NULL OR r.response_value NOT IN (1,2,3,4,5))) THEN RAISE EXCEPTION 'Invalid IPIP responses'; END IF;
+      (r.item_id::text NOT IN (SELECT value#>>'{}' FROM jsonb_each(config->'items')) OR r.section_id IS DISTINCT FROM (config->>'sectionId')::uuid OR r.response_value IS NULL OR r.response_value NOT IN (1,2,3,4,5))) THEN RAISE EXCEPTION 'Invalid IPIP responses'; END IF;
   FOR facet IN SELECT key,value FROM jsonb_each(config->'facets') LOOP
     SELECT sum(CASE WHEN i.reverse_scored THEN 6-r.response_value ELSE r.response_value END) INTO native_sum
       FROM public.participant_responses r JOIN public.items i ON i.id=r.item_id
