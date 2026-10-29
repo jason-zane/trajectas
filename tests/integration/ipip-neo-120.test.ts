@@ -10,16 +10,26 @@ import fixtures from '@/lib/instrument/ipip-neo-120/source/scoring-fixtures.json
 
 // CI/disposable stack only. Immutable result rows intentionally survive until
 // stack disposal; cleanup must never weaken the result immutability trigger.
-describe.skipIf(!canRun)('IPIP-NEO-120 native draft integration', () => {
-  it('imports exact inactive content, refuses modification and remains draft', async () => {
+describe.skipIf(!canRun)('IPIP-NEO-120 native integration', () => {
+  it('activates the branded complete form while preserving immutable scientific content', async () => {
     const db = createAdminClient()
-    const { data: assessment, error } = await db.from('assessments').select('status,scoring_profile').eq('id',IPIP_DATABASE.assessmentId).single()
+    const { data: assessment, error } = await db.from('assessments').select('title,status,scoring_profile').eq('id',IPIP_DATABASE.assessmentId).single()
     expect(error).toBeNull()
-    expect(assessment).toMatchObject({status:'draft',scoring_profile:'ipip_neo_120_v1'})
+    expect(assessment).toMatchObject({title:'Trajectas Personality Profile',status:'active',scoring_profile:'ipip_neo_120_v1'})
+    const { data: binding } = await db.from('standardized_assessment_forms').select('activation_ready,definition').eq('assessment_id',IPIP_DATABASE.assessmentId).single()
+    expect(binding?.activation_ready).toBe(true)
+    const delivery = await db.rpc('get_ipip_neo_120_delivery', { p_assessment_id: IPIP_DATABASE.assessmentId })
+    expect(delivery.error).toBeNull()
+    expect(delivery.data.cataloguePresentationVersion).toBe('trajectas-personality-profile-catalogue-v1')
+    for (const table of ['dimensions', 'constructs', 'factors']) {
+      expect(delivery.data.rows[table].every((row: { description: string }) => !/^[NEOAC][1-6]? — /.test(row.description))).toBe(true)
+    }
     const edit = await db.from('items').update({stem:'Changed'}).eq('id',IPIP_DATABASE.items.q001)
     expect(edit.error?.code).toBe('23514')
-    const activate = await db.from('assessments').update({status:'active'}).eq('id',IPIP_DATABASE.assessmentId)
-    expect(activate.error?.code).toBe('23514')
+    const rewriteStatus = await db.from('assessments').update({status:'draft'}).eq('id',IPIP_DATABASE.assessmentId)
+    expect(rewriteStatus.error?.code).toBe('23514')
+    const editBinding = await db.from('standardized_assessment_forms').update({definition:{}}).eq('assessment_id',IPIP_DATABASE.assessmentId)
+    expect(editBinding.error).not.toBeNull()
     const shorten = await db.from('assessment_section_items').delete().eq('section_id',IPIP_DATABASE.sectionId).eq('item_id',IPIP_DATABASE.items.q001)
     expect(shorten.error?.code).toBe('23514')
   })

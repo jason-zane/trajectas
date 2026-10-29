@@ -57,6 +57,7 @@ import {
 } from "@/app/actions/items"
 import { useRouter } from "next/navigation"
 import { ObserverVariantReviewDialog } from "@/components/items/observer-variant-review-dialog"
+import { isPersonalityProfileItem, PERSONALITY_PROFILE_TITLE } from '@/lib/instrument/ipip-neo-120/catalogue'
 
 type ItemHealthInfo = { status: "healthy" | "review" | "action"; discrimination: number | null }
 
@@ -110,7 +111,7 @@ const allFormats: { value: ActiveResponseFormatType | "all"; label: string }[] =
   { value: "sjt", label: "SJT" },
 ]
 
-export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; healthMap?: Record<string, ItemHealthInfo> }) {
+export function ItemList({ items, healthMap = {}, initialPersonalityOnly = false }: { items: ItemWithMeta[]; healthMap?: Record<string, ItemHealthInfo>; initialPersonalityOnly?: boolean }) {
   const router = useRouter()
   const hasHealthData = Object.keys(healthMap).length > 0
   const [observerDialogOpen, setObserverDialogOpen] = useState(false)
@@ -122,6 +123,7 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
   )
   const [constructFilter, setConstructFilter] = useState("all")
   const [purposeFilter, setPurposeFilter] = useState<ItemPurpose | "all">("all")
+  const [profileFilter, setProfileFilter] = useState(initialPersonalityOnly ? 'personality' : 'all')
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -140,10 +142,12 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
     statusFilter !== "all" ||
     formatFilter !== "all" ||
     constructFilter !== "all" ||
-    purposeFilter !== "all"
+    purposeFilter !== "all" ||
+    profileFilter !== "all"
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
+      if (profileFilter === 'personality' && !isPersonalityProfileItem(item)) return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         const matches =
@@ -160,7 +164,7 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
       }
       return true
     })
-  }, [items, searchQuery, statusFilter, formatFilter, constructFilter, purposeFilter])
+  }, [items, searchQuery, statusFilter, formatFilter, constructFilter, purposeFilter, profileFilter])
 
   const grouped = useMemo(() => {
     const acc: Record<string, ItemWithMeta[]> = {}
@@ -196,6 +200,7 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
     setFormatFilter("all")
     setConstructFilter("all")
     setPurposeFilter("all")
+    setProfileFilter('all')
   }
 
   function toggleSelected(id: string, checked: boolean) {
@@ -302,6 +307,11 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
         </div>
       </PageHeader>
 
+      <p className="text-sm text-muted-foreground">
+        This is the shared item library. It includes questions for different assessments and separate response-quality checks.
+        {' '}{PERSONALITY_PROFILE_TITLE} uses only its original 120 rating statements.
+      </p>
+
       {/*
         This library holds the self-report items. The cognitive bank is a
         separate store with its own lifecycle and review gate, and "Items" is
@@ -338,6 +348,15 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
               />
             </div>
             <div className="flex items-center gap-3 flex-wrap">
+              <Select value={profileFilter} onValueChange={value => setProfileFilter(value ?? 'all')}>
+                <SelectTrigger className="w-64" aria-label="Assessment items">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All library items</SelectItem>
+                  <SelectItem value="personality">{PERSONALITY_PROFILE_TITLE}</SelectItem>
+                </SelectContent>
+              </Select>
               <Select
                 value={constructFilter}
                 onValueChange={(v) => setConstructFilter(v ?? "all")}
@@ -538,7 +557,8 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
                                         <p className="line-clamp-2 text-sm">
                                           {item.stem}
                                         </p>
-                                        <div className="mt-1.5 flex items-center gap-2">
+                                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                                          {isPersonalityProfileItem(item) && <Badge variant="outline">Personality Profile</Badge>}
                                           <Badge variant="item">
                                             {format?.label ?? item.responseFormatName}
                                           </Badge>

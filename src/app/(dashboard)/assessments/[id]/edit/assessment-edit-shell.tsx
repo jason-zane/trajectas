@@ -31,6 +31,7 @@ export function AssessmentEditShell({
   customReportLockName,
   standardized = false,
   basePath,
+  standardizedContent,
   children,
 }: {
   assessment: { id: string; title: string; status: string }
@@ -38,6 +39,7 @@ export function AssessmentEditShell({
   standardized?: boolean
   /** Edit root path — defaults to /assessments/[id]/edit (admin portal). */
   basePath?: string
+  standardizedContent?: React.ReactNode
   children: React.ReactNode
 }) {
   const { features } = usePortal()
@@ -71,7 +73,7 @@ export function AssessmentEditShell({
           <AlertTitle>Standardized personality assessment</AlertTitle>
           <AlertDescription>
             IPIP-NEO-120 is used as one complete form: 120 questions, five dimensions and 30 traits.
-            Its questions, response scale and scoring are fixed. This assessment remains in draft while testing and report preparation are completed.
+            Its questions, response scale and scoring are fixed. You can review its content and administration details below.
           </AlertDescription>
         </Alert>
       )}
@@ -95,7 +97,7 @@ export function AssessmentEditShell({
       <RouteTabs tabs={tabs} basePath={editRoot} activeSegment={activeSegment} />
 
       {standardized && activeSegment !== "reports" ? (
-        <p className="text-sm text-muted-foreground">Results use scale scores from 0–100, with native totals retained. No overall personality score or percentile is provided.</p>
+        standardizedContent
       ) : children}
     </div>
   )

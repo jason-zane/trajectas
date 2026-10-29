@@ -2,7 +2,8 @@ import { getItems } from "@/app/actions/items";
 import { getItemHealthIndicators } from "@/app/actions/psychometrics";
 import { ItemList } from "./item-list";
 
-export default async function ItemsPage() {
+export default async function ItemsPage({ searchParams }: { searchParams: Promise<{ profile?: string }> }) {
+  const query = await searchParams;
   const [items, indicators] = await Promise.all([
     getItems(),
     getItemHealthIndicators(),
@@ -14,5 +15,5 @@ export default async function ItemsPage() {
     healthMap[ind.itemId] = { status: ind.status, discrimination: ind.discrimination };
   }
 
-  return <ItemList items={items} healthMap={healthMap} />;
+  return <ItemList items={items} healthMap={healthMap} initialPersonalityOnly={query.profile === 'personality'} />;
 }

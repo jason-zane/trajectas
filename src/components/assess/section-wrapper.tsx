@@ -25,6 +25,7 @@ import {
 import { formatAutoAdvances, formatNeedsContinue } from "./advance-policy";
 import type { SectionForRunner } from "@/app/actions/assess";
 import type { RunnerContent } from "@/lib/experience/types";
+import { PERSONALITY_PROFILE_PROMPT, PERSONALITY_PROFILE_SECTION_ID } from '@/lib/instrument/ipip-neo-120/catalogue';
 
 interface SectionWrapperProps {
   token: string;
@@ -682,6 +683,11 @@ export function SectionWrapper({
           tight column while the options span the fuller width. */}
       <main className="flex flex-1 flex-col items-center justify-center px-6 py-12 sm:px-10 lg:px-[120px]">
         <div className="w-full max-w-[800px]">
+          {section.id === PERSONALITY_PROFILE_SECTION_ID && (
+            <p className="mb-4 text-sm" style={{ color: 'var(--runner-text-muted)' }}>
+              {PERSONALITY_PROFILE_PROMPT}
+            </p>
+          )}
           {/* Item card with crossfade animation */}
           <div
             className={`transition-opacity duration-150 ease-out motion-reduce:transition-none motion-reduce:!opacity-100 ${

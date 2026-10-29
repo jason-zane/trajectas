@@ -13,8 +13,8 @@ DECLARE
   partner uuid; client uuid; campaign uuid; ca uuid; other uuid; other_ca uuid;
 BEGIN
   config := public.get_ipip_neo_120_delivery(aid,NULL);
-  IF NOT EXISTS(SELECT 1 FROM public.assessments WHERE id=aid AND status='draft' AND scoring_profile='ipip_neo_120_v1')
-    OR EXISTS(SELECT 1 FROM public.standardized_assessment_forms WHERE assessment_id=aid AND activation_ready) THEN RAISE EXCEPTION 'Draft/activation policy failed'; END IF;
+  IF NOT EXISTS(SELECT 1 FROM public.assessments WHERE id=aid AND status='active' AND scoring_profile='ipip_neo_120_v1')
+    OR NOT EXISTS(SELECT 1 FROM public.standardized_assessment_forms WHERE assessment_id=aid AND activation_ready) THEN RAISE EXCEPTION 'Active complete-form policy failed'; END IF;
   IF (SELECT count(*) FROM public.items WHERE id::text IN(SELECT value#>>'{}' FROM jsonb_each(config->'items')))<>120
     OR (SELECT count(DISTINCT content_hash) FROM public.items WHERE id::text IN(SELECT value#>>'{}' FROM jsonb_each(config->'items')))<>120
     OR (SELECT count(*) FROM public.factors WHERE id::text IN(SELECT value->>'factorId' FROM jsonb_each(config->'facets')))<>30
@@ -56,7 +56,7 @@ BEGIN
   BEGIN PERFORM public.persist_ipip_neo_120_result(sid,fixtures->0->'result'); EXCEPTION WHEN raise_exception THEN blocked:=true; END;
   IF NOT blocked OR EXISTS(SELECT 1 FROM public.participant_instrument_results WHERE session_id=sid) OR EXISTS(SELECT 1 FROM public.participant_scores WHERE session_id=sid) THEN RAISE EXCEPTION 'Incomplete response gate failed'; END IF;
   BEGIN UPDATE public.items SET stem='IPIP acceptance forbidden edit' WHERE id=(config->'items'->>'q001')::uuid; RAISE EXCEPTION 'Item edit allowed'; EXCEPTION WHEN check_violation THEN NULL; END;
-  BEGIN UPDATE public.assessments SET status='active' WHERE id=aid; RAISE EXCEPTION 'Activation allowed'; EXCEPTION WHEN check_violation THEN NULL; END;
+  BEGIN UPDATE public.assessments SET status='draft' WHERE id=aid; RAISE EXCEPTION 'Unversioned status edit allowed'; EXCEPTION WHEN check_violation THEN NULL; END;
   BEGIN DELETE FROM public.assessment_section_items s WHERE s.section_id=section_key AND item_id=(config->'items'->>'q001')::uuid; RAISE EXCEPTION 'Short form allowed'; EXCEPTION WHEN check_violation THEN NULL; END;
   BEGIN INSERT INTO public.factors(name,slug,dimension_id) VALUES('Forbidden IPIP facet','ipip-hosted-forbidden-'||gen_random_uuid(),(config->'dimensions'->>'N')::uuid); RAISE EXCEPTION 'Extra facet allowed'; EXCEPTION WHEN check_violation THEN NULL; END;
   INSERT INTO public.partners(name,slug) VALUES('IPIP rollback-only acceptance','ipip-acceptance-'||gen_random_uuid()) RETURNING id INTO partner;
@@ -81,7 +81,7 @@ BEGIN
   IF (SELECT count(*) FROM public.campaign_assessment_factors WHERE campaign_assessment_id=ca)<>30 THEN RAISE EXCEPTION 'Full selection corrupted'; END IF;
 END $acceptance$;
 ROLLBACK;
-SELECT jsonb_build_object('acceptance','passed: 3 golden scoring cases, frozen form, exact canonical content, retry, privacy, no overall/norm, incomplete response gate, immutable draft and campaign subset/move guards',
+SELECT jsonb_build_object('acceptance','passed: 3 golden scoring cases, frozen form, exact canonical content, retry, privacy, no overall/norm, incomplete response gate, immutable active form and campaign subset/move guards',
   'assessment',(SELECT jsonb_build_object('id',id,'status',status,'scoringProfile',scoring_profile) FROM public.assessments WHERE id='741663b2-fbc1-56fe-a0ed-c9bb521e18b6'),
   'activationReady',(SELECT activation_ready FROM public.standardized_assessment_forms WHERE assessment_id='741663b2-fbc1-56fe-a0ed-c9bb521e18b6'),
   'sessionsAfterRollback',(SELECT count(*) FROM public.participant_sessions),
