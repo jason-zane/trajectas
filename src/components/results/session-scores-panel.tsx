@@ -15,6 +15,7 @@ interface SessionScoresPanelProps {
   processingStatus: ParticipantSessionProcessingStatus;
   processingError?: string;
   sessionId: string;
+  personalityProfile?: boolean;
   /** When true, each score row gets an expand-to-constructs drilldown.
    *  Platform admins only — gated by the calling page. */
   showConstructDrilldown?: boolean;
@@ -102,6 +103,7 @@ export function SessionScoresPanel({
   processingError,
   sessionId,
   showConstructDrilldown = false,
+  personalityProfile = false,
 }: SessionScoresPanelProps) {
   if (scores.length === 0) {
     const description =
@@ -123,7 +125,12 @@ export function SessionScoresPanel({
 
   return (
     <div className="space-y-5">
-      {compositeScore != null && (
+      {personalityProfile && (
+        <p className="text-sm text-muted-foreground">
+          Scale scores (0–100) describe personality tendencies. They are not percentiles or measures of leadership effectiveness. Higher scores indicate more of the named tendency.
+        </p>
+      )}
+      {!personalityProfile && compositeScore != null && (
         <div className="flex items-center justify-between gap-6 rounded-lg border border-border bg-card px-5 py-3.5">
           <div className="flex items-baseline gap-3">
             <span className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -159,7 +166,7 @@ export function SessionScoresPanel({
                 key={score.entityId}
                 score={score}
                 sessionId={sessionId}
-                enableDrilldown={showConstructDrilldown}
+                enableDrilldown={showConstructDrilldown && !personalityProfile}
               />
             ))}
           </div>

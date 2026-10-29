@@ -224,7 +224,8 @@ Introduced 2026-04-20 (this branch). Canonical names:
 See `docs/superpowers/specs/2026-04-20-org-diagnostic-campaigns-and-roles-design.md` for the full data model and rationale.
 
 ### Verify schema assumptions locally
-Historical migrations alone do not establish the current schema. Inspect the isolated local stack; any live schema check needs permitted access and release scope:
+Historical migrations alone do not establish the current schema. Inspect the verified hosted development project (`bgrvqvtlhmfmvcytncgw`);
+production schema reads still need permitted access and release scope:
 ```sh
 docker exec supabase_db_trajectas-local psql -U postgres -d postgres -c "\d <table>"
 ```

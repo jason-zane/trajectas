@@ -1,0 +1,14 @@
+{
+  "archiveFilename": "ipip-neo-120-import-preparation-2026-10-29.zip",
+  "archiveSha256": "a88568384e9ffaf0be7bbff52583e9e8e8ede23a1bf3f3f7f6b42e7fe4f89ad1",
+  "files": {
+    "manifest.json": "af3442583d3bd083002b3932eaf086247e1cf7d372599e88bacee0a990e64931",
+    "source-items.json": "3c7451e2203f8b19986187f6a7a3f85a89455b076fd0d232d303733992f464fa",
+    "authored-taxonomy.json": "1f6160ce66f7c439001466bb93417094c92e7ba01fa417510f22c6dd30684a7e",
+    "source-record.json": "a83ef795e8d66650271af2a22dec73508a69a2d8430cd375167f2992ddbba407",
+    "response-format.json": "498b0217396a1d9d139fe3bbbd847bbc9d2dd1af285739d528357e03c4d15812",
+    "scoring-fixtures.json": "995f2335e2865d2b9af08330d74a960db8dd92be1de9eaec4783dc3240c07c93",
+    "sources/official-key-capture.txt": "a8c3f13bf2d03e6bf575242fea551173160f8eccc16d8e4f4989c481166841a5",
+    "sources/key-audit.json": "53cf7ec2a0de5385c38f5898cdf8381a54d23e72e564d734d5affcd8c7881082"
+  }
+}

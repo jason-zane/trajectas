@@ -15,6 +15,8 @@ import { SectionWrapper } from "@/components/assess/section-wrapper";
 import { BrandedMessage } from "@/components/errors/branded-message";
 import { Button } from "@/components/ui/button";
 import { classifyAssessRuntimeError } from "@/lib/assess/classify-runtime-error";
+import { getQualitySupplement } from '@/app/actions/response-quality';
+import { PERSONALITY_PROFILE_ASSESSMENT_ID } from '@/lib/instrument/ipip-neo-120/catalogue';
 
 export default async function SectionPage({
   params,
@@ -156,6 +158,16 @@ export default async function SectionPage({
     postAssessmentUrl = getPostSectionsUrl(experience, token);
   }
 
+  let supplementItemCount = 0;
+  if (targetAssessment.assessmentId === PERSONALITY_PROFILE_ASSESSMENT_ID) {
+    const supplement = await getQualitySupplement(token, sessionId);
+    if ('error' in supplement) return renderBrandedAssessError(supplement.error, token);
+    if (supplement.module) {
+      supplementItemCount = supplement.module.questions.length;
+      postAssessmentUrl = `/assess/${token}/quality/${sessionId}`;
+    }
+  }
+
   // Brand CSS + Google Fonts <link> are injected once by the token layout
   // (src/app/assess/[token]/layout.tsx) and inherited by all children.
 
@@ -168,6 +180,7 @@ export default async function SectionPage({
         section={sectionWithTiming}
         sectionIndex={clampedIdx}
         totalSections={sections.length}
+        supplementItemCount={supplementItemCount}
         allSections={sections}
         existingResponses={responses}
         assessmentName={targetAssessment.title}

@@ -11,6 +11,10 @@
 // report implementations.
 // =============================================================================
 
+import { getAuthorizedIpipNeo120Result } from '@/lib/dal/ipip-neo-120'
+import { IPIP_DATABASE } from '@/lib/instrument/ipip-neo-120/database-form'
+import { IPIP_DOMAINS, IPIP_FACETS } from '@/lib/instrument/ipip-neo-120/definition'
+import type { IpipNeo120Result } from '@/lib/scoring/ipip-neo-120'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { mapReportSnapshotRow, mapReportTemplateRow } from '@/lib/supabase/mappers'
 import { resolveTemplateBandScheme } from './resolve-template-band-scheme'
@@ -43,6 +47,8 @@ export interface ReportContextSession {
 }
 
 export interface ReportContext {
+  /** Native 35-scale personality result. No overall score, percentiles or effectiveness bands. */
+  personalityResult?: IpipNeo120Result | null
   /** The snapshot being generated. */
   snapshot: ReportSnapshot
   /** The template row. */
@@ -203,6 +209,17 @@ export async function buildReportContext(
     clientId,
   }
 
+  const personalityResult = await getAuthorizedIpipNeo120Result(db, session.id, session.assessmentId)
+  if (session.assessmentId === IPIP_DATABASE.assessmentId && !personalityResult) throw new Error('Personality scores are not available')
+  if (personalityResult) {
+    for (const domain of IPIP_DOMAINS) scoreMap[IPIP_DATABASE.dimensions[domain.code]] = personalityResult.dimensions[domain.code].display.pomp
+    for (const facet of IPIP_FACETS) {
+      const score = personalityResult.facets[facet.code].display.pomp
+      scoreMap[IPIP_DATABASE.facets[facet.code].factorId] = score
+      scoreMap[IPIP_DATABASE.facets[facet.code].constructId] = score
+    }
+  }
+
   // Taxonomy fetch — scored entities + caller's extras
   const extraEntityIds = opts.extraEntityIds ?? []
   const initialEntityIds = Array.from(new Set([...extraEntityIds, ...Object.keys(scoreMap)]))
@@ -237,6 +254,7 @@ export async function buildReportContext(
   }
 
   return {
+    personalityResult,
     snapshot,
     template,
     session,
@@ -244,7 +262,10 @@ export async function buildReportContext(
     taxonomy,
     dimensionChildFactors,
     bandScheme,
-    resolveBand: (score: number) => resolveBand(score, bandScheme),
+    resolveBand: (score: number) => {
+      if (personalityResult) throw new Error('Personality scale scores do not use effectiveness bands or unverified norms')
+      return resolveBand(score, bandScheme)
+    },
     brandTheme,
   }
 }

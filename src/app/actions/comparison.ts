@@ -1,4 +1,5 @@
 'use server'
+import ipipIds from '@/lib/instrument/ipip-neo-120/database-ids.json'
 import { requireWorkspaceFeature, requireAnyInsightFeature } from '@/lib/features/access'
 
 import { createClient } from '@/lib/supabase/server'
@@ -67,7 +68,7 @@ export async function getEligibleAssessmentsForParticipants(
   const counts = new Map<string, EligibleAssessment>()
   for (const row of ((data ?? []) as unknown as EligibleSessionRow[])) {
     const a = unwrapEmbedded(row.assessments)
-    if (!a) continue
+    if (!a || a.id === ipipIds.assessmentId) continue
     const existing = counts.get(a.id) ?? {
       assessmentId: a.id,
       assessmentName: a.title,
@@ -111,6 +112,7 @@ export async function getSessionOptionsForRow(
   const parsed = sessionOptionsForRowSchema.safeParse({ campaignParticipantId, assessmentIds })
   if (!parsed.success) throw new Error('Invalid input.')
   await requireParticipantAccess(parsed.data.campaignParticipantId)
+  if (assessmentIds.includes(ipipIds.assessmentId)) throw new Error('Personality assessments require personality-specific comparison and interpretation.')
 
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -365,6 +367,8 @@ export async function getComparisonMatrix(
   await requireWorkspaceFeature('compare')
   const parsed = comparisonRequestSchema.safeParse(req)
   if (!parsed.success) return { columns: [], rows: [] }
+
+  if (parsed.data.assessmentIds.includes(ipipIds.assessmentId)) throw new Error('Personality assessments require personality-specific comparison and interpretation.')
 
   const cpIds = [...new Set(parsed.data.entries.map((e) => e.campaignParticipantId))]
   if (cpIds.length === 0) return { columns: [], rows: [] }

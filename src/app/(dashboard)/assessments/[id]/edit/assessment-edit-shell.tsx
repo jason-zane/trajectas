@@ -3,6 +3,7 @@
 import { usePortal } from "@/components/portal-context"
 import { usePathname } from "next/navigation"
 import { Lock } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { PageHeader } from "@/components/page-header"
 import { RouteTabs } from "@/components/route-tabs"
@@ -28,17 +29,21 @@ const TABS = [
 export function AssessmentEditShell({
   assessment,
   customReportLockName,
+  standardized = false,
   basePath,
+  standardizedContent,
   children,
 }: {
   assessment: { id: string; title: string; status: string }
   customReportLockName: string | null
+  standardized?: boolean
   /** Edit root path — defaults to /assessments/[id]/edit (admin portal). */
   basePath?: string
+  standardizedContent?: React.ReactNode
   children: React.ReactNode
 }) {
   const { features } = usePortal()
-  const tabs = TABS.filter(tab => tab.segment !== "reports" || features.reportTemplateLibrary)
+  const tabs = TABS.filter(tab => (!standardized || tab.segment === "overview" || tab.segment === "reports") && (tab.segment !== "reports" || features.reportTemplateLibrary))
   const pathname = usePathname()
   const editRoot = basePath ?? `/assessments/${assessment.id}/edit`
 
@@ -62,7 +67,17 @@ export function AssessmentEditShell({
         </Badge>
       </PageHeader>
 
-      {customReportLockName && (
+      {standardized && (
+        <Alert variant="info">
+          <Lock className="size-4" />
+          <AlertTitle>Standardized personality assessment</AlertTitle>
+          <AlertDescription>
+            IPIP-NEO-120 is used as one complete form: 120 questions, five dimensions and 30 traits.
+            Its questions, response scale and scoring are fixed. You can review its content and administration details below.
+          </AlertDescription>
+        </Alert>
+      )}
+      {!standardized && customReportLockName && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3 text-sm">
           <Lock className="size-4 mt-0.5 shrink-0 text-amber-700" />
           <div className="text-amber-900">
@@ -81,7 +96,9 @@ export function AssessmentEditShell({
 
       <RouteTabs tabs={tabs} basePath={editRoot} activeSegment={activeSegment} />
 
-      {children}
+      {standardized && activeSegment !== "reports" ? (
+        standardizedContent
+      ) : children}
     </div>
   )
 }

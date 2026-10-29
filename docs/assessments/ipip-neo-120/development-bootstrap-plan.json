@@ -1,0 +1,1113 @@
+{
+  "projectRef": "bgrvqvtlhmfmvcytncgw",
+  "baseline": "partial bootstrap through 00048; zero auth users, campaigns, sessions, assessments or report snapshots",
+  "reset": false,
+  "sourceCommit": "883222dcffa8569db9fb338ea37e9f4fc030d2c1",
+  "migrations": [
+    {
+      "file": "00049_generation_item_diagnostics.sql",
+      "sha256": "ed1141c730ce3520ce2d027cb1e2319b9f78d6a8450c9ff03b7b48072561917b",
+      "toolMigrationName": "dev_bootstrap_00049_generation_item_diagnostics"
+    },
+    {
+      "file": "00050_report_ai_purposes.sql",
+      "sha256": "6828d292b339f48a2ca1d3480e20895919a5750cf5fb8489022997e19e836903",
+      "toolMigrationName": "dev_bootstrap_00050_report_ai_purposes"
+    },
+    {
+      "file": "00051_seed_report_ai_prompts.sql",
+      "sha256": "d74e69916eb83d38d438ca0782e7c2240b3e0689438c065a9c08698a5f235f4e",
+      "toolMigrationName": "dev_bootstrap_00051_seed_report_ai_prompts"
+    },
+    {
+      "file": "00052_strengthen_generation_preflight_prompts.sql",
+      "sha256": "b4ae44ba38b9d7c6a04ef48ffb5e9206c2564efdfee194b59dd7d7c1221ae42f",
+      "toolMigrationName": "dev_bootstrap_00052_strengthen_generation_preflight_prompts"
+    },
+    {
+      "file": "00053_staff_auth_invites.sql",
+      "sha256": "ba6f44f839c081337d5c09d1bfb523044f87c9bd6943d1bc11fdcd9c1c183184",
+      "toolMigrationName": "dev_bootstrap_00053_staff_auth_invites"
+    },
+    {
+      "file": "00054_generation_item_metadata.sql",
+      "sha256": "19fe0fef91e14aba480ffab1bed76fbaf3df52b13f962ada528667a0ced565d8",
+      "toolMigrationName": "dev_bootstrap_00054_generation_item_metadata"
+    },
+    {
+      "file": "00055_v5_construct_v3_factor_v3_preflight_prompts.sql",
+      "sha256": "108cc296709eba1ecbac6489fe5c645aad947a53ae8dcd471bc7bfa24b3d5bd7",
+      "toolMigrationName": "dev_bootstrap_00055_v5_construct_v3_factor_v3_preflight_prompts"
+    },
+    {
+      "file": "00056_add_strength_commentary.sql",
+      "sha256": "6c2a9863d523b06583cc20b35237c5cfd8d751e9dfe9281a0a436c93271cf1f4",
+      "toolMigrationName": "dev_bootstrap_00056_add_strength_commentary"
+    },
+    {
+      "file": "00057_seed_commentary_data.sql",
+      "sha256": "633c530ae91f30c266f8a622814b00dc836dc547c23c506681ceb7980159311c",
+      "toolMigrationName": "dev_bootstrap_00057_seed_commentary_data"
+    },
+    {
+      "file": "00058_directory_management_alignment.sql",
+      "sha256": "ea85096ea1310bd964c5941dd971bdbce19c0d9e02a45582c0cbba99bd7d80c5",
+      "toolMigrationName": "dev_bootstrap_00058_directory_management_alignment"
+    },
+    {
+      "file": "00059_library_import_structuring_model.sql",
+      "sha256": "c60e2f9eb77a337d248b5c33e523c0ea3cc8e92c8c5e2797be2af1a4bbf234d1",
+      "toolMigrationName": "dev_bootstrap_00059_library_import_structuring_model"
+    },
+    {
+      "file": "00060_library_import_structuring_prompt.sql",
+      "sha256": "d639733239c34c951257b2696c54f3271dad56f67bff70a5450dd29c546ebc8a",
+      "toolMigrationName": "dev_bootstrap_00060_library_import_structuring_prompt"
+    },
+    {
+      "file": "00061_campaign_brand_support.sql",
+      "sha256": "d4a837b8b7d3168b1c27b6dd07dc2ccae1dc227357841978b182c4d7e29d0e5a",
+      "toolMigrationName": "dev_bootstrap_00061_campaign_brand_support"
+    },
+    {
+      "file": "00062_brand_assets_bucket.sql",
+      "sha256": "bff592b82e76824935dce6d96f86167071e2a08102da1a06371e810b9b1204da",
+      "toolMigrationName": "dev_bootstrap_00062_brand_assets_bucket"
+    },
+    {
+      "file": "00063_pipeline_tier2_foundation.sql",
+      "sha256": "747955173cbe1989bca908fab07fa992111b7daa27657b6b3a637a67451c3e2c",
+      "toolMigrationName": "dev_bootstrap_00063_pipeline_tier2_foundation"
+    },
+    {
+      "file": "00064_pipeline_tier2_seeds.sql",
+      "sha256": "9153223533da36252a9f3fd80674bda5f88c02170edf82579de3c1e8591884f5",
+      "toolMigrationName": "dev_bootstrap_00064_pipeline_tier2_seeds"
+    },
+    {
+      "file": "00065_assessments_schema_alignment.sql",
+      "sha256": "570a3b7e5d8bd209d80b12d8fc4601d258f57a972763973a4c7e0265e8ed9b08",
+      "toolMigrationName": "dev_bootstrap_00065_assessments_schema_alignment"
+    },
+    {
+      "file": "00066_client_entitlements.sql",
+      "sha256": "eb7790715812b68259f928a0a5c759e8493fbb02575d950b2a03160304b8f768",
+      "toolMigrationName": "dev_bootstrap_00066_client_entitlements"
+    },
+    {
+      "file": "00067_generation_run_progress_detail.sql",
+      "sha256": "fa255e494076bc218be4f2fba7782efe37ea84a2e258c41d5401d3dad0bd8428",
+      "toolMigrationName": "dev_bootstrap_00067_generation_run_progress_detail"
+    },
+    {
+      "file": "00068_rename_organizations_to_clients.sql",
+      "sha256": "cd116432717660a3cd1648b982f8e2a0100dbf91884ff7a543c368aece1a26b7",
+      "toolMigrationName": "dev_bootstrap_00068_rename_organizations_to_clients"
+    },
+    {
+      "file": "00069_atomic_access_link_increment.sql",
+      "sha256": "b773cde83127aa9aa9da974f61e4f78ec2c92034cc6c11c958e774eb292621b0",
+      "toolMigrationName": "dev_bootstrap_00069_atomic_access_link_increment"
+    },
+    {
+      "file": "00070_security_hardening_rls.sql",
+      "sha256": "a61cf25319f5b2a54c058bd3f5ed1961ed976c84d0cfea13ffa9a2d8f94f637d",
+      "toolMigrationName": "dev_bootstrap_00070_security_hardening_rls"
+    },
+    {
+      "file": "00071_internal_integrations_api.sql",
+      "sha256": "edc6ad9655a563a9b72fd2d90f520d9341dd2349175c4efa8400f9a9c8bbbd6d",
+      "toolMigrationName": "dev_bootstrap_00071_internal_integrations_api"
+    },
+    {
+      "file": "00072_fix_flow_config_ordering.sql",
+      "sha256": "3bd78dcdd0629c60bc186777d13fdae95c9c0269fd6c48832f9d833c123dbf98",
+      "toolMigrationName": "dev_bootstrap_00072_fix_flow_config_ordering"
+    },
+    {
+      "file": "00073_partner_entitlements.sql",
+      "sha256": "9db71d161bfc7c5d83eac04ba983977ea7099c0a92c466dde9bc4824229be50f",
+      "toolMigrationName": "dev_bootstrap_00073_partner_entitlements"
+    },
+    {
+      "file": "00074_assessment_intro_and_flow_cleanup.sql",
+      "sha256": "debd606d3fd35773a969b9c54dd93e15bd7ee3c731be1a984dbad636c7a6012b",
+      "toolMigrationName": "dev_bootstrap_00074_assessment_intro_and_flow_cleanup"
+    },
+    {
+      "file": "00075_partner_brand_owner_type.sql",
+      "sha256": "9e3c0559af028a10f45da822b9696014d14abc5359688a11bfcad13e82d20207",
+      "toolMigrationName": "dev_bootstrap_00075_partner_brand_owner_type"
+    },
+    {
+      "file": "00076_campaign_factor_selection.sql",
+      "sha256": "ac1aeba82caadf4d7489ff8605d532f74b6c9d18209149e8a539e7c960ae3c5c",
+      "toolMigrationName": "dev_bootstrap_00076_campaign_factor_selection"
+    },
+    {
+      "file": "00077_email_templates.sql",
+      "sha256": "ad97bd08e06fc5fea4ca5bfcc7592872445b1edc0fb51fa040f38328815e3bc3",
+      "toolMigrationName": "dev_bootstrap_00077_email_templates"
+    },
+    {
+      "file": "00078_email_template_defaults.sql",
+      "sha256": "9e31a1076401d4bfc73c5e065e84f9653cca50febc70ae2f9282dd2a76395bed",
+      "toolMigrationName": "dev_bootstrap_00078_email_template_defaults"
+    },
+    {
+      "file": "00079_seed_library_import_structuring_model.sql",
+      "sha256": "91f321738e357a52ab2c5aac6570afc3b1ee735689a6339bc2652c5404a012af",
+      "toolMigrationName": "dev_bootstrap_00079_seed_library_import_structuring_model"
+    },
+    {
+      "file": "20260407120000_create_contact_submissions.sql",
+      "sha256": "0edef668f8a1538e411413aecc8ff8dfda399ea36ae122fc7dd60e08052cd242",
+      "toolMigrationName": "dev_bootstrap_20260407120000_create_contact_submissions"
+    },
+    {
+      "file": "20260409052444_assessment_runner_rpc.sql",
+      "sha256": "6ea371cc8ccc1635555d5e2783656e232e91a953a0e7ff2c052de682c6a4cc29",
+      "toolMigrationName": "dev_bootstrap_20260409052444_assessment_runner_rpc"
+    },
+    {
+      "file": "20260409120000_bulk_quota_usage.sql",
+      "sha256": "cb9565cd418ca1e9749e7cc78b1b26b9ea1f2f999fe9c92fc91f8c41e11b3b8d",
+      "toolMigrationName": "dev_bootstrap_20260409120000_bulk_quota_usage"
+    },
+    {
+      "file": "20260409130000_session_guards.sql",
+      "sha256": "0efc43b1ddc78fc37ba13647d3df13a8acd9ff11e573ecc95f3c5fda60f5da96",
+      "toolMigrationName": "dev_bootstrap_20260409130000_session_guards"
+    },
+    {
+      "file": "20260409140000_otp_email_templates.sql",
+      "sha256": "d8a957038679125d4840554fc43375697e662283121561afdefc2c3fbecaf729",
+      "toolMigrationName": "dev_bootstrap_20260409140000_otp_email_templates"
+    },
+    {
+      "file": "20260409153000_staff_invite_acceptance_link.sql",
+      "sha256": "fc26c1a53e9f47ce223731e86fa62de85ad7da5c8c849a8300d61dbaa5a6c11c",
+      "toolMigrationName": "dev_bootstrap_20260409153000_staff_invite_acceptance_link"
+    },
+    {
+      "file": "20260410045817_allow_repeat_campaign_invites.sql",
+      "sha256": "8bd26f9afee9a8223165cc87f8ba46975b0943fe9398b3c7c8b7f54aa2c37dbf",
+      "toolMigrationName": "dev_bootstrap_20260410045817_allow_repeat_campaign_invites"
+    },
+    {
+      "file": "20260410060304_disable_auto_snapshot_trigger.sql",
+      "sha256": "0181355c377bf87575fe12b3ff63b2d750d0ee69a84c02e8812ed96eb3f360b3",
+      "toolMigrationName": "dev_bootstrap_20260410060304_disable_auto_snapshot_trigger"
+    },
+    {
+      "file": "20260410100000_partner_profile_fields.sql",
+      "sha256": "8005a308d937ffa4f0041a942956d5dadb12d8963af1d3c1ecb0bb1bcb4eb575",
+      "toolMigrationName": "dev_bootstrap_20260410100000_partner_profile_fields"
+    },
+    {
+      "file": "20260410100001_partner_taxonomy_assignments.sql",
+      "sha256": "28b3be72bb65a33cf53bec0a023eefb6fa60b425f8271aa49ac8f5092af0de44",
+      "toolMigrationName": "dev_bootstrap_20260410100001_partner_taxonomy_assignments"
+    },
+    {
+      "file": "20260410150000_allow_repeat_campaign_invites.sql",
+      "sha256": "dbda04de6918fbfea8f5b4ead07b4a4e629e715ca8cc5e6f5a669f3ffd3aa3da",
+      "toolMigrationName": "dev_bootstrap_20260410150000_allow_repeat_campaign_invites"
+    },
+    {
+      "file": "20260410213110_campaigns_with_counts_view.sql",
+      "sha256": "4ed387c5f76595ad5761fbf45977789affca6d37c6b751994fa402b7635312d7",
+      "toolMigrationName": "dev_bootstrap_20260410213110_campaigns_with_counts_view"
+    },
+    {
+      "file": "20260413030757_partner_owned_assessments.sql",
+      "sha256": "f1ad4980bf1ebfdf71f63598a30bb75ee57719bdfd6833c01bff80d4c962b2b7",
+      "toolMigrationName": "dev_bootstrap_20260413030757_partner_owned_assessments"
+    },
+    {
+      "file": "20260413030802_report_snapshot_pdf_status.sql",
+      "sha256": "d12ee81c19e5e98db18798731ed5fda2de78aa0047f0516746e197f227b5fd93",
+      "toolMigrationName": "dev_bootstrap_20260413030802_report_snapshot_pdf_status"
+    },
+    {
+      "file": "20260413030813_participant_session_processing_state.sql",
+      "sha256": "4b35174aabd9cd3a21ab3e38eea0481bc8164b526eeaaf934341a23e0325bba4",
+      "toolMigrationName": "dev_bootstrap_20260413030813_participant_session_processing_state"
+    },
+    {
+      "file": "20260414023533_campaign_participants_job_title_company.sql",
+      "sha256": "0e853ae65427f49535b8606da7b46b72dd529f25c0e559b47f1e6970023e0afe",
+      "toolMigrationName": "dev_bootstrap_20260414023533_campaign_participants_job_title_company"
+    },
+    {
+      "file": "20260414044341_report_presentation_system.sql",
+      "sha256": "9868b2f3088eac4c3f27208a90f381f68e35ac97286b974cd1795e585ce05136",
+      "toolMigrationName": "dev_bootstrap_20260414044341_report_presentation_system"
+    },
+    {
+      "file": "20260414060826_report_simplification.sql",
+      "sha256": "bef30d943a6668c55ef70e32b0aea6b8067ad6f681aea8c048d38cb63fcb4acb",
+      "toolMigrationName": "dev_bootstrap_20260414060826_report_simplification"
+    },
+    {
+      "file": "20260416034727_band_schemes.sql",
+      "sha256": "f359b79f1a54231e4291e7e13c5f46f0f3b3c08701ec0ffb17ebd9cfaa0161ec",
+      "toolMigrationName": "dev_bootstrap_20260416034727_band_schemes"
+    },
+    {
+      "file": "20260416044746_anchor_definitions.sql",
+      "sha256": "074caf583ec261a6f2a823937b53721f238851569166d6c3ea368626039c133e",
+      "toolMigrationName": "dev_bootstrap_20260416044746_anchor_definitions"
+    },
+    {
+      "file": "20260416044824_flexible_taxonomy_hierarchy.sql",
+      "sha256": "5281bbcfd3cc1ec87c883bfca677690ccec1912fe6ef2466590ae0301285c12c",
+      "toolMigrationName": "dev_bootstrap_20260416044824_flexible_taxonomy_hierarchy"
+    },
+    {
+      "file": "20260416050051_promote_library_factors_to_dimensions.sql",
+      "sha256": "168af420589934436b846a2a55ccd0647c31778fbdf701cdcbcd3b6282907993",
+      "toolMigrationName": "dev_bootstrap_20260416050051_promote_library_factors_to_dimensions"
+    },
+    {
+      "file": "20260416082725_preview_sample_client.sql",
+      "sha256": "0705de4b4c3bfff11b2cf9d2769cdd9d040259503a981153f0161398d8b89b30",
+      "toolMigrationName": "dev_bootstrap_20260416082725_preview_sample_client"
+    },
+    {
+      "file": "20260417050958_email_template_fixes.sql",
+      "sha256": "f2ddf91b02480eb91aa7a4172d3cfa0b27f1e537bc11ea126125f72f65266b60",
+      "toolMigrationName": "dev_bootstrap_20260417050958_email_template_fixes"
+    },
+    {
+      "file": "20260418110000_campaign_favorites.sql",
+      "sha256": "8bf75193b6dd2877a7fc5b2518db6a82262bd605b86205c7bc7fbddb32304925",
+      "toolMigrationName": "dev_bootstrap_20260418110000_campaign_favorites"
+    },
+    {
+      "file": "20260419082011_20260419000000_scrub_stale_talentfit_copy.sql",
+      "sha256": "14ded82786577a0487898c7be59cf2154bde418a5f2c071bd5f81b1a3ee5e569",
+      "toolMigrationName": "dev_bootstrap_20260419082011_20260419000000_scrub_stale_talentfit_copy"
+    },
+    {
+      "file": "20260420053024_org_diagnostic_enums.sql",
+      "sha256": "bf5738f28ee40d3e8b80fe302d8fb2f1f76d8a48c383d7c4215cb65549235b8a",
+      "toolMigrationName": "dev_bootstrap_20260420053024_org_diagnostic_enums"
+    },
+    {
+      "file": "20260420053054_org_diagnostic_profiles.sql",
+      "sha256": "ec976ebb67d977e132cf6de5a2d26b1c30a2a5fe8c643074634a29c6846a4e57",
+      "toolMigrationName": "dev_bootstrap_20260420053054_org_diagnostic_profiles"
+    },
+    {
+      "file": "20260420053115_client_roles.sql",
+      "sha256": "2b2e22a95c041aedcc3e15f3cee844cf8e50f60b18148125d204c0dcc195ad37",
+      "toolMigrationName": "dev_bootstrap_20260420053115_client_roles"
+    },
+    {
+      "file": "20260420053147_org_diagnostic_campaigns_and_tracks.sql",
+      "sha256": "79016c8ff9afb5a4e6bff00fe791bbec04c40fb8baa3fc57d77a5b7a5896fb14",
+      "toolMigrationName": "dev_bootstrap_20260420053147_org_diagnostic_campaigns_and_tracks"
+    },
+    {
+      "file": "20260420053210_org_diagnostic_respondents.sql",
+      "sha256": "85fac4c1a5be35544074690525f256d645638f82fbf2b883e4ccb6cfe527f0b0",
+      "toolMigrationName": "dev_bootstrap_20260420053210_org_diagnostic_respondents"
+    },
+    {
+      "file": "20260422000000_revoke_unsafe_rpc_grants.sql",
+      "sha256": "80b78cfa461695623b1d9a895bb7db5b4883a02367a69b456030497aa4a19fd0",
+      "toolMigrationName": "dev_bootstrap_20260422000000_revoke_unsafe_rpc_grants"
+    },
+    {
+      "file": "20260424143500_harden_assessment_runner_rpc.sql",
+      "sha256": "14442a633b8517ab9684772a4ea08688e00038665b79167cc9fe7525a827811f",
+      "toolMigrationName": "dev_bootstrap_20260424143500_harden_assessment_runner_rpc"
+    },
+    {
+      "file": "20260508065106_repair_registered_participant_completion.sql",
+      "sha256": "af873cdf108f81dc8d0b76559f19bbe8154b6509ca9ed4df7cfb0acb4aaa5631",
+      "toolMigrationName": "dev_bootstrap_20260508065106_repair_registered_participant_completion"
+    },
+    {
+      "file": "20260508214400_phase4_security_hardening.sql",
+      "sha256": "8bda72983dac1b32f8f74b60936ec54fbef012bf08870d6e67298afa7acd44c1",
+      "toolMigrationName": "dev_bootstrap_20260508214400_phase4_security_hardening"
+    },
+    {
+      "file": "20260508214500_phase4_fk_indexes.sql",
+      "sha256": "8be4947d54c95034caeff5bfd970e81dc49f858740f078dd9f8f197b5e4db4af",
+      "toolMigrationName": "dev_bootstrap_20260508214500_phase4_fk_indexes"
+    },
+    {
+      "file": "20260508214600_phase4_rls_uid_subquery_wrap.sql",
+      "sha256": "68122b12bd959ae007dcd63b4506416810322207ad94bfcaf56270e890ca501c",
+      "toolMigrationName": "dev_bootstrap_20260508214600_phase4_rls_uid_subquery_wrap"
+    },
+    {
+      "file": "20260512045701_fix_function_search_path_quoting.sql",
+      "sha256": "f1f2b2887f21bbf37132f267e65f6c6bbf5240604a5b4e0209018962ad654384",
+      "toolMigrationName": "dev_bootstrap_20260512045701_fix_function_search_path_quoting"
+    },
+    {
+      "file": "20260512052047_align_local_schema_with_prod.sql",
+      "sha256": "fd57c91bc06a2e824178038036866cb4b5169758cdb62a9cbf51da8d97749dd1",
+      "toolMigrationName": "dev_bootstrap_20260512052047_align_local_schema_with_prod"
+    },
+    {
+      "file": "20260512140000_trajectory_person_key.sql",
+      "sha256": "8969fe599221c46ad98091cca6b3c13822aed82018f6107074cd94bee0f4b353",
+      "toolMigrationName": "dev_bootstrap_20260512140000_trajectory_person_key"
+    },
+    {
+      "file": "20260512150000_trajectory_revoke_trigger_fn_exec.sql",
+      "sha256": "7ef2f829278eb2e14df9544cff6255f08aa1793f93e6402913f086d345f34469",
+      "toolMigrationName": "dev_bootstrap_20260512150000_trajectory_revoke_trigger_fn_exec"
+    },
+    {
+      "file": "20260515120000_item_difficulty.sql",
+      "sha256": "1bedab9c28c28c7f08c920462af7518794880741b945fca17a250cd1f194fe30",
+      "toolMigrationName": "dev_bootstrap_20260515120000_item_difficulty"
+    },
+    {
+      "file": "20260515150000_drop_items_selection_priority.sql",
+      "sha256": "bba251a8a9b7e1ed6d315c3b9059a93caa98fc5856dfb732d882bf7d1b415685",
+      "toolMigrationName": "dev_bootstrap_20260515150000_drop_items_selection_priority"
+    },
+    {
+      "file": "20260515160000_content_sources.sql",
+      "sha256": "b0893df4bac2bdea3b2d905ac89a17a804c68b65aef3caa01173faa589284953",
+      "toolMigrationName": "dev_bootstrap_20260515160000_content_sources"
+    },
+    {
+      "file": "20260515170000_relax_anchor_length_caps.sql",
+      "sha256": "65ff94af435eb02a5acaaa5929b4c25271f24400402e1c3b18652e11c89b2a09",
+      "toolMigrationName": "dev_bootstrap_20260515170000_relax_anchor_length_caps"
+    },
+    {
+      "file": "20260516120000_default_item_ordering_randomised.sql",
+      "sha256": "1da34e6c446d1e3823562af07f730d669444cc713916b96375d1d3505c4ffed3",
+      "toolMigrationName": "dev_bootstrap_20260516120000_default_item_ordering_randomised"
+    },
+    {
+      "file": "20260517120000_report_templates_custom_slug.sql",
+      "sha256": "eaa53b97e3122db8f4ce6155580494c1881366ddd2d628558c53ec2ceed85827",
+      "toolMigrationName": "dev_bootstrap_20260517120000_report_templates_custom_slug"
+    },
+    {
+      "file": "20260519100000_5brains_report_template.sql",
+      "sha256": "968900fadeab44d602eedece7fc25a3b5e42f0f4690129a11be87c8768687307",
+      "toolMigrationName": "dev_bootstrap_20260519100000_5brains_report_template"
+    },
+    {
+      "file": "20260519120000_assessment_report_templates.sql",
+      "sha256": "02e3b1d17076db19f51c6b5844454adafc8dafcc1b19ffc0b3e86e4f5b4ef878",
+      "toolMigrationName": "dev_bootstrap_20260519120000_assessment_report_templates"
+    },
+    {
+      "file": "20260519120001_deactivate_orphaned_assignments.sql",
+      "sha256": "b94b043001993bc2921a54c9595f096470b5b1929b844d61041edaf688b6cf4f",
+      "toolMigrationName": "dev_bootstrap_20260519120001_deactivate_orphaned_assignments"
+    },
+    {
+      "file": "20260519130000_5brains_assessment_template_default.sql",
+      "sha256": "3f26f5177c5e3cf916de5ad067e42641a9f32c35fd5fa78adc71fad92e6ccc4d",
+      "toolMigrationName": "dev_bootstrap_20260519130000_5brains_assessment_template_default"
+    },
+    {
+      "file": "20260519180000_report_attachment_cleanup.sql",
+      "sha256": "a607cf5b542fe078a27f10039c0d3252830fe05406b7b4f17e47c44357117f32",
+      "toolMigrationName": "dev_bootstrap_20260519180000_report_attachment_cleanup"
+    },
+    {
+      "file": "20260519200000_participant_scores_full_construct_unique.sql",
+      "sha256": "aa47109ef3eb6781c77df51f04486576f776f14528dc6189eaafa8e32dfb18f3",
+      "toolMigrationName": "dev_bootstrap_20260519200000_participant_scores_full_construct_unique"
+    },
+    {
+      "file": "20260519210000_save_responses_batch_rpc.sql",
+      "sha256": "66a746157eb88f180608cf97893d82a17999737f8508c128ace3d3f38c998f1b",
+      "toolMigrationName": "dev_bootstrap_20260519210000_save_responses_batch_rpc"
+    },
+    {
+      "file": "20260521080000_drop_dead_section_columns.sql",
+      "sha256": "ff7c0567fccc759623eda81862ced2c292512a2060517b13dcdeb2182fc074b4",
+      "toolMigrationName": "dev_bootstrap_20260521080000_drop_dead_section_columns"
+    },
+    {
+      "file": "20260521120000_revoke_auth_helper_definer_exec.sql",
+      "sha256": "516209436158b4dbd38bda9e7ca7dbc40a082bb02ab470b4ae26040409d063c6",
+      "toolMigrationName": "dev_bootstrap_20260521120000_revoke_auth_helper_definer_exec"
+    },
+    {
+      "file": "20260521130000_clear_user_passwords_and_lock.sql",
+      "sha256": "0a5440d0a935a3d46864f0f3475e1f5e936cc1ab252bb3ac801686de396f459c",
+      "toolMigrationName": "dev_bootstrap_20260521130000_clear_user_passwords_and_lock"
+    },
+    {
+      "file": "20260521140000_fk_on_delete_rules.sql",
+      "sha256": "bd65573edbf3b179ddcb2aad220d7a3894ac0b54c7f0e1a91df708c03fbd73da",
+      "toolMigrationName": "dev_bootstrap_20260521140000_fk_on_delete_rules"
+    },
+    {
+      "file": "20260521150000_profile_deletion_columns.sql",
+      "sha256": "b88a163a3cef71ed194a6f34b47f27e42b5e653dd23c653435f76773f06f02da",
+      "toolMigrationName": "dev_bootstrap_20260521150000_profile_deletion_columns"
+    },
+    {
+      "file": "20260521160000_account_deletion_audit.sql",
+      "sha256": "8ce8125f39588038c36c1046d7234f2366f67df87c0045f2c6a2f2a68c162813",
+      "toolMigrationName": "dev_bootstrap_20260521160000_account_deletion_audit"
+    },
+    {
+      "file": "20260521170000_admin_action_audit.sql",
+      "sha256": "03779a4f9c8f9737171c99f1d34121b7b504bdf1d731e177796f9bcf314b5275",
+      "toolMigrationName": "dev_bootstrap_20260521170000_admin_action_audit"
+    },
+    {
+      "file": "20260521180000_drop_admin_action_audit.sql",
+      "sha256": "975fd15fd008fefa1892e5a6cddf83dabca0410266892e89b1d0fcb9db7daf86",
+      "toolMigrationName": "dev_bootstrap_20260521180000_drop_admin_action_audit"
+    },
+    {
+      "file": "20260522000000_restore_auth_helper_exec_for_rls.sql",
+      "sha256": "0700328e373c9663cfd8b32d2b3c73efaf8fc5e873a6d57482c85399adea0168",
+      "toolMigrationName": "dev_bootstrap_20260522000000_restore_auth_helper_exec_for_rls"
+    },
+    {
+      "file": "20260522010000_revoke_rls_auto_enable_exec.sql",
+      "sha256": "2cbd1c0aca4f80f12a670603d0523b1d2fd118aa0dc81e1917cdaf3852c9d04f",
+      "toolMigrationName": "dev_bootstrap_20260522010000_revoke_rls_auto_enable_exec"
+    },
+    {
+      "file": "20260522020000_admin_list_migrations_rpc.sql",
+      "sha256": "c61084a5b39a648fe9c83184cace5214aaa3ba70e7aca6eac04faf65d9079eab",
+      "toolMigrationName": "dev_bootstrap_20260522020000_admin_list_migrations_rpc"
+    },
+    {
+      "file": "20260522030000_grant_admin_list_migrations_to_service_role.sql",
+      "sha256": "d1f57ba3197cea802cf43ac3d7469a01136622ece0519c7f6c26b128a0129418",
+      "toolMigrationName": "dev_bootstrap_20260522030000_grant_admin_list_migrations_to_service_role"
+    },
+    {
+      "file": "20260522120000_composite_score_and_sent_indicator.sql",
+      "sha256": "3a50643dc4d71f73a34e798a5f7536dc009af9e529e79cb2222e399669ac2e92",
+      "toolMigrationName": "dev_bootstrap_20260522120000_composite_score_and_sent_indicator"
+    },
+    {
+      "file": "20260522180000_campaign_consultant_notifications.sql",
+      "sha256": "f03b96bc7b710d6853de0a367ab419566d7137ee73f789a73e248fc8685294cc",
+      "toolMigrationName": "dev_bootstrap_20260522180000_campaign_consultant_notifications"
+    },
+    {
+      "file": "20260522190000_consultant_notified_at.sql",
+      "sha256": "f741daa75538ea3922ebf76a340b6a03d0a81c6573ae76058130279a95ccc9f5",
+      "toolMigrationName": "dev_bootstrap_20260522190000_consultant_notified_at"
+    },
+    {
+      "file": "20260524100000_generation_presets.sql",
+      "sha256": "04e1d791fb35cfa6f7410c867f6c045f2dadd0cd17724123145579d67ea52cd6",
+      "toolMigrationName": "dev_bootstrap_20260524100000_generation_presets"
+    },
+    {
+      "file": "20260524100001_saved_comparisons.sql",
+      "sha256": "df3260f7d8c6d8ed580db1c97e509714c73e9134a2bd1e4a7f07781ecd0902cf",
+      "toolMigrationName": "dev_bootstrap_20260524100001_saved_comparisons"
+    },
+    {
+      "file": "20260524100100_generation_presets_fix_search_path.sql",
+      "sha256": "2fb1b20aa8aad397c0f2d46884142030b73cf1f84c87e63aa22447bcbcc69850",
+      "toolMigrationName": "dev_bootstrap_20260524100100_generation_presets_fix_search_path"
+    },
+    {
+      "file": "20260524110000_seed_generation_presets.sql",
+      "sha256": "f6c80db57d79b14c9c4b55b79601146efa436690209dc0dfafbb8ae292736de8",
+      "toolMigrationName": "dev_bootstrap_20260524110000_seed_generation_presets"
+    },
+    {
+      "file": "20260525000000_saved_comparisons_protect_ownership.sql",
+      "sha256": "a6cd0d26e4bfc7150f51c3fcc8b78aece6c8f35edbd81bb899d8d1924502d9a7",
+      "toolMigrationName": "dev_bootstrap_20260525000000_saved_comparisons_protect_ownership"
+    },
+    {
+      "file": "20260525120000_factors_composition_locked.sql",
+      "sha256": "7f9e55462bd1559dc45b24fcc404c8af9292b480dd67a1a8c0dc635e169d82ff",
+      "toolMigrationName": "dev_bootstrap_20260525120000_factors_composition_locked"
+    },
+    {
+      "file": "20260525130000_taxonomy_unification_data_migration.sql",
+      "sha256": "ed3e46f5a12ee6a73382d7babcdaf02c22a6e9e15f3af15c2aca4dd000c7408a",
+      "toolMigrationName": "dev_bootstrap_20260525130000_taxonomy_unification_data_migration"
+    },
+    {
+      "file": "20260525140000_taxonomy_unification_drop_construct_path.sql",
+      "sha256": "5c56a84f5ecdf6995515e1fb61805a443ba691f54748fda7e21e46835eab3e4f",
+      "toolMigrationName": "dev_bootstrap_20260525140000_taxonomy_unification_drop_construct_path"
+    },
+    {
+      "file": "20260525150000_restore_items_per_construct.sql",
+      "sha256": "e8b75115cc6c8e32754c7478b6da7ccf44c3dbd690e6ade369dbe1f67f9bbc30",
+      "toolMigrationName": "dev_bootstrap_20260525150000_restore_items_per_construct"
+    },
+    {
+      "file": "20260525160000_migrate_report_template_construct_displaylevel.sql",
+      "sha256": "d4374ff0b28cfde36cd5fcca743538f8f25015b6b82ac5fc8a93a5db6f4e6c2e",
+      "toolMigrationName": "dev_bootstrap_20260525160000_migrate_report_template_construct_displaylevel"
+    },
+    {
+      "file": "20260525170000_archive_legacy_non_brain_library_content.sql",
+      "sha256": "45e6ae9d9ea2830e6bd1dd74d398576b0bb86d106020eeedf700d8b9e886ab6e",
+      "toolMigrationName": "dev_bootstrap_20260525170000_archive_legacy_non_brain_library_content"
+    },
+    {
+      "file": "20260529100000_architect_brief_extraction_purpose.sql",
+      "sha256": "39b0518d60f2a50612935fe6cd06aaa1c1bbe85a3bdffe88c7dc13e88c948bd3",
+      "toolMigrationName": "dev_bootstrap_20260529100000_architect_brief_extraction_purpose"
+    },
+    {
+      "file": "20260529100500_architect_factor_applicability.sql",
+      "sha256": "949a7170b3dbe13b8c25144c8ca3a7918931117e1d284ce847c29e24efda95fc",
+      "toolMigrationName": "dev_bootstrap_20260529100500_architect_factor_applicability"
+    },
+    {
+      "file": "20260529101000_architect_brief_extraction_seed.sql",
+      "sha256": "16f735db6d97fa571e515dfa310395686380099bca5a4411e316456f5dc93335",
+      "toolMigrationName": "dev_bootstrap_20260529101000_architect_brief_extraction_seed"
+    },
+    {
+      "file": "20260529101500_architect_source_agnostic_matching_prompt.sql",
+      "sha256": "15524316762f6b82ec34cc7ce97e0203e29a3cc2f8d648b9346358ed098ecf50",
+      "toolMigrationName": "dev_bootstrap_20260529101500_architect_source_agnostic_matching_prompt"
+    },
+    {
+      "file": "20260529120000_items_observer_stem.sql",
+      "sha256": "59484b4648c0f774c26a33eb11ea99a83063730e67190dfda06ec752488e0f0c",
+      "toolMigrationName": "dev_bootstrap_20260529120000_items_observer_stem"
+    },
+    {
+      "file": "20260529140000_leadership_360_campaign_skeleton.sql",
+      "sha256": "082e00ede031597bff15f8b2f84cf2f073c5d477d40323670d80aefdd50173ab",
+      "toolMigrationName": "dev_bootstrap_20260529140000_leadership_360_campaign_skeleton"
+    },
+    {
+      "file": "20260529160000_architect_backfill_factor_applicability.sql",
+      "sha256": "0ef636bb480ecca55a8ce767a9cb0b8f5aae39777b1baa7c0ce3aac3a2acfbcc",
+      "toolMigrationName": "dev_bootstrap_20260529160000_architect_backfill_factor_applicability"
+    },
+    {
+      "file": "20260530120000_link_rater_to_participant.sql",
+      "sha256": "3c7a10596d68ca4ebb5e7f936296e904d8528b5fdf0cffd050996de2e29cf2b7",
+      "toolMigrationName": "dev_bootstrap_20260530120000_link_rater_to_participant"
+    },
+    {
+      "file": "20260530130000_campaigns_with_counts_exclude_raters.sql",
+      "sha256": "bff0c574c1965fccc7a4ecec2076598823135bc8541db1c23cbf564b2bece3d1",
+      "toolMigrationName": "dev_bootstrap_20260530130000_campaigns_with_counts_exclude_raters"
+    },
+    {
+      "file": "20260530150000_email_template_type_add_rater_invite.sql",
+      "sha256": "b265340e8e7005c137c5fa122ea0af5adc742c8aa1a49375e684c355a9dc9af7",
+      "toolMigrationName": "dev_bootstrap_20260530150000_email_template_type_add_rater_invite"
+    },
+    {
+      "file": "20260530150500_seed_rater_invite_template.sql",
+      "sha256": "dfe206a390d38a998a45cacbc4c750bdd70de7323042ef7dba3a9229a1bef5ce",
+      "toolMigrationName": "dev_bootstrap_20260530150500_seed_rater_invite_template"
+    },
+    {
+      "file": "20260530160000_architect_matcher_model_claude.sql",
+      "sha256": "c4e8152823bb88053058ce2b530e8d55b0146b5ff9e0ce64abc511a52710dc64",
+      "toolMigrationName": "dev_bootstrap_20260530160000_architect_matcher_model_claude"
+    },
+    {
+      "file": "20260530170000_architect_overview_purpose.sql",
+      "sha256": "45e205d56b05fc7d20cd1fa5bc39022ba49f75fd6d01505e1ae26ced23fc9a9b",
+      "toolMigrationName": "dev_bootstrap_20260530170000_architect_overview_purpose"
+    },
+    {
+      "file": "20260530170500_architect_overview_seed.sql",
+      "sha256": "8fb45525f6fa3d169a10942bee3375b5cb279bea81d3a1e4116977974509780d",
+      "toolMigrationName": "dev_bootstrap_20260530170500_architect_overview_seed"
+    },
+    {
+      "file": "20260531120000_campaign_raters_last_reminded.sql",
+      "sha256": "1bd3c77ae58940a77f73b7efeb2435b7365c417652f1f30f9f5541dd608cdd9c",
+      "toolMigrationName": "dev_bootstrap_20260531120000_campaign_raters_last_reminded"
+    },
+    {
+      "file": "20260531120500_email_template_type_add_rater_reminder.sql",
+      "sha256": "8b91ec814f70ac1c90a941a954af1b2af75c965696b4f3f540c04093a35a9e26",
+      "toolMigrationName": "dev_bootstrap_20260531120500_email_template_type_add_rater_reminder"
+    },
+    {
+      "file": "20260531121000_seed_rater_reminder_template.sql",
+      "sha256": "05015f2bd204c380d398089f48990c578afb959bfb57fe9fa3ecdd28f5b07827",
+      "toolMigrationName": "dev_bootstrap_20260531121000_seed_rater_reminder_template"
+    },
+    {
+      "file": "20260601120000_error_events.sql",
+      "sha256": "610e78702b0b22a4fed94af12ec8bab65b494a9f8cfbc0f8ca644851033c0d81",
+      "toolMigrationName": "dev_bootstrap_20260601120000_error_events"
+    },
+    {
+      "file": "20260602120000_library_categories.sql",
+      "sha256": "69a8081944d2dbf3152330b21738997f62232d3abfe66449bdb591d762edf1d7",
+      "toolMigrationName": "dev_bootstrap_20260602120000_library_categories"
+    },
+    {
+      "file": "20260602120500_backfill_factor_categories.sql",
+      "sha256": "25699178c0527ab94d3c102c6c719273d1aecacb54516b0f6b93b4a4865b7e63",
+      "toolMigrationName": "dev_bootstrap_20260602120500_backfill_factor_categories"
+    },
+    {
+      "file": "20260602121000_library_categories_rls.sql",
+      "sha256": "6a52bede7c041c5a5aa14f418d22a7f007ea91beeda3cbe8e26c765f1f338a55",
+      "toolMigrationName": "dev_bootstrap_20260602121000_library_categories_rls"
+    },
+    {
+      "file": "20260602140000_factor_readiness.sql",
+      "sha256": "65bcc144b40fb04d8172e1a3e58dbe41f75432413a284aefca08497c518eb73a",
+      "toolMigrationName": "dev_bootstrap_20260602140000_factor_readiness"
+    },
+    {
+      "file": "20260602160000_library_field_assist_purpose.sql",
+      "sha256": "aa5b8cd09e6dc034134f878eac34e033c1666308896d9dc2dd9b846d1f76be0d",
+      "toolMigrationName": "dev_bootstrap_20260602160000_library_field_assist_purpose"
+    },
+    {
+      "file": "20260602160500_library_field_assist_seed.sql",
+      "sha256": "5ff400d04323e8cb76c53c67c188a9fec8381ce4c7a48f9700cfb48ec22f8989",
+      "toolMigrationName": "dev_bootstrap_20260602160500_library_field_assist_seed"
+    },
+    {
+      "file": "20260605120000_assessment_resume_reminders.sql",
+      "sha256": "e87535ed1017bf092dac19a4e65a25aea0ede19ce27c730efc324175792f4d62",
+      "toolMigrationName": "dev_bootstrap_20260605120000_assessment_resume_reminders"
+    },
+    {
+      "file": "20260608120000_drop_library_backup_tables.sql",
+      "sha256": "def2403e490bba1c32a972fdb01424518ed075066103eae9a5c59d5046dfce0d",
+      "toolMigrationName": "dev_bootstrap_20260608120000_drop_library_backup_tables"
+    },
+    {
+      "file": "20260608130000_campaigns_with_counts_security_invoker.sql",
+      "sha256": "4b00d720786753382a47f7ba4e92ea2052df7219bccb290c2c8bd4933263b840",
+      "toolMigrationName": "dev_bootstrap_20260608130000_campaigns_with_counts_security_invoker"
+    },
+    {
+      "file": "20260611050000_rls_policy_merge_and_fk_indexes.sql",
+      "sha256": "1a657f4271f07d15a589414d83b6a1114858c276c452bfa47a7e6d502a39dfef",
+      "toolMigrationName": "dev_bootstrap_20260611050000_rls_policy_merge_and_fk_indexes"
+    },
+    {
+      "file": "20260611180315_append_only_audit_tables.sql",
+      "sha256": "cdb8023072f745300e4829ae0883f8574acda6f76d75a575098f5fd7d6b1942e",
+      "toolMigrationName": "dev_bootstrap_20260611180315_append_only_audit_tables"
+    },
+    {
+      "file": "20260612080000_rls_cross_role_normalization.sql",
+      "sha256": "a3a1300dfa3b7883b9f413f5f83322f70035bd6cb85f5a31cd748f126f80002b",
+      "toolMigrationName": "dev_bootstrap_20260612080000_rls_cross_role_normalization"
+    },
+    {
+      "file": "20260613120000_comparison_snapshots.sql",
+      "sha256": "2ca9dcbe7f99c424375533a5ea2eca80be99546bdb42836867b1d3f516dc3c7d",
+      "toolMigrationName": "dev_bootstrap_20260613120000_comparison_snapshots"
+    },
+    {
+      "file": "20260617090000_billing_accounts_and_invoices.sql",
+      "sha256": "650d5f50d2e8fc666a08458e315d7d5930ee07229de743c67604d3d4a8f5df21",
+      "toolMigrationName": "dev_bootstrap_20260617090000_billing_accounts_and_invoices"
+    },
+    {
+      "file": "20260617120000_usage_billing.sql",
+      "sha256": "06f00e3d23ba53ba426cd75c6bbdb8e603a0d028f2500dfe6a848476a716f604",
+      "toolMigrationName": "dev_bootstrap_20260617120000_usage_billing"
+    },
+    {
+      "file": "20260617150000_client_usage_monthly.sql",
+      "sha256": "bba2d56c42ac53b848608e2cce4ddd31ea4cc2cf1e44bfddc56f298209e6c7f1",
+      "toolMigrationName": "dev_bootstrap_20260617150000_client_usage_monthly"
+    },
+    {
+      "file": "20260702080000_replace_assessment_factors_rpc.sql",
+      "sha256": "4237175a4d4c013ab93a2ebc4f39da32f5179e211de3ffe91f34c4cc9d3dae6b",
+      "toolMigrationName": "dev_bootstrap_20260702080000_replace_assessment_factors_rpc"
+    },
+    {
+      "file": "20260702090000_save_batch_returns_saved_item_ids.sql",
+      "sha256": "249e7b64b6231573743958fce5b80b139390886fb454c2a43596f26528d58cef",
+      "toolMigrationName": "dev_bootstrap_20260702090000_save_batch_returns_saved_item_ids"
+    },
+    {
+      "file": "20260702100000_item_option_scoring_keys.sql",
+      "sha256": "ec0f97ab8037fd922c0a5f0dcc8bad781686f66760400722a8f1ca19fedfdbd3",
+      "toolMigrationName": "dev_bootstrap_20260702100000_item_option_scoring_keys"
+    },
+    {
+      "file": "20260702120000_normalize_anchors_and_retire_forced_choice.sql",
+      "sha256": "f556c89347a01939d83b36388ee1165474a006cf57759a7223f17c721d7e109c",
+      "toolMigrationName": "dev_bootstrap_20260702120000_normalize_anchors_and_retire_forced_choice"
+    },
+    {
+      "file": "20260703080000_campaign_options.sql",
+      "sha256": "8f01cc6e3da5d878436a445653ba5e0fb7f1682176d8a24bee1b9a712ee7533b",
+      "toolMigrationName": "dev_bootstrap_20260703080000_campaign_options"
+    },
+    {
+      "file": "20260703090000_experience_template_editorial_copy.sql",
+      "sha256": "5b65680e5a3ba04d2c550d3e6d9218ef09410362b5135e2c3eb7c870d852653f",
+      "toolMigrationName": "dev_bootstrap_20260703090000_experience_template_editorial_copy"
+    },
+    {
+      "file": "20260703120000_aggregate_only_enforcement.sql",
+      "sha256": "3dd36259110e8dab5d18adcc0d01cac5e551274feabd600a979891bcecc3eed7",
+      "toolMigrationName": "dev_bootstrap_20260703120000_aggregate_only_enforcement"
+    },
+    {
+      "file": "20260810090000_report_snapshots_null_audience_campaign_scope.sql",
+      "sha256": "4f40276b4eefd0ae954c8b12ff36a6519923b4dc992a887a1d42a5a45756e598",
+      "toolMigrationName": "dev_bootstrap_20260810090000_report_snapshots_null_audience_campaign_scope"
+    },
+    {
+      "file": "20260810090500_review_incomplete_warning_hard_block.sql",
+      "sha256": "4e9fd7bdc1d03dc76d03cc5a84b078396da320b98786380a42306fb99d791633",
+      "toolMigrationName": "dev_bootstrap_20260810090500_review_incomplete_warning_hard_block"
+    },
+    {
+      "file": "20260810091000_report_body_remove_email_promise.sql",
+      "sha256": "bc1401c71a13853abb0bcc252c2028e56171f3678240fa49a21e983e0a076c80",
+      "toolMigrationName": "dev_bootstrap_20260810091000_report_body_remove_email_promise"
+    },
+    {
+      "file": "20260810092000_soft_delete_partial_unique_indexes.sql",
+      "sha256": "8fd0bba5402abf8dba825d1ae787b3118a2885f407119782f0b45b38137badea",
+      "toolMigrationName": "dev_bootstrap_20260810092000_soft_delete_partial_unique_indexes"
+    },
+    {
+      "file": "20260810093000_save_batch_response_bounds.sql",
+      "sha256": "e548c31b24521fae2edcade5ff00450d2ad02d5bb4b4bc0026fd1b0240f71bce",
+      "toolMigrationName": "dev_bootstrap_20260810093000_save_batch_response_bounds"
+    },
+    {
+      "file": "20260810094500_token_rpc_soft_delete_and_quota_filters.sql",
+      "sha256": "df932e5f7d0c2d83dd557dabc1413703dd1f8a6b83ff658162ce75f0f60c4cd5",
+      "toolMigrationName": "dev_bootstrap_20260810094500_token_rpc_soft_delete_and_quota_filters"
+    },
+    {
+      "file": "20260813100000_cognitive_enums.sql",
+      "sha256": "dab3d2c19fff71c323e974eae665565af136f417e96ae8f98013f342b505e7e0",
+      "toolMigrationName": "dev_bootstrap_20260813100000_cognitive_enums"
+    },
+    {
+      "file": "20260813100500_cognitive_item_bank.sql",
+      "sha256": "aa2eeeb3d4d3fa66f1fbba8ea8c30c7b8fc46adc4f4cf13b15749a586874d6a2",
+      "toolMigrationName": "dev_bootstrap_20260813100500_cognitive_item_bank"
+    },
+    {
+      "file": "20260813101000_item_key_privilege_hardening.sql",
+      "sha256": "e5bd4384490b2f42bc6ace26b2badaf53b30abb8ca133b6b6eb05d98968993c3",
+      "toolMigrationName": "dev_bootstrap_20260813101000_item_key_privilege_hardening"
+    },
+    {
+      "file": "20260813102000_cognitive_delivery_and_timing.sql",
+      "sha256": "2eec0872c276a88e4ef9b17e7a11a061d4de7ebe349e4672d124c4ccd20a6449",
+      "toolMigrationName": "dev_bootstrap_20260813102000_cognitive_delivery_and_timing"
+    },
+    {
+      "file": "20260813103000_frozen_session_forms.sql",
+      "sha256": "6cf4d6b55e1ada4f1c37825438ca4a5c467e167fec6cb194587e687b8264130e",
+      "toolMigrationName": "dev_bootstrap_20260813103000_frozen_session_forms"
+    },
+    {
+      "file": "20260813104000_cognitive_scoring.sql",
+      "sha256": "bb0807eaf885451bb49ede7576f2200aee735378e617cc297932d260250d5697",
+      "toolMigrationName": "dev_bootstrap_20260813104000_cognitive_scoring"
+    },
+    {
+      "file": "20260813120000_instrument_builder_engine.sql",
+      "sha256": "d8b6c0085913ad27a7d1b3e6a1ce776143cff324f2c5704f051d98e00707f753",
+      "toolMigrationName": "dev_bootstrap_20260813120000_instrument_builder_engine"
+    },
+    {
+      "file": "20260814090000_instrument_stage_run_single_flight.sql",
+      "sha256": "4dabc63e941a1f59cc1eaa4d9d4e82c54a1def9135b6b4f4fb0a078e22c57672",
+      "toolMigrationName": "dev_bootstrap_20260814090000_instrument_stage_run_single_flight"
+    },
+    {
+      "file": "20260814100000_lr6_practice_completion_gate.sql",
+      "sha256": "c3383b60b29738a892b0a217821318fb79ff1071fcbfa0fa732191e1a7c827d8",
+      "toolMigrationName": "dev_bootstrap_20260814100000_lr6_practice_completion_gate"
+    },
+    {
+      "file": "20260814110000_item_bank_review_signoffs.sql",
+      "sha256": "2e51bf06cc3eecacc17e66bbf141187c1beed6e24d32b663c9a333e0ee19fc82",
+      "toolMigrationName": "dev_bootstrap_20260814110000_item_bank_review_signoffs"
+    },
+    {
+      "file": "20260814140000_internal_data_and_calibration_scope.sql",
+      "sha256": "70ab054eb5a315c6105c301e676bddbc36d73a9fb8ee5d2f0333682cbd224e43",
+      "toolMigrationName": "dev_bootstrap_20260814140000_internal_data_and_calibration_scope"
+    },
+    {
+      "file": "20260814150000_blueprint_cell_retirement.sql",
+      "sha256": "25eb9b6147a6e20ea72bfe73685e3c54aed0a862a9dd5705216898a5a58ad5cd",
+      "toolMigrationName": "dev_bootstrap_20260814150000_blueprint_cell_retirement"
+    },
+    {
+      "file": "20260814160000_instrument_ai_purposes.sql",
+      "sha256": "dad3eed4d4ecadda8924b60eeec031d5fc671092c064f2a0e2873751788a2295",
+      "toolMigrationName": "dev_bootstrap_20260814160000_instrument_ai_purposes"
+    },
+    {
+      "file": "20260814160500_instrument_ai_purposes_seed.sql",
+      "sha256": "97d8ac83ebf8e0f0cd7a164d98812dda58d21b5db1fd32654f0f33a53ee3b059",
+      "toolMigrationName": "dev_bootstrap_20260814160500_instrument_ai_purposes_seed"
+    },
+    {
+      "file": "20260814170000_instrument_item_quality.sql",
+      "sha256": "f0c8a3c052bd9a8600b5038197565ed75bdd2e94b19b19064fde23587be95f6c",
+      "toolMigrationName": "dev_bootstrap_20260814170000_instrument_item_quality"
+    },
+    {
+      "file": "20260814180000_careless_responding.sql",
+      "sha256": "2079f7e573cdebe121aa694c11aac26ec86b6c6d8458cea463d2188b3222e14f",
+      "toolMigrationName": "dev_bootstrap_20260814180000_careless_responding"
+    },
+    {
+      "file": "20260815060000_cognitive_response_format_enum.sql",
+      "sha256": "cda6b547c9da736ca30361bab872c2336977557cd905f2d9e8e7b64aba239ab1",
+      "toolMigrationName": "dev_bootstrap_20260815060000_cognitive_response_format_enum"
+    },
+    {
+      "file": "20260815060500_cognitive_response_format_seed.sql",
+      "sha256": "da4b7c0814af0912e2394e00d462af482da433f9adea5c52c1f940d269b2f217",
+      "toolMigrationName": "dev_bootstrap_20260815060500_cognitive_response_format_seed"
+    },
+    {
+      "file": "20260815073019_figural_matrix_reasoning_construct.sql",
+      "sha256": "374145ab3974fbe208e9a073a89410ec0412f6b286b493a38336a9e46a85d5fc",
+      "toolMigrationName": "dev_bootstrap_20260815073019_figural_matrix_reasoning_construct"
+    },
+    {
+      "file": "20260815073143_repoint_figural_matrix_bank_to_own_construct.sql",
+      "sha256": "3538abf763cdf1915345b0bf9f775b384f9da6509ee579de7b09e730bd62d028",
+      "toolMigrationName": "dev_bootstrap_20260815073143_repoint_figural_matrix_bank_to_own_construct"
+    },
+    {
+      "file": "20260815090000_careless_flags_recompute.sql",
+      "sha256": "efc64cb4addd3579cc83fb70c6672d064f839fdbc73ac4d5d12a33092f820eb3",
+      "toolMigrationName": "dev_bootstrap_20260815090000_careless_flags_recompute"
+    },
+    {
+      "file": "20260815091500_cognitive_review_gate_on_delivery.sql",
+      "sha256": "2363c718673247de0cf6e3b64aaaa798286008a067349e47c0720798eea5a080",
+      "toolMigrationName": "dev_bootstrap_20260815091500_cognitive_review_gate_on_delivery"
+    },
+    {
+      "file": "20260815100000_review_gate_consults_standing_signoffs.sql",
+      "sha256": "bf542e8e52cb172c1781eb62ec97d35ef19ead031dc31113a259088e2b963e6a",
+      "toolMigrationName": "dev_bootstrap_20260815100000_review_gate_consults_standing_signoffs"
+    },
+    {
+      "file": "20260816000500_rejection_suspends_a_servable_item.sql",
+      "sha256": "fb12f89247ba169840019fae2c6d05975e76a430e3b47bb651eff7db5de2cd29",
+      "toolMigrationName": "dev_bootstrap_20260816000500_rejection_suspends_a_servable_item"
+    },
+    {
+      "file": "20260817103000_internal_pilot_assessments.sql",
+      "sha256": "b50851cc5a84c62b70e8c3f414608ad58e343548895a8b79e1a245654274ed26",
+      "toolMigrationName": "dev_bootstrap_20260817103000_internal_pilot_assessments"
+    },
+    {
+      "file": "20260818230000_save_batch_acks_idempotent_replays.sql",
+      "sha256": "0b1bea72c94ebc9bf53e729730dde43092d704b97dd4a48add123a7a7d557e10",
+      "toolMigrationName": "dev_bootstrap_20260818230000_save_batch_acks_idempotent_replays"
+    },
+    {
+      "file": "20260819120000_figural_matrix_six_options.sql",
+      "sha256": "904f410a3cee845710afcbf3541369d503b81c3016250918d8bba5f5133c0ef5",
+      "toolMigrationName": "dev_bootstrap_20260819120000_figural_matrix_six_options"
+    },
+    {
+      "file": "20260827120000_chat_data_purpose.sql",
+      "sha256": "e32037324981ccbd1ba729d3520673d160584a04305d485fdc187a251fb8a908",
+      "toolMigrationName": "dev_bootstrap_20260827120000_chat_data_purpose"
+    },
+    {
+      "file": "20260827120100_chat_data_prompt_seed.sql",
+      "sha256": "90bfcc4a4f270002c3bed8f11a6965a9da4f8977df573ef6b7469b6bea41df69",
+      "toolMigrationName": "dev_bootstrap_20260827120100_chat_data_prompt_seed"
+    },
+    {
+      "file": "20260827160000_chat_data_prompt_scores.sql",
+      "sha256": "428638b85d92a7d63df67eb27088edf52d3c5c0322f3bd00bba3074f452f7eaf",
+      "toolMigrationName": "dev_bootstrap_20260827160000_chat_data_prompt_scores"
+    },
+    {
+      "file": "20260827180000_chat_data_prompt_person_lookup.sql",
+      "sha256": "c0d4af11c63c9d42039963cd93058f6232e8e8e9c7fc22fc6140d2bb759de8fa",
+      "toolMigrationName": "dev_bootstrap_20260827180000_chat_data_prompt_person_lookup"
+    },
+    {
+      "file": "20260828090000_chat_data_prompt_activity.sql",
+      "sha256": "140bf14a0caff4d2e505547a7639d5a82f579434f3b1df394c4f657ad1cd0c9b",
+      "toolMigrationName": "dev_bootstrap_20260828090000_chat_data_prompt_activity"
+    },
+    {
+      "file": "20260904120000_support_sessions_confine_rls.sql",
+      "sha256": "f79f84479fcfeb509e7a8e718ddf3dea740911dcfd13aa2bbbdb4a8468b17f9f",
+      "toolMigrationName": "dev_bootstrap_20260904120000_support_sessions_confine_rls"
+    },
+    {
+      "file": "20260904130000_confine_rls_revoke_public_exec.sql",
+      "sha256": "2efbc02185a3f9b25374fc82067a9607d9894add1a0edc1aee91702ddff3f0f2",
+      "toolMigrationName": "dev_bootstrap_20260904130000_confine_rls_revoke_public_exec"
+    },
+    {
+      "file": "20260904160000_assessments_select_assigned.sql",
+      "sha256": "1c516c463c1b4e638cb89aad0443254d52788941ff760af4832a98443178ba5c",
+      "toolMigrationName": "dev_bootstrap_20260904160000_assessments_select_assigned"
+    },
+    {
+      "file": "20260904180000_five_brains_display_order.sql",
+      "sha256": "6e5d8ba4178f625df1e8a6f8479a220c81d2c216ad0dbe91a050fcc40ad0f0c4",
+      "toolMigrationName": "dev_bootstrap_20260904180000_five_brains_display_order"
+    },
+    {
+      "file": "20260905090000_client_assignment_partner_pool_guard.sql",
+      "sha256": "3367832f7b56972b9f3b17de0a162e6a3c8fd0ef4053e71cc2d84c77230437aa",
+      "toolMigrationName": "dev_bootstrap_20260905090000_client_assignment_partner_pool_guard"
+    },
+    {
+      "file": "20260905090100_partner_pool_parent_guards.sql",
+      "sha256": "34812895ebaa7b313d5d1bf6337b7eb108c7cb38c198d21ad51ed2b674395725",
+      "toolMigrationName": "dev_bootstrap_20260905090100_partner_pool_parent_guards"
+    },
+    {
+      "file": "20260905093000_partner_dashboard_projections.sql",
+      "sha256": "6fe9738bacb4af37499e138720018a55fa864c235e61c7b7fb2638c4e12408ed",
+      "toolMigrationName": "dev_bootstrap_20260905093000_partner_dashboard_projections"
+    },
+    {
+      "file": "20260905221230_enforce_active_membership_authorization.sql",
+      "sha256": "751d67119964d81f03e133b0ff462444a819a94cc4c5cb0ba495a4e798755732",
+      "toolMigrationName": "dev_bootstrap_20260905221230_enforce_active_membership_authorization"
+    },
+    {
+      "file": "20260905221234_enforce_assessment_delivery_integrity.sql",
+      "sha256": "c6af0e035936f788a23713ed881517fe12bb62b891b06a7efbbc530500711f90",
+      "toolMigrationName": "dev_bootstrap_20260905221234_enforce_assessment_delivery_integrity"
+    },
+    {
+      "file": "20260905221238_durable_bounded_report_pdf_jobs.sql",
+      "sha256": "e0ad8019ced593c9d9b0bd9de9c1848f4e34faecb89c23a76f03b6cdb71d6e01",
+      "toolMigrationName": "dev_bootstrap_20260905221238_durable_bounded_report_pdf_jobs"
+    },
+    {
+      "file": "20260905222904_protect_participant_bearer_tokens.sql",
+      "sha256": "40ca6587d173bfea15cd05ff5e7bf8fa63be4332e432c89f671b0bdde08a7e01",
+      "toolMigrationName": "dev_bootstrap_20260905222904_protect_participant_bearer_tokens"
+    },
+    {
+      "file": "20260905224400_protect_integration_bearer_artifacts.sql",
+      "sha256": "61f926765f4bf802fc6a437d7f810099ea3c6e2a4261e731536c38e8e2c737bf",
+      "toolMigrationName": "dev_bootstrap_20260905224400_protect_integration_bearer_artifacts"
+    },
+    {
+      "file": "20260905225354_lock_campaign_confidentiality_after_enrollment.sql",
+      "sha256": "d80a478571bf3dece9595cd90ba09c102786c54407f8aca0001a8df4c0e79fe4",
+      "toolMigrationName": "dev_bootstrap_20260905225354_lock_campaign_confidentiality_after_enrollment"
+    },
+    {
+      "file": "20260905225547_harden_quota_lookup_search_paths.sql",
+      "sha256": "4ec218cbd0ca5a7cea426c9bdd67eedbef96683afd3499f949efa5a80dbde92e",
+      "toolMigrationName": "dev_bootstrap_20260905225547_harden_quota_lookup_search_paths"
+    },
+    {
+      "file": "20260905233249_preserve_cognitive_revision_diagnostics.sql",
+      "sha256": "1e907c6484ef1d25c1532c05892683823b4611dcee65353293821e449a17a977",
+      "toolMigrationName": "dev_bootstrap_20260905233249_preserve_cognitive_revision_diagnostics"
+    },
+    {
+      "file": "20260906000933_restrict_bearer_artifact_writes_to_service.sql",
+      "sha256": "5c37864b32b396848562cf4c5d552425bfaffd3ef5a869909a6c3a8e6027a075",
+      "toolMigrationName": "dev_bootstrap_20260906000933_restrict_bearer_artifact_writes_to_service"
+    },
+    {
+      "file": "20260906003443_enforce_campaign_client_partner_ownership.sql",
+      "sha256": "4b08958a92c2e81ca12ca32203c16a6cb5fba8465c2f029417fdf51200156531",
+      "toolMigrationName": "dev_bootstrap_20260906003443_enforce_campaign_client_partner_ownership"
+    },
+    {
+      "file": "20260906073410_business_outcomes_studies.sql",
+      "sha256": "e5ee95fa82aeec91e621336a802bcb43b0b913705541dad91e3e5f649f8d23f3",
+      "toolMigrationName": "dev_bootstrap_20260906073410_business_outcomes_studies"
+    },
+    {
+      "file": "20260906084837_business_outcomes_fk_indexes.sql",
+      "sha256": "52a7e117040395aabbed443f6ff8f0ff5cfc85f3234f2008b25878649ad2aa40",
+      "toolMigrationName": "dev_bootstrap_20260906084837_business_outcomes_fk_indexes"
+    },
+    {
+      "file": "20260908053836_commit_autonomous_likert_steps.sql",
+      "sha256": "8f47ee6514c8b337aced1332d52e66ad0bcc36b2b4dc22ceee0293d50c301b5c",
+      "toolMigrationName": "dev_bootstrap_20260908053836_commit_autonomous_likert_steps"
+    },
+    {
+      "file": "20260908093707_activate_autonomous_likert_items.sql",
+      "sha256": "386aa37372210f53c26999f869c43d9aca20ccd819c4ca8828fc02c6bd832251",
+      "toolMigrationName": "dev_bootstrap_20260908093707_activate_autonomous_likert_items"
+    },
+    {
+      "file": "20260917100000_public_builds_client_and_tables.sql",
+      "sha256": "4d3b317578559071c723c3ed14f7ff6badf4565c653add5ddcecbf1054900256",
+      "toolMigrationName": "dev_bootstrap_20260917100000_public_builds_client_and_tables"
+    },
+    {
+      "file": "20260917100100_email_template_type_add_public_builds.sql",
+      "sha256": "4effbe685d23db94f1eaa8e1becc37abeb532f8766013399746e6299a4b6e8da",
+      "toolMigrationName": "dev_bootstrap_20260917100100_email_template_type_add_public_builds"
+    },
+    {
+      "file": "20260917100200_seed_public_build_email_templates.sql",
+      "sha256": "1e6d16324e7c9b9ec50086a346a74f04d8d2b6a7e47eb002d53924d6542f7b05",
+      "toolMigrationName": "dev_bootstrap_20260917100200_seed_public_build_email_templates"
+    },
+    {
+      "file": "20260921012943_capability_channel_controls.sql",
+      "sha256": "c07a2c98af933cfe8bb8c5dd828193df264dda4b186e2440f651c1f75ea7878f",
+      "toolMigrationName": "dev_bootstrap_20260921012943_capability_channel_controls"
+    },
+    {
+      "file": "20260922120000_ranking_explanation_seed.sql",
+      "sha256": "d44181cce07f97aae6d167c48c8adae0abd9d210993af0bf4b58be58cebec4e7",
+      "toolMigrationName": "dev_bootstrap_20260922120000_ranking_explanation_seed"
+    },
+    {
+      "file": "20260930011009_close_anonymous_configuration_reads.sql",
+      "sha256": "590ef17546ae78a0cc9173214542a3d774827afba01c5778c47f172b255be5ce",
+      "toolMigrationName": "dev_bootstrap_20260930011009_close_anonymous_configuration_reads"
+    },
+    {
+      "file": "20261006061154_workspace_feature_settings.sql",
+      "sha256": "0412790ca009db1cbbff37aa4857f3d8aa3485deec927dd416ca88fcaa2f2a37",
+      "toolMigrationName": "dev_bootstrap_20261006061154_workspace_feature_settings"
+    },
+    {
+      "file": "20261007074000_workspace_delivery_features.sql",
+      "sha256": "27b54b17bcc2c8b1a8f6c1e946bdc4e76eb95ff92ebcb900d22b256899177be9",
+      "toolMigrationName": "dev_bootstrap_20261007074000_workspace_delivery_features"
+    },
+    {
+      "file": "20261007090000_workspace_webhook_backlog_review.sql",
+      "sha256": "5b8feb0fadd229f47007c416c564e99012641944f51e812b1d9223215c508804",
+      "toolMigrationName": "dev_bootstrap_20261007090000_workspace_webhook_backlog_review"
+    },
+    {
+      "file": "20261013061540_avoid_business_conflict_retry_loops.sql",
+      "sha256": "efa118322ed3ffaa0f22b8f05386fbef3b18a3d67fa42aebf78e77e99afaf7b7",
+      "toolMigrationName": "dev_bootstrap_20261013061540_avoid_business_conflict_retry_loops"
+    }
+  ]
+}

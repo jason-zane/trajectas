@@ -1,0 +1,413 @@
+# Johnson IPIP-NEO-120
+URL: https://ipip.ori.org/30FacetNEO-PI-RItems.htm
+
+Johnson IPIP-NEO-120
+
+The Items in Each of the 4-Item IPIP Scales Measuring Constructs Similar to Those in the 30 NEO-PI-R Facet Scales (Johnson, 2014)
+
+ N1: ANXIETY(Alpha = .78) 
+
+ + keyed 
+
+ Worry about things. 
+
+ Fear for the worst. 
+
+ Am afraid of many things. 
+
+ Get stressed out easily. 
+
+ N2: ANGER (.87) 
+
+ + keyed 
+
+ Get angry easily. 
+
+ Get irritated easily. 
+
+ Lose my temper. 
+
+ – keyed 
+
+ Am not easily annoyed. 
+
+ N3: DEPRESSION (.85) 
+
+ + keyed 
+
+ Often feel blue. 
+
+ Dislike myself. 
+
+ Am often down in the dumps. 
+
+ – keyed 
+
+ Feel comfortable with myself. 
+
+ N4: SELF-CONSCIOUSNESS (.70) 
+
+ + keyed 
+
+ Find it difficult to approach others. 
+
+ Am afraid to draw attention to myself. 
+
+ Only feel comfortable with friends. 
+
+ – keyed 
+
+ Am not bothered by difficult social situations. 
+
+ N5: IMMODERATION (.69) 
+
+ + keyed 
+
+ Go on binges. 
+
+ – keyed 
+
+ Rarely overindulge. 
+
+ Easily resist temptations. 
+
+ Am able to control my cravings. 
+
+ N6: VULNERABILITY (.76) 
+
+ + keyed 
+
+ Panic easily. 
+
+ Become overwhelmed by events. 
+
+ Feel that I'm unable to deal with things. 
+
+ – keyed 
+
+ Remain calm under pressure. 
+
+ E1: FRIENDLINESS (.81) 
+
+ + keyed 
+
+ Make friends easily. 
+
+ Feel comfortable around people. 
+
+ – keyed 
+
+ Avoid contacts with others. 
+
+ Keep others at a distance. 
+
+ E2: GREGARIOUSNESS (.79) 
+
+ + keyed 
+
+ Love large parties. 
+
+ Talk to a lot of different people at parties. 
+
+ – keyed 
+
+ Prefer to be alone. 
+
+ Avoid crowds. 
+
+ E3: ASSERTIVENESS (.85) 
+
+ + keyed 
+
+ Take charge. 
+
+ Try to lead others. 
+
+ Take control of things. 
+
+ – keyed 
+
+ Wait for others to lead the way. 
+
+ E4: ACTIVITY LEVEL (.69) 
+
+ + keyed 
+
+ Am always busy. 
+
+ Am always on the go. 
+
+ Do a lot in my spare time. 
+
+ – keyed 
+
+ Like to take it easy. 
+
+ E5: EXCITEMENT-SEEKING (.73) 
+
+ + keyed 
+
+ Love excitement. 
+
+ Seek adventure. 
+
+ Enjoy being reckless. 
+
+ Act wild and crazy. 
+
+ E6: CHEERFULNESS (.79) 
+
+ + keyed 
+
+ Radiate joy. 
+
+ Have a lot of fun. 
+
+ Love life. 
+
+ Look at the bright side of life. 
+
+ O1: IMAGINATION (.74) 
+
+ + keyed 
+
+ Have a vivid imagination. 
+
+ Enjoy wild flights of fantasy. 
+
+ Love to daydream. 
+
+ Like to get lost in thought. 
+
+ O2: ARTISTIC INTERESTS (.74) 
+
+ + keyed 
+
+ Believe in the importance of art. 
+
+ See beauty in things that others might not notice. 
+
+ – keyed 
+
+ Do not like poetry. 
+
+ Do not enjoy going to art museums. 
+
+ O3: EMOTIONALITY (.65) 
+
+ + keyed 
+
+ Experience my emotions intensely. 
+
+ Feel others' emotions. 
+
+ – keyed 
+
+ Rarely notice my emotional reactions. 
+
+ Don't understand people who get emotional. 
+
+ O4: ADVENTUROUSNESS (.70) 
+
+ + keyed 
+
+ Prefer variety to routine. 
+
+ – keyed 
+
+ Prefer to stick with things that I know. 
+
+ Dislike changes. 
+
+ Am attached to conventional ways. 
+
+ O5: INTELLECT (.73) 
+
+ + keyed 
+
+ Love to read challenging material. 
+
+ – keyed 
+
+ Avoid philosophical discussions. 
+
+ Have difficulty understanding abstract ideas. 
+
+ Am not interested in theoretical discussions. 
+
+ O6: LIBERALISM (.63) 
+
+ + keyed 
+
+ Tend to vote for liberal political candidates. 
+
+ Believe that there is no absolute right and wrong. 
+
+ – keyed 
+
+ Tend to vote for conservative political candidates. 
+
+ Believe that we should be tough on crime. 
+
+ A1: TRUST (.85) 
+
+ + keyed 
+
+ Trust others. 
+
+ Believe that others have good intentions. 
+
+ Trust what people say. 
+
+ – keyed 
+
+ Distrust people. 
+
+ A2: MORALITY (.74) 
+
+ – keyed 
+
+ Use others for my own ends. 
+
+ Cheat to get ahead. 
+
+ Take advantage of others. 
+
+ Obstruct others' plans. 
+
+ A3: ALTRUISM (.73) 
+
+ + keyed 
+
+ Am concerned about others. 
+
+ Love to help others. 
+
+ – keyed 
+
+ Am indifferent to the feelings of others. 
+
+ Take no time for others. 
+
+ A4: COOPERATION (.71) 
+
+ – keyed 
+
+ Love a good fight. 
+
+ Yell at people. 
+
+ Insult people. 
+
+ Get back at others. 
+
+ A5: MODESTY (.73) 
+
+ – keyed 
+
+ Believe that I am better than others. 
+
+ Think highly of myself. 
+
+ Have a high opinion of myself. 
+
+ Boast about my virtues. 
+
+ A6: SYMPATHY (.72) 
+
+ + keyed 
+
+ Sympathize with the homeless. 
+
+ Feel sympathy for those who are worse off than myself. 
+
+ – keyed 
+
+ Am not interested in other people's problems. 
+
+ Try not to think about the needy. 
+
+ C1: SELF-EFFICACY (.77) 
+
+ + keyed 
+
+ Complete tasks successfully. 
+
+ Excel in what I do. 
+
+ Handle tasks smoothly. 
+
+ Know how to get things done. 
+
+ C2: ORDERLINESS (.83) 
+
+ + keyed 
+
+ Like to tidy up. 
+
+ – keyed 
+
+ Often forget to put things back in their proper place. 
+
+ Leave a mess in my room. 
+
+ Leave my belongings around. 
+
+ C3: DUTIFULNESS (.67) 
+
+ + keyed 
+
+ Keep my promises. 
+
+ Tell the truth. 
+
+ – keyed 
+
+ Break rules. 
+
+ Break my promises. 
+
+ C4: ACHIEVEMENT-STRIVING (.79) 
+
+ + keyed 
+
+ Do more than what's expected of me. 
+
+ Work hard. 
+
+ – keyed 
+
+ Put little time and effort into my work. 
+
+ Do just enough work to get by. 
+
+ C5: SELF-DISCIPLINE (.71) 
+
+ + keyed 
+
+ Am always prepared. 
+
+ Carry out my plans. 
+
+ – keyed 
+
+ Waste my time. 
+
+ Have difficulty starting tasks. 
+
+ C6: CAUTIOUSNESS (.88) 
+
+ – keyed 
+
+ Jump into things without thinking. 
+
+ Make rash decisions. 
+
+ Rush into things. 
+
+ Act without thinking. 
+
+Johnson, J. A. (2014). Measuring thirty facets of the Five Factor Model with a 120-item public domain inventory: Development of the IPIP-NEO-120. Journal of Research in Personality, 51, 78-89.
+
+Alphas based on an Internet sample of N = 619,150.
+

@@ -25,6 +25,7 @@ import {
 import { formatAutoAdvances, formatNeedsContinue } from "./advance-policy";
 import type { SectionForRunner } from "@/app/actions/assess";
 import type { RunnerContent } from "@/lib/experience/types";
+import { PERSONALITY_PROFILE_PROMPT, PERSONALITY_PROFILE_SECTION_ID } from '@/lib/instrument/ipip-neo-120/catalogue';
 
 interface SectionWrapperProps {
   token: string;
@@ -33,6 +34,8 @@ interface SectionWrapperProps {
   section: SectionForRunner;
   sectionIndex: number;
   totalSections: number;
+  /** Separately stored quality supplement, outside the frozen personality form. */
+  supplementItemCount?: number;
   /** All sections' items flattened for global progress tracking. */
   allSections: SectionForRunner[];
   existingResponses: Record<
@@ -86,6 +89,7 @@ export function SectionWrapper({
   section,
   sectionIndex,
   totalSections,
+  supplementItemCount = 0,
   allSections,
   existingResponses,
   assessmentName,
@@ -135,7 +139,7 @@ export function SectionWrapper({
   }, [lostSaves]);
 
   // Total item count across all sections — denominator for the progress bar.
-  const totalItems = countAllItems(allSections);
+  const totalItems = countAllItems(allSections) + supplementItemCount;
 
   // Find the first unanswered item in this section as the start point,
   // or resume from where we left off
@@ -682,6 +686,11 @@ export function SectionWrapper({
           tight column while the options span the fuller width. */}
       <main className="flex flex-1 flex-col items-center justify-center px-6 py-12 sm:px-10 lg:px-[120px]">
         <div className="w-full max-w-[800px]">
+          {section.id === PERSONALITY_PROFILE_SECTION_ID && (
+            <p className="mb-4 text-sm" style={{ color: 'var(--runner-text-muted)' }}>
+              {PERSONALITY_PROFILE_PROMPT}
+            </p>
+          )}
           {/* Item card with crossfade animation */}
           <div
             className={`transition-opacity duration-150 ease-out motion-reduce:transition-none motion-reduce:!opacity-100 ${

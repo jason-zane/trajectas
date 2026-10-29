@@ -82,6 +82,10 @@ export function ReviewScreen({
     try {
       const result = await submitSession(token, sessionId);
       if (!result.ok) {
+        if (result.error === 'response_quality_incomplete') {
+          router.push(`/assess/${token}/quality/${sessionId}`);
+          return;
+        }
         setSubmitError(result.message);
         setSubmitStage("idle");
         if (result.error === "incomplete_submission") {

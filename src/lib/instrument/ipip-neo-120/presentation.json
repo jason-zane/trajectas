@@ -1,0 +1,36 @@
+{
+  "version": "trajectas-personality-labels-v1",
+  "approvedOn": "2026-10-29",
+  "displayNames": {
+    "N": "Emotional Reactivity",
+    "O": "Openness",
+    "N2": "Irritability",
+    "N3": "Discouragement",
+    "N4": "Social Confidence",
+    "N5": "Indulgence",
+    "N6": "Stress Tolerance",
+    "E2": "Sociability",
+    "O3": "Emotional Sensitivity",
+    "O4": "Variety Seeking",
+    "O5": "Intellectual Curiosity",
+    "A2": "Fairness",
+    "A3": "Helpfulness",
+    "A6": "Compassion",
+    "C1": "Perceived Competence",
+    "C3": "Dependability",
+    "C4": "Achievement Striving",
+    "C6": "Deliberation"
+  },
+  "reversedDisplayFacets": [
+    "N4",
+    "N6"
+  ],
+  "definitions": {
+    "N4": "Reported comfort approaching others, receiving social attention and handling unfamiliar or difficult social situations.",
+    "N6": "Reported tendency to remain calm and feel able to cope under pressure rather than become overwhelmed.",
+    "A2": "Reported avoidance of cheating, manipulating, exploiting or obstructing other people. This does not establish impartiality, justice or verified ethical conduct.",
+    "C1": "Belief in one's effectiveness at completing tasks and handling practical demands. This is perceived competence, not independently demonstrated ability."
+  },
+  "primaryMetric": "pomp",
+  "primaryScoreLabel": "Scale score (0\u2013100)"
+}

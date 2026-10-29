@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-30 Australia/Sydney",
+  "projectRef": "bgrvqvtlhmfmvcytncgw",
+  "target": "development only",
+  "sourceMigration": "20261029233035_ipip_response_quality.sql",
+  "sourceSha256": "5c0a9a9e3b434c922fb3817169e1924c81f3c4dd211b345d413a39dca9a327b8",
+  "appliedMigration": { "name": "ipip_response_quality", "version": "20261029234649" },
+  "ownerRequest": "Feel free to put that in place: separate response-quality supplement, completion indicators and assessor review on the profile.",
+  "moduleVersion": "trajectas-response-quality-v1",
+  "policyVersion": "trajectas-response-quality-pilot-v1",
+  "supplementQuestions": 8,
+  "originalPersonalityItems": 120,
+  "provisionalRules": true,
+  "verifiedHostedSql": [
+    "Assignment occurs only at first freeze of an untouched in-progress native form",
+    "Original frozen 120-item form remains unchanged",
+    "Identical save retries converge; stale conflicting revisions fail",
+    "Unknown questions and out-of-range answers are refused",
+    "Answers cannot be edited after completion",
+    "All new tables have RLS enabled and no anon/authenticated grants",
+    "Review writes are append-only and duplicate request IDs do not duplicate history",
+    "Parent session purge cascades supplemental evidence and review history",
+    "Reconstructing a completed legacy form does not add supplementary questions",
+    "All three original native golden scoring cases still pass"
+  ],
+  "afterRollback": { "sessions": 0, "nativeResults": 0, "qualityModules": 0, "qualityResults": 0, "reviews": 0 },
+  "productionChanged": false,
+  "hostedBrowserAcceptance": "Not run: protected Preview fetch remains unavailable through the authorised connector. Seeded CI browser evidence must be reported separately.",
+  "psychometricValidation": "Not established. Pilot thresholds, supplementary wording, subgroup performance and supplemented-administration comparability require empirical evaluation."
+}

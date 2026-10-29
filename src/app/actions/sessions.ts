@@ -5,6 +5,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { resolveAuthorizedScope, AuthorizationError, isUnconfinedPlatformAdmin, requireSessionAccess, canManageCampaign } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
+import { getAuthorizedIpipNeo120Result } from '@/lib/dal/ipip-neo-120'
+import { IPIP_DATABASE } from '@/lib/instrument/ipip-neo-120/database-form'
+import { IPIP_DOMAINS, IPIP_FACETS } from '@/lib/instrument/ipip-neo-120/definition'
+import type { IpipNeo120Result } from '@/lib/scoring/ipip-neo-120'
 import { byDisplayOrder } from '@/lib/taxonomy-order'
 import { deriveItemBounds } from '@/lib/scoring/ctt-session'
 import { toPomp } from '@/lib/scoring/transforms'
@@ -68,6 +72,8 @@ export type SessionDetailDimensionScore = {
 }
 
 export type SessionDetail = {
+  /** Versioned native personality result; withheld with other individual results. */
+  personalityResult?: IpipNeo120Result | null
   id: string
   assessmentId: string
   assessmentTitle: string
@@ -365,7 +371,11 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
         })()
       : (logSessionDetailError('score lookup', scoresResult.reason), [])
 
-  const scores: SessionDetailScore[] = scoreRows
+  const personalityResult = canViewIndividual
+    ? await getAuthorizedIpipNeo120Result(db, sessionId, String(session.assessment_id))
+    : null
+
+  let scores: SessionDetailScore[] = scoreRows
     .map((s): SessionDetailScore | null => {
       const common = {
         scoringLevel: 'factor' as const,
@@ -396,6 +406,21 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     })
     .filter((s): s is SessionDetailScore => s !== null)
 
+  if (personalityResult) {
+    scores = IPIP_FACETS.map(facet => ({
+      entityId: IPIP_DATABASE.facets[facet.code].factorId,
+      entityName: personalityResult.facets[facet.code].displayName,
+      scoringLevel: 'factor', rawScore: personalityResult.facets[facet.code].native.rawSum,
+      scaledScore: personalityResult.facets[facet.code].display.pomp,
+      scoringMethod: 'ctt', itemsUsed: 4,
+      dimensionId: IPIP_DATABASE.dimensions[facet.domainCode],
+      dimensionName: personalityResult.dimensions[facet.domainCode].displayName,
+      dimensionDisplayOrder: IPIP_DOMAINS.findIndex(domain => domain.code === facet.domainCode),
+    }))
+  }
+
+  if (session.assessment_id === IPIP_DATABASE.assessmentId && !personalityResult) scores = []
+
   // Per-dimension aggregates: mean of children that report a parent dimension.
   const dimensionBuckets = new Map<
     string,
@@ -416,7 +441,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       })
     }
   }
-  const dimensionScores: SessionDetailDimensionScore[] = Array.from(dimensionBuckets)
+  let dimensionScores: SessionDetailDimensionScore[] = Array.from(dimensionBuckets)
     .map(([dimensionId, bucket]) => ({
       dimensionId,
       dimensionName: bucket.dimensionName,
@@ -428,6 +453,13 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       { displayOrder: a.displayOrder, name: a.dimensionName },
       { displayOrder: b.displayOrder, name: b.dimensionName },
     ))
+
+  if (personalityResult) {
+    dimensionScores = IPIP_DOMAINS.map((domain, displayOrder) => ({
+      dimensionId: IPIP_DATABASE.dimensions[domain.code], dimensionName: personalityResult.dimensions[domain.code].displayName,
+      displayOrder, scaledScore: personalityResult.dimensions[domain.code].display.pomp, childCount: 6,
+    }))
+  }
 
   const snapshots: SessionDetailSnapshot[] = snapshotRows.map((r) => {
     const tpl = getEmbeddedRecord(r.report_templates)
@@ -478,10 +510,10 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     durationMinutes,
     responseCount: responseCount ?? 0,
     compositeScore:
-      canViewIndividual && session.composite_score != null
+      canViewIndividual && session.assessment_id !== IPIP_DATABASE.assessmentId && session.composite_score != null
         ? Number(session.composite_score)
         : undefined,
-    compositeMethod: canViewIndividual
+    compositeMethod: canViewIndividual && session.assessment_id !== IPIP_DATABASE.assessmentId
       ? session.composite_method ?? undefined
       : undefined,
     dimensionScores,
@@ -490,6 +522,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     attemptNumber,
     totalAttempts,
     individualResultsWithheld: !canViewIndividual,
+    personalityResult,
   }
 }
 
@@ -581,6 +614,15 @@ export async function getConstructScoresForFactor(
   await assertSessionAccess(sessionId)
 
   const db = createAdminClient()
+
+  const ipipFacet = IPIP_FACETS.find(facet => IPIP_DATABASE.facets[facet.code].factorId === factorId)
+  if (ipipFacet) {
+    const result = await getAuthorizedIpipNeo120Result(db, sessionId, IPIP_DATABASE.assessmentId)
+    if (!result) return []
+    return [{ constructId: IPIP_DATABASE.facets[ipipFacet.code].constructId,
+      constructName: result.facets[ipipFacet.code].displayName,
+      scaledScore: result.facets[ipipFacet.code].display.pomp, itemCount: 4 }]
+  }
 
   // 1. Constructs under this factor + their names.
   const { data: fcRows, error: fcErr } = await db

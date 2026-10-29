@@ -11,6 +11,7 @@ export type SubmitSessionErrorCode =
   | 'scoring_failed'
   | 'report_failed'
   | 'incomplete_submission'
+  | 'response_quality_incomplete'
 
 export type SubmitSessionResult =
   | {

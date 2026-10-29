@@ -172,6 +172,12 @@ function assertLocalSupabaseUrl(url: string): void {
   }
 }
 
+/** Synthetic fixture writes only; resolveSupabaseEnv refuses hosted targets. */
+export function createSeededServiceClient() {
+  const env = resolveSupabaseEnv();
+  return createClient(env.url, env.serviceKey, { auth: { persistSession: false } });
+}
+
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /**

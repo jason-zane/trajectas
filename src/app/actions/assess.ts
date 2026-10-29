@@ -10,6 +10,8 @@ import { likertAnchorOptions } from '@/lib/assess/likert-anchors'
 import { logReportViewed } from '@/lib/auth/support-sessions'
 import { logActionError } from '@/lib/security/action-errors'
 import { getSessionCompleteness } from '@/lib/dal/session-completeness'
+import { readResponseQualityModule, isQualityModuleComplete } from '@/lib/dal/response-quality'
+import { PERSONALITY_PROFILE_ASSESSMENT_ID } from '@/lib/instrument/ipip-neo-120/catalogue'
 import { getOrCreateSectionForms } from '@/lib/dal/session-forms'
 import { getCognitiveItemsForDelivery } from '@/lib/dal/cognitive-items'
 import {
@@ -1085,6 +1087,16 @@ export async function submitSession(
             ? '1 question is still unanswered. Please answer every question before submitting.'
             : `${missing} of ${completeness.expected} questions are still unanswered. Please answer every question before submitting.`,
       }
+    }
+  }
+
+  if (session.status === 'in_progress' && session.assessment_id === PERSONALITY_PROFILE_ASSESSMENT_ID) {
+    try {
+      const supplement = await readResponseQualityModule(db, sessionId)
+      if (!isQualityModuleComplete(supplement)) return { ok: false, error: 'response_quality_incomplete', message: 'Please finish the final statements before submitting.' }
+    } catch (error) {
+      logActionError('submitSession.responseQuality', error)
+      return { ok: false, error: 'submit_failed', message: 'Unable to check the final statements. Please try again.' }
     }
   }
 

@@ -1,0 +1,608 @@
+{
+  "contentProvenance": {
+    "instrumentLabels": "IPIP official Johnson (2014) key; original labels retained",
+    "descriptiveText": "Trajectas preparation draft authored 2026-10-29 from the facet constructs and item content. Not a published interpretive manual, a validated competency mapping, a set of normative bands or a clinical interpretation.",
+    "midIndicatorPolicy": "Middle descriptions are contextual prompts, not classifications as population average.",
+    "factorPolicy": "The library importer copies each construct to one composition-locked factor; do not create additional factor rows."
+  },
+  "domains": [
+    {
+      "code": "N",
+      "name": "Neuroticism",
+      "definition": "Typical frequency and intensity of distress, emotional reactivity and difficulty coping with pressure.",
+      "low": [
+        "Usually remains emotionally steady.",
+        "Experiences fewer worries or frustrations.",
+        "Recovers composure relatively readily."
+      ],
+      "high": [
+        "Experiences distress or worry more readily.",
+        "Reacts more strongly to setbacks.",
+        "Can feel overwhelmed under pressure."
+      ],
+      "context": "Lower reactivity can support steadiness; greater sensitivity may bring concerns to attention. Neither end establishes coping skill, mental health status or leadership effectiveness.",
+      "reflection": "Identify situations that intensify emotional reactions and the responses that help you act constructively."
+    },
+    {
+      "code": "E",
+      "name": "Extraversion",
+      "definition": "Typical engagement with social interaction, assertive action, activity, excitement and positive emotion.",
+      "low": [
+        "Often prefers quieter or more solitary settings.",
+        "May allow others to initiate interaction.",
+        "Can favour a measured pace and lower stimulation."
+      ],
+      "high": [
+        "Often seeks social engagement and stimulation.",
+        "Is more inclined to speak up or take the lead.",
+        "Can prefer a busy and energetic pace."
+      ],
+      "context": "A quieter approach can suit independent concentration; an outgoing approach can suit frequent interaction. Effectiveness depends on the situation and behaviour.",
+      "reflection": "Consider when to initiate and speak up, and when to listen, slow down or allow space for others."
+    },
+    {
+      "code": "O",
+      "name": "Openness to Experience",
+      "definition": "Interest in imagination, aesthetics, feelings, unfamiliar experiences, abstract ideas and reconsidering conventional values.",
+      "low": [
+        "Often favours familiar and concrete approaches.",
+        "May prefer established routines or views.",
+        "Can place less emphasis on abstract or aesthetic exploration."
+      ],
+      "high": [
+        "Often explores ideas, imagination and unfamiliar experiences.",
+        "May attend closely to feelings or aesthetics.",
+        "Can be more willing to question conventional views."
+      ],
+      "context": "Familiar approaches can support continuity; exploration can support discovering alternatives. This domain is not a test of intelligence, creativity performance or adaptability skill.",
+      "reflection": "Choose where exploration could add value and where an established approach should be retained or tested carefully."
+    },
+    {
+      "code": "A",
+      "name": "Agreeableness",
+      "definition": "Typical interpersonal trust, candour, helpfulness, cooperation, modesty and concern for others.",
+      "low": [
+        "May be more sceptical or guarded with others.",
+        "Can place personal interests or direct challenge first.",
+        "May take a more self-promoting or emotionally detached approach."
+      ],
+      "high": [
+        "Often gives others the benefit of the doubt.",
+        "Is more inclined to help, cooperate and show concern.",
+        "May take a modest and accommodating approach."
+      ],
+      "context": "A challenging approach can surface disagreement; a cooperative approach can support relationships. Context determines whether trust, accommodation or challenge is appropriate.",
+      "reflection": "Consider how to balance care and cooperation with clear boundaries, candid disagreement and appropriate scrutiny."
+    },
+    {
+      "code": "C",
+      "name": "Conscientiousness",
+      "definition": "Typical perceived effectiveness, orderliness, commitment, achievement striving, self-discipline and deliberation.",
+      "low": [
+        "May prefer a less structured or more spontaneous approach.",
+        "Can be less focused on commitments, targets or sustained task effort.",
+        "May decide with less advance deliberation."
+      ],
+      "high": [
+        "Often organises work and takes commitments seriously.",
+        "Is inclined to pursue goals and persist with tasks.",
+        "May think carefully before acting."
+      ],
+      "context": "Structure and persistence can support follow-through; a less structured style may allow spontaneity. Neither end establishes competence or actual delivery.",
+      "reflection": "Review whether planning, effort and checking match the task, and where flexibility or a clearer commitment would help."
+    }
+  ],
+  "facets": [
+    {
+      "code": "N1",
+      "name": "Anxiety",
+      "definition": "Proneness to worry, fear and anticipatory tension.",
+      "low": [
+        "Usually worries less.",
+        "Feels less threatened by uncertain outcomes.",
+        "Reports fewer fears."
+      ],
+      "high": [
+        "Often anticipates what could go wrong.",
+        "Experiences worry or tension readily.",
+        "Reports more fears."
+      ],
+      "context": "Lower anxiety may make uncertainty easier to tolerate; greater concern can prompt preparation. Neither end establishes risk judgement.",
+      "reflection": "Distinguish useful preparation from repetitive worry and identify a practical next action."
+    },
+    {
+      "code": "N2",
+      "name": "Anger",
+      "definition": "Readiness to experience irritation, frustration and anger.",
+      "low": [
+        "Is usually difficult to irritate.",
+        "Reports less frequent anger.",
+        "Often tolerates frustrations calmly."
+      ],
+      "high": [
+        "Becomes irritated readily.",
+        "May experience anger when frustrated.",
+        "Can react strongly to perceived provocation."
+      ],
+      "context": "Lower anger can support calm exchanges; anger can signal that a boundary or concern needs attention. The expression and consequences of anger require separate evidence.",
+      "reflection": "Notice early signs of irritation and choose how to express a concern without escalating the exchange."
+    },
+    {
+      "code": "N3",
+      "name": "Depression",
+      "definition": "Tendency to experience low mood, discouragement and negative feelings about oneself, as represented by these personality items.",
+      "low": [
+        "Reports fewer periods of feeling down.",
+        "Usually feels more comfortable with oneself.",
+        "Is less prone to discouragement."
+      ],
+      "high": [
+        "More often feels down or discouraged.",
+        "May evaluate oneself negatively.",
+        "Reports less comfort with oneself."
+      ],
+      "context": "This is a personality facet score, not a diagnosis or a measure of clinical severity. Interpret experiences in context rather than labelling capability.",
+      "reflection": "Reflect on situations associated with discouragement and the support, routines or adjustments that are helpful."
+    },
+    {
+      "code": "N4",
+      "name": "Self-Consciousness",
+      "definition": "Discomfort with social attention, approaching others or potentially embarrassing situations.",
+      "low": [
+        "Is less troubled by social attention.",
+        "Approaches unfamiliar people more readily.",
+        "Feels less constrained by possible embarrassment."
+      ],
+      "high": [
+        "May hesitate to approach others.",
+        "Prefers to avoid drawing attention.",
+        "Feels less comfortable in unfamiliar social situations."
+      ],
+      "context": "Lower discomfort can make public participation easier; greater sensitivity may encourage preparation. This facet does not measure self-awareness or insight.",
+      "reflection": "Identify a manageable way to participate in situations where attention or unfamiliarity feels uncomfortable."
+    },
+    {
+      "code": "N5",
+      "name": "Immoderation",
+      "definition": "Difficulty resisting cravings, temptations and urges to overindulge.",
+      "low": [
+        "Finds temptations easier to resist.",
+        "Usually regulates indulgence.",
+        "Reports more control over cravings."
+      ],
+      "high": [
+        "Finds strong cravings harder to resist.",
+        "May overindulge.",
+        "Reports difficulty limiting tempting activities."
+      ],
+      "context": "The content concerns regulation of appetites and indulgence. It should not be treated as a comprehensive measure of impulsive decision-making.",
+      "reflection": "Identify tempting situations and decide in advance what limits or routines would be useful."
+    },
+    {
+      "code": "N6",
+      "name": "Vulnerability",
+      "definition": "Tendency to feel overwhelmed or unable to cope when facing stress or difficult events.",
+      "low": [
+        "Usually feels able to cope under pressure.",
+        "Maintains composure during difficult events.",
+        "Is less readily overwhelmed."
+      ],
+      "high": [
+        "Can become overwhelmed by events.",
+        "May panic under pressure.",
+        "Can feel unable to deal with demands."
+      ],
+      "context": "Lower vulnerability reflects reported steadiness under stress; it does not demonstrate coping skill or recovery from adversity. Greater vulnerability can highlight situations that need support.",
+      "reflection": "Identify demands that become overwhelming and the practical supports or actions that help restore control."
+    },
+    {
+      "code": "E1",
+      "name": "Friendliness",
+      "definition": "Warmth and ease in approaching and engaging with other people.",
+      "low": [
+        "Maintains more interpersonal distance.",
+        "May be slow to approach new people.",
+        "Can prefer a more reserved manner."
+      ],
+      "high": [
+        "Makes friends readily.",
+        "Feels comfortable around people.",
+        "Often engages with warmth."
+      ],
+      "context": "A reserved approach can preserve boundaries; warmth can make contact easier. Relationship effectiveness still depends on behaviour and context.",
+      "reflection": "Choose when to initiate contact and when to respect personal or professional distance."
+    },
+    {
+      "code": "E2",
+      "name": "Gregariousness",
+      "definition": "Preference for company, crowds and frequent social interaction rather than solitude.",
+      "low": [
+        "Often prefers solitude or smaller settings.",
+        "May avoid crowds.",
+        "Needs less frequent social contact."
+      ],
+      "high": [
+        "Enjoys being around many people.",
+        "Often seeks group interaction.",
+        "Is comfortable with crowded social settings."
+      ],
+      "context": "Solitude can support concentration and recovery; company can provide stimulation and connection. Neither preference establishes teamwork skill.",
+      "reflection": "Plan a workable balance between social contact and quieter time."
+    },
+    {
+      "code": "E3",
+      "name": "Assertiveness",
+      "definition": "Inclination to take charge, express direction and assume a leading role.",
+      "low": [
+        "Often lets others lead.",
+        "May be less inclined to take control.",
+        "Can prefer a less directive role."
+      ],
+      "high": [
+        "Readily takes charge.",
+        "Is inclined to lead others.",
+        "Often seeks control of group action."
+      ],
+      "context": "Taking charge can help a group act; allowing others to lead can support participation. More assertiveness does not automatically produce more effective leadership.",
+      "reflection": "Consider when clear direction is needed and when to invite input or share control."
+    },
+    {
+      "code": "E4",
+      "name": "Activity Level",
+      "definition": "Preference for a busy, active and fast-moving pace of life.",
+      "low": [
+        "Often prefers a leisurely pace.",
+        "Allows more downtime.",
+        "May avoid keeping continuously busy."
+      ],
+      "high": [
+        "Often stays busy.",
+        "Prefers frequent activity.",
+        "May maintain a demanding pace."
+      ],
+      "context": "A measured pace can allow reflection and recovery; activity can support engagement with a busy environment. This facet does not establish productivity.",
+      "reflection": "Check whether your pace matches the task and whether adequate recovery or momentum is needed."
+    },
+    {
+      "code": "E5",
+      "name": "Excitement-Seeking",
+      "definition": "Appetite for excitement, adventure and stimulating or potentially reckless experiences.",
+      "low": [
+        "Prefers lower stimulation.",
+        "May avoid adventurous situations.",
+        "Usually has less appetite for excitement."
+      ],
+      "high": [
+        "Seeks excitement and adventure.",
+        "Enjoys strong stimulation.",
+        "May be attracted to reckless experiences."
+      ],
+      "context": "Lower stimulation can suit predictable settings; excitement can make stimulating settings appealing. This facet does not establish the quality of risk decisions.",
+      "reflection": "Distinguish the appeal of excitement from the benefits and consequences of a particular action."
+    },
+    {
+      "code": "E6",
+      "name": "Cheerfulness",
+      "definition": "Frequency and expression of positive emotion, enjoyment and enthusiasm.",
+      "low": [
+        "Expresses less visible joy.",
+        "May experience positive emotion less frequently.",
+        "Can take a more subdued emotional tone."
+      ],
+      "high": [
+        "Often feels and expresses joy.",
+        "Readily finds enjoyment.",
+        "Can take an enthusiastic or positive tone."
+      ],
+      "context": "A subdued style need not indicate distress; cheerfulness can make positive engagement visible. Neither end alone establishes realism or performance.",
+      "reflection": "Consider how your emotional expression affects others and when a realistic concern should also be voiced."
+    },
+    {
+      "code": "O1",
+      "name": "Imagination",
+      "definition": "Interest in fantasy, daydreaming and a vivid inner imaginative life.",
+      "low": [
+        "Focuses more on concrete experience.",
+        "Spends less time daydreaming.",
+        "May have less interest in fantasy."
+      ],
+      "high": [
+        "Enjoys vivid imagination.",
+        "Often daydreams.",
+        "Can become absorbed in fantasy or thought."
+      ],
+      "context": "Concrete attention can support practical focus; imagination can provide possibilities. This facet is not a test of creative problem-solving performance.",
+      "reflection": "Choose when imaginative exploration is useful and how to connect possibilities with practical action."
+    },
+    {
+      "code": "O2",
+      "name": "Artistic Interests",
+      "definition": "Interest in art, poetry, beauty and aesthetic experience.",
+      "low": [
+        "Has less interest in artistic activities.",
+        "May give aesthetics less attention.",
+        "Often prefers other forms of engagement."
+      ],
+      "high": [
+        "Values artistic experience.",
+        "Notices beauty.",
+        "May enjoy art, poetry or museums."
+      ],
+      "context": "Different levels of artistic interest reflect preferences rather than artistic skill or leadership capability.",
+      "reflection": "Consider whether aesthetic experiences add enjoyment or perspective without treating them as a performance requirement."
+    },
+    {
+      "code": "O3",
+      "name": "Emotionality",
+      "definition": "Attention to, intensity of and interest in emotional experience.",
+      "low": [
+        "Pays less attention to emotional reactions.",
+        "May experience feelings less intensely.",
+        "Can find emotional expression harder to relate to."
+      ],
+      "high": [
+        "Experiences feelings intensely.",
+        "Notices emotional responses.",
+        "Often attends to others' emotions."
+      ],
+      "context": "Lower emotional emphasis can support emotional distance; stronger emotional experience can bring feelings into awareness. This facet does not establish emotion-reading accuracy or emotional intelligence.",
+      "reflection": "Notice relevant feelings while checking interpretations of other people's emotions through conversation."
+    },
+    {
+      "code": "O4",
+      "name": "Adventurousness",
+      "definition": "Preference for variety and unfamiliar experiences rather than familiar routines and conventional ways.",
+      "low": [
+        "Often favours familiar approaches.",
+        "Prefers established routines.",
+        "May dislike changes to known ways."
+      ],
+      "high": [
+        "Enjoys variety.",
+        "Is more open to unfamiliar experiences.",
+        "May be less attached to conventional routines."
+      ],
+      "context": "Familiarity can support continuity; variety can support exploration. Preference for change is different from effective adaptation to change.",
+      "reflection": "Decide where trying something unfamiliar is worthwhile and what preparation or continuity is needed."
+    },
+    {
+      "code": "O5",
+      "name": "Intellect",
+      "definition": "Interest in abstract ideas, challenging material and theoretical or philosophical discussion.",
+      "low": [
+        "Often prefers concrete or practical material.",
+        "Has less interest in theoretical discussion.",
+        "May find abstract ideas less appealing."
+      ],
+      "high": [
+        "Enjoys challenging reading.",
+        "Is interested in abstract ideas.",
+        "Often engages with theory or philosophy."
+      ],
+      "context": "Concrete and abstract interests can each suit different work. This is a self-report personality facet, not an intelligence or reasoning test.",
+      "reflection": "Match the level of abstraction to the problem and seek evidence that ideas can explain or improve something useful."
+    },
+    {
+      "code": "O6",
+      "name": "Liberalism",
+      "definition": "Willingness to question conventional social values, as operationalised here using political and moral-attitude items.",
+      "low": [
+        "More often endorses conventional or conservative views.",
+        "May favour established social rules.",
+        "Can prefer firmer moral boundaries."
+      ],
+      "high": [
+        "More often endorses liberal political views.",
+        "May question absolute moral rules.",
+        "Can be more willing to reconsider conventions."
+      ],
+      "context": "The original English items concern political and moral attitudes. This facet does not establish leadership quality, fairness, learning agility or organisational suitability.",
+      "reflection": "Discuss the meaning of differing views without treating a political preference as a capability score."
+    },
+    {
+      "code": "A1",
+      "name": "Trust",
+      "definition": "Readiness to believe that other people are honest, well-intentioned and dependable.",
+      "low": [
+        "Is more sceptical of others' intentions.",
+        "May verify claims before relying on them.",
+        "Can be guarded in extending trust."
+      ],
+      "high": [
+        "Gives others the benefit of the doubt.",
+        "Often assumes good intentions.",
+        "Readily believes what others say."
+      ],
+      "context": "Scrutiny can protect against misplaced trust; trust can make cooperation easier. The appropriate balance depends on evidence and consequences.",
+      "reflection": "Choose how much trust to extend and what verification is proportionate to the situation."
+    },
+    {
+      "code": "A2",
+      "name": "Morality",
+      "definition": "Reported avoidance of manipulating, cheating, exploiting or obstructing other people.",
+      "low": [
+        "May endorse more instrumental treatment of others.",
+        "Can be more willing to gain advantage at others' expense.",
+        "May report obstructive or exploitative behaviour."
+      ],
+      "high": [
+        "Reports avoiding exploitation or cheating.",
+        "Is less inclined to manipulate others for gain.",
+        "Usually rejects obstructing others for personal advantage."
+      ],
+      "context": "The retained scale label is Morality. These self-reports are not verification of integrity, ethical conduct or honesty-humility.",
+      "reflection": "Examine concrete decisions and their effects on other people rather than treating the label as a character verdict."
+    },
+    {
+      "code": "A3",
+      "name": "Altruism",
+      "definition": "Inclination to care about other people's needs and offer practical help.",
+      "low": [
+        "May give others' needs less attention.",
+        "Is less inclined to spend time helping.",
+        "Can prefer clearer boundaries around assistance."
+      ],
+      "high": [
+        "Often offers help.",
+        "Shows concern for others.",
+        "Is willing to spend time supporting people."
+      ],
+      "context": "Boundaries can protect capacity; helping can support others. Effective support requires attention to what help is needed and what is sustainable.",
+      "reflection": "Balance useful assistance with clear priorities, consent and sustainable boundaries."
+    },
+    {
+      "code": "A4",
+      "name": "Cooperation",
+      "definition": "Inclination to avoid interpersonal aggression, retaliation and unnecessary conflict.",
+      "low": [
+        "May be more confrontational.",
+        "Can respond to conflict with hostility.",
+        "May be inclined to retaliate."
+      ],
+      "high": [
+        "Is less inclined to insult or retaliate.",
+        "Often avoids aggressive exchanges.",
+        "Can prefer an accommodating approach."
+      ],
+      "context": "A cooperative approach can reduce friction. Constructive disagreement and assertive boundaries should be distinguished from the aggression represented by the lower end.",
+      "reflection": "Raise disagreements directly while avoiding insults, revenge or unnecessary escalation."
+    },
+    {
+      "code": "A5",
+      "name": "Modesty",
+      "definition": "Restraint in claiming superiority, praising oneself or drawing attention to one's virtues.",
+      "low": [
+        "Readily expresses a high opinion of oneself.",
+        "May emphasise personal virtues.",
+        "Can make superiority claims."
+      ],
+      "high": [
+        "Avoids claiming superiority.",
+        "Is less inclined to boast.",
+        "May downplay personal virtues."
+      ],
+      "context": "Visible self-advocacy can communicate achievements; modesty can leave room for others. This facet does not establish accurate self-insight or confidence.",
+      "reflection": "Describe achievements with evidence while recognising the contributions and strengths of others."
+    },
+    {
+      "code": "A6",
+      "name": "Sympathy",
+      "definition": "Compassion and concern for people experiencing hardship or disadvantage.",
+      "low": [
+        "Maintains more distance from others' difficulties.",
+        "May give hardship less attention.",
+        "Can prefer to avoid distressing concerns."
+      ],
+      "high": [
+        "Feels concern for people facing hardship.",
+        "Responds with compassion.",
+        "Often attends to others' difficulties."
+      ],
+      "context": "Emotional distance can help maintain boundaries; compassion can draw attention to unmet needs. Neither alone establishes sound decisions or effective assistance.",
+      "reflection": "Consider others' needs alongside evidence, fairness and the practical consequences of a response."
+    },
+    {
+      "code": "C1",
+      "name": "Self-Efficacy",
+      "definition": "Belief in one's effectiveness at completing tasks and handling practical demands.",
+      "low": [
+        "Reports less confidence in task effectiveness.",
+        "May doubt how well tasks will be handled.",
+        "Can feel less certain about getting things done."
+      ],
+      "high": [
+        "Reports confidence in completing tasks.",
+        "Feels able to handle demands.",
+        "Usually expects to know how to get things done."
+      ],
+      "context": "Confidence can support willingness to act; doubt can encourage checking or assistance. This facet measures perceived effectiveness rather than demonstrated competence.",
+      "reflection": "Compare confidence with task evidence and identify where practice, feedback or help would improve calibration."
+    },
+    {
+      "code": "C2",
+      "name": "Orderliness",
+      "definition": "Preference for tidiness, organisation and returning belongings to their proper place.",
+      "low": [
+        "Is less concerned with tidiness.",
+        "May leave belongings out of place.",
+        "Can prefer a less orderly environment."
+      ],
+      "high": [
+        "Usually keeps things tidy.",
+        "Returns belongings to their place.",
+        "Prefers an orderly environment."
+      ],
+      "context": "An orderly environment can make retrieval and routines easier; less concern with tidiness may suit some flexible settings. This facet does not establish planning or management skill.",
+      "reflection": "Use enough structure to make work manageable without adding organisation that serves little purpose."
+    },
+    {
+      "code": "C3",
+      "name": "Dutifulness",
+      "definition": "Reported commitment to promises, truthfulness and following rules.",
+      "low": [
+        "May treat commitments or rules more flexibly.",
+        "Can report breaking promises.",
+        "May be less consistent about truthfulness."
+      ],
+      "high": [
+        "Usually reports keeping promises.",
+        "Takes rules and commitments seriously.",
+        "Endorses telling the truth."
+      ],
+      "context": "Commitment can support reliability. Whether a rule should be followed or challenged requires judgement beyond this self-report facet.",
+      "reflection": "Make commitments explicitly, raise difficulties early and explain any necessary challenge to an inappropriate rule."
+    },
+    {
+      "code": "C4",
+      "name": "Achievement-Striving",
+      "definition": "Willingness to work hard, exceed requirements and invest effort in achievement.",
+      "low": [
+        "May be satisfied with meeting minimum requirements.",
+        "Often invests less additional effort.",
+        "Can place less emphasis on demanding achievement."
+      ],
+      "high": [
+        "Often works hard.",
+        "Tries to exceed expectations.",
+        "Invests effort in achieving more."
+      ],
+      "context": "A measured level of striving can protect other priorities; strong striving can sustain demanding goals. Actual outcomes and the value of the goals require separate evidence.",
+      "reflection": "Choose goals deliberately and check that effort remains proportionate to priorities and available capacity."
+    },
+    {
+      "code": "C5",
+      "name": "Self-Discipline",
+      "definition": "Inclination to start tasks, stay prepared and carry plans through rather than delay or waste time.",
+      "low": [
+        "May delay starting tasks.",
+        "Can find follow-through difficult.",
+        "May spend time on competing distractions."
+      ],
+      "high": [
+        "Often starts tasks readily.",
+        "Prepares for what needs doing.",
+        "Usually carries out plans."
+      ],
+      "context": "Sustained task focus can support completion; willingness to pause can sometimes allow reprioritisation. The facet does not establish whether a task should be continued.",
+      "reflection": "Identify the next useful action and review whether persistence or a deliberate change of plan is needed."
+    },
+    {
+      "code": "C6",
+      "name": "Cautiousness",
+      "definition": "Tendency to deliberate before acting rather than rush into decisions.",
+      "low": [
+        "May act quickly with limited advance thought.",
+        "Can make spontaneous decisions.",
+        "May rush into action."
+      ],
+      "high": [
+        "Usually thinks before acting.",
+        "Is less inclined to make rash decisions.",
+        "Often considers actions in advance."
+      ],
+      "context": "Speed can matter when action is urgent; deliberation can help examine consequences. Neither end establishes decision quality or an appropriate appetite for risk.",
+      "reflection": "Match the amount of deliberation to the stakes, time available and reversibility of the decision."
+    }
+  ]
+}
+

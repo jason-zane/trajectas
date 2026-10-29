@@ -28,9 +28,11 @@ for the evidence readout. The skill is not permission to merge or deploy.
   run blanket live migrations before a PR. Follow the runbook's ordered
   rollout and separate app rollback from database recovery.
 - `node scripts/release/validate-local.mjs` runs ordinary local checks in an isolated
-  worktree without environment files. Database checks use
-  `npm run test:integration:local` against an isolated local stack; CI is the
-  source of final-commit automated evidence. Commands and exceptions are in
+  worktree without environment files. Development database work uses hosted Supabase project
+  `bgrvqvtlhmfmvcytncgw` with synthetic, task-scoped fixtures; Docker is not
+  required for normal development. CI still provisions disposable local stacks.
+  Never reset the shared development database. CI is the source of final-commit
+  automated evidence. Commands and exceptions are in
   the runbook, not a second checklist here.
 - Release approval is Jason's explicit decision for an identified commit.
   Provider permissions, credentials, paid resources, account security and

@@ -29,6 +29,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { scoreSessionIpipNeo120 } from '@/lib/scoring/ipip-neo-120-session'
 import { scoreSessionCTT } from '@/lib/scoring/ctt-session'
 import { scoreSessionAbility } from '@/lib/scoring/ability-session'
 import { scoreSessionAbilityIRT } from '@/lib/scoring/ability-irt-session'
@@ -59,6 +60,8 @@ export async function scoreSession(sessionId: string): Promise<ScoreSessionResul
   const profile = (assessment.scoring_profile as string | null) ?? 'pomp_factor'
 
   switch (profile) {
+    case 'ipip_neo_120_v1':
+      return scoreSessionIpipNeo120(sessionId)
     case 'pomp_factor':
       return scoreSessionCTT(sessionId)
     case 'ability_dichotomous':

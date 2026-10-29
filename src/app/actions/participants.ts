@@ -1,4 +1,7 @@
 'use server'
+import { getAuthorizedResponseQualitySummaries } from '@/lib/dal/response-quality'
+import { PERSONALITY_PROFILE_ASSESSMENT_ID } from '@/lib/instrument/ipip-neo-120/catalogue'
+import type { QualityStatus } from '@/lib/instrument/ipip-neo-120/response-quality'
 
 import { requireWorkspaceFeature } from '@/lib/features/access'
 
@@ -72,6 +75,8 @@ export type ParticipantDetail = CampaignParticipant & {
 }
 
 export type ParticipantSession = {
+  responseQualityStatus?: QualityStatus
+  responseQualityUnavailable?: boolean
   id: string
   assessmentId: string
   assessmentTitle: string
@@ -266,9 +271,14 @@ export async function getParticipantSessions(participantId: string): Promise<Par
     logActionError('getParticipantSessions.audit', error)
   }
 
-  return canViewIndividualResults(access.confidentialityMode, access.scope)
-    ? sessions
-    : sessions.map(session => ({ ...session, scores: [] }))
+  if (!canViewIndividualResults(access.confidentialityMode, access.scope)) return sessions.map(session => ({ ...session, scores: [] }))
+  try {
+    const quality = await getAuthorizedResponseQualitySummaries(db, sessions.filter(s => s.assessmentId === PERSONALITY_PROFILE_ASSESSMENT_ID).map(s => s.id))
+    return sessions.map(session => ({ ...session, ...(quality.has(session.id) ? { responseQualityStatus: quality.get(session.id) } : {}) }))
+  } catch (error) {
+    logActionError('getParticipantSessions.responseQuality', error)
+    return sessions.map(session => ({ ...session, ...(session.assessmentId === PERSONALITY_PROFILE_ASSESSMENT_ID ? { responseQualityUnavailable: true } : {}) }))
+  }
 }
 
 // ---------------------------------------------------------------------------

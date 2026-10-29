@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-30 Australia/Sydney",
+  "projectRef": "bgrvqvtlhmfmvcytncgw",
+  "target": "development only",
+  "sourceMigration": "20261029224131_ipip_neo_120_profile_presentation.sql",
+  "sourceSha256": "683d7d66ecb2dc15124c2579a207637f6c0531a71d14069bdfd14f0bce44110a",
+  "appliedMigration": {
+    "name": "ipip_neo_120_profile_presentation",
+    "version": "20261029224630"
+  },
+  "ownerRequest": "Activate the complete assessment in Preview, rename to Trajectas Personality Profile and remove scientific code prefixes from main descriptors.",
+  "verified": {
+    "assessmentTitle": "Trajectas Personality Profile",
+    "status": "active",
+    "activationReady": true,
+    "descriptionPrefixesRemaining": 0,
+    "immutableDefinitionTriggerEnabled": true,
+    "exactItemCount": 120,
+    "allFormItems": "construct-purpose Likert",
+    "sourceVersion": "johnson-2014-table1-v1",
+    "originalReverseKeyCount": 55,
+    "displayReversedFacets": [
+      "N4",
+      "N6"
+    ],
+    "goldenCasesPassed": 3,
+    "sessionsAfterRollback": 0,
+    "instrumentResultsAfterRollback": 0
+  },
+  "compatibility": "Scientific form, item hashes, score-label version, keys, native/display arithmetic, role grants and stored results unchanged.",
+  "unverified": [
+    "Owner browser acceptance of updated Preview",
+    "Fresh participant browser completion/resume",
+    "Compatible personality report and PDF acceptance"
+  ],
+  "productionChanged": false
+}

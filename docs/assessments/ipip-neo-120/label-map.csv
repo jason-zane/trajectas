@@ -1,0 +1,36 @@
+code,scientificName,displayName,direction
+N,Neuroticism,Emotional Reactivity,original
+E,Extraversion,Extraversion,original
+O,Openness to Experience,Openness,original
+A,Agreeableness,Agreeableness,original
+C,Conscientiousness,Conscientiousness,original
+N1,Anxiety,Anxiety,original
+N2,Anger,Irritability,original
+N3,Depression,Discouragement,original
+N4,Self-Consciousness,Social Confidence,reversed
+N5,Immoderation,Indulgence,original
+N6,Vulnerability,Stress Tolerance,reversed
+E1,Friendliness,Friendliness,original
+E2,Gregariousness,Sociability,original
+E3,Assertiveness,Assertiveness,original
+E4,Activity Level,Activity Level,original
+E5,Excitement-Seeking,Excitement-Seeking,original
+E6,Cheerfulness,Cheerfulness,original
+O1,Imagination,Imagination,original
+O2,Artistic Interests,Artistic Interests,original
+O3,Emotionality,Emotional Sensitivity,original
+O4,Adventurousness,Variety Seeking,original
+O5,Intellect,Intellectual Curiosity,original
+O6,Liberalism,Liberalism,original
+A1,Trust,Trust,original
+A2,Morality,Fairness,original
+A3,Altruism,Helpfulness,original
+A4,Cooperation,Cooperation,original
+A5,Modesty,Modesty,original
+A6,Sympathy,Compassion,original
+C1,Self-Efficacy,Perceived Competence,original
+C2,Orderliness,Orderliness,original
+C3,Dutifulness,Dependability,original
+C4,Achievement-Striving,Achievement Striving,original
+C5,Self-Discipline,Self-Discipline,original
+C6,Cautiousness,Deliberation,original

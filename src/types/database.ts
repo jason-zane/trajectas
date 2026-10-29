@@ -55,7 +55,7 @@ export type ScoringMethod = 'irt' | 'ctt' | 'hybrid'
  * - `ability_irt`         – `scoreSessionAbilityIRT`; falls back to
  *                           dichotomous until calibrated parameters exist.
  */
-export type ScoringProfile = 'pomp_factor' | 'ability_dichotomous' | 'ability_irt'
+export type ScoringProfile = 'pomp_factor' | 'ability_dichotomous' | 'ability_irt' | 'ipip_neo_120_v1'
 
 /**
  * Strategy that governs which items are presented to a participant.
