@@ -1,0 +1,963 @@
+[
+  {
+    "original300ItemNumber": 1,
+    "itemNumber": 1,
+    "facetCode": "N1",
+    "reverseScored": false,
+    "stem": "Worry about things.",
+    "sourceItemTotalCorrelation": 0.58
+  },
+  {
+    "original300ItemNumber": 2,
+    "itemNumber": 2,
+    "facetCode": "E1",
+    "reverseScored": false,
+    "stem": "Make friends easily.",
+    "sourceItemTotalCorrelation": 0.61
+  },
+  {
+    "original300ItemNumber": 3,
+    "itemNumber": 3,
+    "facetCode": "O1",
+    "reverseScored": false,
+    "stem": "Have a vivid imagination.",
+    "sourceItemTotalCorrelation": 0.45
+  },
+  {
+    "original300ItemNumber": 4,
+    "itemNumber": 4,
+    "facetCode": "A1",
+    "reverseScored": false,
+    "stem": "Trust others.",
+    "sourceItemTotalCorrelation": 0.72
+  },
+  {
+    "original300ItemNumber": 5,
+    "itemNumber": 5,
+    "facetCode": "C1",
+    "reverseScored": false,
+    "stem": "Complete tasks successfully.",
+    "sourceItemTotalCorrelation": 0.5
+  },
+  {
+    "original300ItemNumber": 6,
+    "itemNumber": 6,
+    "facetCode": "N2",
+    "reverseScored": false,
+    "stem": "Get angry easily.",
+    "sourceItemTotalCorrelation": 0.76
+  },
+  {
+    "original300ItemNumber": 7,
+    "itemNumber": 7,
+    "facetCode": "E2",
+    "reverseScored": false,
+    "stem": "Love large parties.",
+    "sourceItemTotalCorrelation": 0.67
+  },
+  {
+    "original300ItemNumber": 8,
+    "itemNumber": 8,
+    "facetCode": "O2",
+    "reverseScored": false,
+    "stem": "Believe in the importance of art.",
+    "sourceItemTotalCorrelation": 0.63
+  },
+  {
+    "original300ItemNumber": 99,
+    "itemNumber": 9,
+    "facetCode": "A2",
+    "reverseScored": true,
+    "stem": "Use others for my own ends.",
+    "sourceItemTotalCorrelation": 0.59
+  },
+  {
+    "original300ItemNumber": 40,
+    "itemNumber": 10,
+    "facetCode": "C2",
+    "reverseScored": false,
+    "stem": "Like to tidy up.",
+    "sourceItemTotalCorrelation": 0.61
+  },
+  {
+    "original300ItemNumber": 11,
+    "itemNumber": 11,
+    "facetCode": "N3",
+    "reverseScored": false,
+    "stem": "Often feel blue.",
+    "sourceItemTotalCorrelation": 0.69
+  },
+  {
+    "original300ItemNumber": 12,
+    "itemNumber": 12,
+    "facetCode": "E3",
+    "reverseScored": false,
+    "stem": "Take charge.",
+    "sourceItemTotalCorrelation": 0.76
+  },
+  {
+    "original300ItemNumber": 13,
+    "itemNumber": 13,
+    "facetCode": "O3",
+    "reverseScored": false,
+    "stem": "Experience my emotions intensely.",
+    "sourceItemTotalCorrelation": 0.49
+  },
+  {
+    "original300ItemNumber": 74,
+    "itemNumber": 14,
+    "facetCode": "A3",
+    "reverseScored": false,
+    "stem": "Love to help others.",
+    "sourceItemTotalCorrelation": 0.58
+  },
+  {
+    "original300ItemNumber": 45,
+    "itemNumber": 15,
+    "facetCode": "C3",
+    "reverseScored": false,
+    "stem": "Keep my promises.",
+    "sourceItemTotalCorrelation": 0.53
+  },
+  {
+    "original300ItemNumber": 76,
+    "itemNumber": 16,
+    "facetCode": "N4",
+    "reverseScored": false,
+    "stem": "Find it difficult to approach others.",
+    "sourceItemTotalCorrelation": 0.61
+  },
+  {
+    "original300ItemNumber": 17,
+    "itemNumber": 17,
+    "facetCode": "E4",
+    "reverseScored": false,
+    "stem": "Am always busy.",
+    "sourceItemTotalCorrelation": 0.63
+  },
+  {
+    "original300ItemNumber": 18,
+    "itemNumber": 18,
+    "facetCode": "O4",
+    "reverseScored": false,
+    "stem": "Prefer variety to routine.",
+    "sourceItemTotalCorrelation": 0.43
+  },
+  {
+    "original300ItemNumber": 169,
+    "itemNumber": 19,
+    "facetCode": "A4",
+    "reverseScored": true,
+    "stem": "Love a good fight.",
+    "sourceItemTotalCorrelation": 0.46
+  },
+  {
+    "original300ItemNumber": 50,
+    "itemNumber": 20,
+    "facetCode": "C4",
+    "reverseScored": false,
+    "stem": "Work hard.",
+    "sourceItemTotalCorrelation": 0.63
+  },
+  {
+    "original300ItemNumber": 111,
+    "itemNumber": 21,
+    "facetCode": "N5",
+    "reverseScored": false,
+    "stem": "Go on binges.",
+    "sourceItemTotalCorrelation": 0.47
+  },
+  {
+    "original300ItemNumber": 22,
+    "itemNumber": 22,
+    "facetCode": "E5",
+    "reverseScored": false,
+    "stem": "Love excitement.",
+    "sourceItemTotalCorrelation": 0.58
+  },
+  {
+    "original300ItemNumber": 53,
+    "itemNumber": 23,
+    "facetCode": "O5",
+    "reverseScored": false,
+    "stem": "Love to read challenging material.",
+    "sourceItemTotalCorrelation": 0.43
+  },
+  {
+    "original300ItemNumber": 144,
+    "itemNumber": 24,
+    "facetCode": "A5",
+    "reverseScored": true,
+    "stem": "Believe that I am better than others.",
+    "sourceItemTotalCorrelation": 0.52
+  },
+  {
+    "original300ItemNumber": 55,
+    "itemNumber": 25,
+    "facetCode": "C5",
+    "reverseScored": false,
+    "stem": "Am always prepared.",
+    "sourceItemTotalCorrelation": 0.45
+  },
+  {
+    "original300ItemNumber": 26,
+    "itemNumber": 26,
+    "facetCode": "N6",
+    "reverseScored": false,
+    "stem": "Panic easily.",
+    "sourceItemTotalCorrelation": 0.61
+  },
+  {
+    "original300ItemNumber": 27,
+    "itemNumber": 27,
+    "facetCode": "E6",
+    "reverseScored": false,
+    "stem": "Radiate joy.",
+    "sourceItemTotalCorrelation": 0.58
+  },
+  {
+    "original300ItemNumber": 28,
+    "itemNumber": 28,
+    "facetCode": "O6",
+    "reverseScored": false,
+    "stem": "Tend to vote for liberal political candidates.",
+    "sourceItemTotalCorrelation": 0.54
+  },
+  {
+    "original300ItemNumber": 29,
+    "itemNumber": 29,
+    "facetCode": "A6",
+    "reverseScored": false,
+    "stem": "Sympathize with the homeless.",
+    "sourceItemTotalCorrelation": 0.58
+  },
+  {
+    "original300ItemNumber": 120,
+    "itemNumber": 30,
+    "facetCode": "C6",
+    "reverseScored": true,
+    "stem": "Jump into things without thinking.",
+    "sourceItemTotalCorrelation": 0.76
+  },
+  {
+    "original300ItemNumber": 31,
+    "itemNumber": 31,
+    "facetCode": "N1",
+    "reverseScored": false,
+    "stem": "Fear for the worst.",
+    "sourceItemTotalCorrelation": 0.6
+  },
+  {
+    "original300ItemNumber": 62,
+    "itemNumber": 32,
+    "facetCode": "E1",
+    "reverseScored": false,
+    "stem": "Feel comfortable around people.",
+    "sourceItemTotalCorrelation": 0.68
+  },
+  {
+    "original300ItemNumber": 33,
+    "itemNumber": 33,
+    "facetCode": "O1",
+    "reverseScored": false,
+    "stem": "Enjoy wild flights of fantasy.",
+    "sourceItemTotalCorrelation": 0.56
+  },
+  {
+    "original300ItemNumber": 34,
+    "itemNumber": 34,
+    "facetCode": "A1",
+    "reverseScored": false,
+    "stem": "Believe that others have good intentions.",
+    "sourceItemTotalCorrelation": 0.65
+  },
+  {
+    "original300ItemNumber": 35,
+    "itemNumber": 35,
+    "facetCode": "C1",
+    "reverseScored": false,
+    "stem": "Excel in what I do.",
+    "sourceItemTotalCorrelation": 0.46
+  },
+  {
+    "original300ItemNumber": 36,
+    "itemNumber": 36,
+    "facetCode": "N2",
+    "reverseScored": false,
+    "stem": "Get irritated easily.",
+    "sourceItemTotalCorrelation": 0.72
+  },
+  {
+    "original300ItemNumber": 37,
+    "itemNumber": 37,
+    "facetCode": "E2",
+    "reverseScored": false,
+    "stem": "Talk to a lot of different people at parties.",
+    "sourceItemTotalCorrelation": 0.61
+  },
+  {
+    "original300ItemNumber": 68,
+    "itemNumber": 38,
+    "facetCode": "O2",
+    "reverseScored": false,
+    "stem": "See beauty in things that others might not notice.",
+    "sourceItemTotalCorrelation": 0.44
+  },
+  {
+    "original300ItemNumber": 159,
+    "itemNumber": 39,
+    "facetCode": "A2",
+    "reverseScored": true,
+    "stem": "Cheat to get ahead.",
+    "sourceItemTotalCorrelation": 0.54
+  },
+  {
+    "original300ItemNumber": 160,
+    "itemNumber": 40,
+    "facetCode": "C2",
+    "reverseScored": true,
+    "stem": "Often forget to put things back in their proper place.",
+    "sourceItemTotalCorrelation": 0.63
+  },
+  {
+    "original300ItemNumber": 41,
+    "itemNumber": 41,
+    "facetCode": "N3",
+    "reverseScored": false,
+    "stem": "Dislike myself.",
+    "sourceItemTotalCorrelation": 0.7
+  },
+  {
+    "original300ItemNumber": 42,
+    "itemNumber": 42,
+    "facetCode": "E3",
+    "reverseScored": false,
+    "stem": "Try to lead others.",
+    "sourceItemTotalCorrelation": 0.7
+  },
+  {
+    "original300ItemNumber": 43,
+    "itemNumber": 43,
+    "facetCode": "O3",
+    "reverseScored": false,
+    "stem": "Feel others' emotions.",
+    "sourceItemTotalCorrelation": 0.44
+  },
+  {
+    "original300ItemNumber": 104,
+    "itemNumber": 44,
+    "facetCode": "A3",
+    "reverseScored": false,
+    "stem": "Am concerned about others.",
+    "sourceItemTotalCorrelation": 0.65
+  },
+  {
+    "original300ItemNumber": 105,
+    "itemNumber": 45,
+    "facetCode": "C3",
+    "reverseScored": false,
+    "stem": "Tell the truth.",
+    "sourceItemTotalCorrelation": 0.52
+  },
+  {
+    "original300ItemNumber": 106,
+    "itemNumber": 46,
+    "facetCode": "N4",
+    "reverseScored": false,
+    "stem": "Am afraid to draw attention to myself.",
+    "sourceItemTotalCorrelation": 0.52
+  },
+  {
+    "original300ItemNumber": 47,
+    "itemNumber": 47,
+    "facetCode": "E4",
+    "reverseScored": false,
+    "stem": "Am always on the go.",
+    "sourceItemTotalCorrelation": 0.6
+  },
+  {
+    "original300ItemNumber": 138,
+    "itemNumber": 48,
+    "facetCode": "O4",
+    "reverseScored": true,
+    "stem": "Prefer to stick with things that I know.",
+    "sourceItemTotalCorrelation": 0.53
+  },
+  {
+    "original300ItemNumber": 199,
+    "itemNumber": 49,
+    "facetCode": "A4",
+    "reverseScored": true,
+    "stem": "Yell at people.",
+    "sourceItemTotalCorrelation": 0.53
+  },
+  {
+    "original300ItemNumber": 140,
+    "itemNumber": 50,
+    "facetCode": "C4",
+    "reverseScored": false,
+    "stem": "Do more than what's expected of me.",
+    "sourceItemTotalCorrelation": 0.57
+  },
+  {
+    "original300ItemNumber": 171,
+    "itemNumber": 51,
+    "facetCode": "N5",
+    "reverseScored": true,
+    "stem": "Rarely overindulge.",
+    "sourceItemTotalCorrelation": 0.54
+  },
+  {
+    "original300ItemNumber": 52,
+    "itemNumber": 52,
+    "facetCode": "E5",
+    "reverseScored": false,
+    "stem": "Seek adventure.",
+    "sourceItemTotalCorrelation": 0.59
+  },
+  {
+    "original300ItemNumber": 203,
+    "itemNumber": 53,
+    "facetCode": "O5",
+    "reverseScored": true,
+    "stem": "Avoid philosophical discussions.",
+    "sourceItemTotalCorrelation": 0.61
+  },
+  {
+    "original300ItemNumber": 174,
+    "itemNumber": 54,
+    "facetCode": "A5",
+    "reverseScored": true,
+    "stem": "Think highly of myself.",
+    "sourceItemTotalCorrelation": 0.71
+  },
+  {
+    "original300ItemNumber": 145,
+    "itemNumber": 55,
+    "facetCode": "C5",
+    "reverseScored": false,
+    "stem": "Carry out my plans.",
+    "sourceItemTotalCorrelation": 0.52
+  },
+  {
+    "original300ItemNumber": 56,
+    "itemNumber": 56,
+    "facetCode": "N6",
+    "reverseScored": false,
+    "stem": "Become overwhelmed by events.",
+    "sourceItemTotalCorrelation": 0.57
+  },
+  {
+    "original300ItemNumber": 57,
+    "itemNumber": 57,
+    "facetCode": "E6",
+    "reverseScored": false,
+    "stem": "Have a lot of fun.",
+    "sourceItemTotalCorrelation": 0.59
+  },
+  {
+    "original300ItemNumber": 58,
+    "itemNumber": 58,
+    "facetCode": "O6",
+    "reverseScored": false,
+    "stem": "Believe that there is no absolute right or wrong.",
+    "sourceItemTotalCorrelation": 0.31
+  },
+  {
+    "original300ItemNumber": 59,
+    "itemNumber": 59,
+    "facetCode": "A6",
+    "reverseScored": false,
+    "stem": "Feel sympathy for those who are worse off than myself.",
+    "sourceItemTotalCorrelation": 0.58
+  },
+  {
+    "original300ItemNumber": 150,
+    "itemNumber": 60,
+    "facetCode": "C6",
+    "reverseScored": true,
+    "stem": "Make rash decisions.",
+    "sourceItemTotalCorrelation": 0.69
+  },
+  {
+    "original300ItemNumber": 61,
+    "itemNumber": 61,
+    "facetCode": "N1",
+    "reverseScored": false,
+    "stem": "Am afraid of many things.",
+    "sourceItemTotalCorrelation": 0.57
+  },
+  {
+    "original300ItemNumber": 212,
+    "itemNumber": 62,
+    "facetCode": "E1",
+    "reverseScored": true,
+    "stem": "Avoid contacts with others.",
+    "sourceItemTotalCorrelation": 0.66
+  },
+  {
+    "original300ItemNumber": 63,
+    "itemNumber": 63,
+    "facetCode": "O1",
+    "reverseScored": false,
+    "stem": "Love to daydream.",
+    "sourceItemTotalCorrelation": 0.66
+  },
+  {
+    "original300ItemNumber": 64,
+    "itemNumber": 64,
+    "facetCode": "A1",
+    "reverseScored": false,
+    "stem": "Trust what people say.",
+    "sourceItemTotalCorrelation": 0.76
+  },
+  {
+    "original300ItemNumber": 65,
+    "itemNumber": 65,
+    "facetCode": "C1",
+    "reverseScored": false,
+    "stem": "Handle tasks smoothly.",
+    "sourceItemTotalCorrelation": 0.5
+  },
+  {
+    "original300ItemNumber": 126,
+    "itemNumber": 66,
+    "facetCode": "N2",
+    "reverseScored": false,
+    "stem": "Lose my temper.",
+    "sourceItemTotalCorrelation": 0.75
+  },
+  {
+    "original300ItemNumber": 157,
+    "itemNumber": 67,
+    "facetCode": "E2",
+    "reverseScored": true,
+    "stem": "Prefer to be alone.",
+    "sourceItemTotalCorrelation": 0.48
+  },
+  {
+    "original300ItemNumber": 188,
+    "itemNumber": 68,
+    "facetCode": "O2",
+    "reverseScored": true,
+    "stem": "Do not like poetry.",
+    "sourceItemTotalCorrelation": 0.54
+  },
+  {
+    "original300ItemNumber": 249,
+    "itemNumber": 69,
+    "facetCode": "A2",
+    "reverseScored": true,
+    "stem": "Take advantage of others.",
+    "sourceItemTotalCorrelation": 0.68
+  },
+  {
+    "original300ItemNumber": 190,
+    "itemNumber": 70,
+    "facetCode": "C2",
+    "reverseScored": true,
+    "stem": "Leave a mess in my room.",
+    "sourceItemTotalCorrelation": 0.72
+  },
+  {
+    "original300ItemNumber": 71,
+    "itemNumber": 71,
+    "facetCode": "N3",
+    "reverseScored": false,
+    "stem": "Am often down in the dumps.",
+    "sourceItemTotalCorrelation": 0.76
+  },
+  {
+    "original300ItemNumber": 132,
+    "itemNumber": 72,
+    "facetCode": "E3",
+    "reverseScored": false,
+    "stem": "Take control of things.",
+    "sourceItemTotalCorrelation": 0.72
+  },
+  {
+    "original300ItemNumber": 223,
+    "itemNumber": 73,
+    "facetCode": "O3",
+    "reverseScored": true,
+    "stem": "Rarely notice my emotional reactions.",
+    "sourceItemTotalCorrelation": 0.46
+  },
+  {
+    "original300ItemNumber": 194,
+    "itemNumber": 74,
+    "facetCode": "A3",
+    "reverseScored": true,
+    "stem": "Am indifferent to the feelings of others.",
+    "sourceItemTotalCorrelation": 0.54
+  },
+  {
+    "original300ItemNumber": 165,
+    "itemNumber": 75,
+    "facetCode": "C3",
+    "reverseScored": true,
+    "stem": "Break rules.",
+    "sourceItemTotalCorrelation": 0.33
+  },
+  {
+    "original300ItemNumber": 136,
+    "itemNumber": 76,
+    "facetCode": "N4",
+    "reverseScored": false,
+    "stem": "Only feel comfortable with friends.",
+    "sourceItemTotalCorrelation": 0.52
+  },
+  {
+    "original300ItemNumber": 77,
+    "itemNumber": 77,
+    "facetCode": "E4",
+    "reverseScored": false,
+    "stem": "Do a lot in my spare time.",
+    "sourceItemTotalCorrelation": 0.52
+  },
+  {
+    "original300ItemNumber": 168,
+    "itemNumber": 78,
+    "facetCode": "O4",
+    "reverseScored": true,
+    "stem": "Dislike changes.",
+    "sourceItemTotalCorrelation": 0.58
+  },
+  {
+    "original300ItemNumber": 229,
+    "itemNumber": 79,
+    "facetCode": "A4",
+    "reverseScored": true,
+    "stem": "Insult people.",
+    "sourceItemTotalCorrelation": 0.58
+  },
+  {
+    "original300ItemNumber": 260,
+    "itemNumber": 80,
+    "facetCode": "C4",
+    "reverseScored": true,
+    "stem": "Do just enough work to get by.",
+    "sourceItemTotalCorrelation": 0.67
+  },
+  {
+    "original300ItemNumber": 201,
+    "itemNumber": 81,
+    "facetCode": "N5",
+    "reverseScored": true,
+    "stem": "Easily resist temptations.",
+    "sourceItemTotalCorrelation": 0.49
+  },
+  {
+    "original300ItemNumber": 142,
+    "itemNumber": 82,
+    "facetCode": "E5",
+    "reverseScored": false,
+    "stem": "Enjoy being reckless.",
+    "sourceItemTotalCorrelation": 0.57
+  },
+  {
+    "original300ItemNumber": 233,
+    "itemNumber": 83,
+    "facetCode": "O5",
+    "reverseScored": true,
+    "stem": "Have difficulty understanding abstract ideas.",
+    "sourceItemTotalCorrelation": 0.52
+  },
+  {
+    "original300ItemNumber": 204,
+    "itemNumber": 84,
+    "facetCode": "A5",
+    "reverseScored": true,
+    "stem": "Have a high opinion of myself.",
+    "sourceItemTotalCorrelation": 0.71
+  },
+  {
+    "original300ItemNumber": 205,
+    "itemNumber": 85,
+    "facetCode": "C5",
+    "reverseScored": true,
+    "stem": "Waste my time.",
+    "sourceItemTotalCorrelation": 0.57
+  },
+  {
+    "original300ItemNumber": 86,
+    "itemNumber": 86,
+    "facetCode": "N6",
+    "reverseScored": false,
+    "stem": "Feel that I'm unable to deal with things.",
+    "sourceItemTotalCorrelation": 0.54
+  },
+  {
+    "original300ItemNumber": 147,
+    "itemNumber": 87,
+    "facetCode": "E6",
+    "reverseScored": false,
+    "stem": "Love life.",
+    "sourceItemTotalCorrelation": 0.64
+  },
+  {
+    "original300ItemNumber": 148,
+    "itemNumber": 88,
+    "facetCode": "O6",
+    "reverseScored": true,
+    "stem": "Tend to vote for conservative political candidates.",
+    "sourceItemTotalCorrelation": 0.55
+  },
+  {
+    "original300ItemNumber": 149,
+    "itemNumber": 89,
+    "facetCode": "A6",
+    "reverseScored": true,
+    "stem": "Am not interested in other people's problems.",
+    "sourceItemTotalCorrelation": 0.41
+  },
+  {
+    "original300ItemNumber": 210,
+    "itemNumber": 90,
+    "facetCode": "C6",
+    "reverseScored": true,
+    "stem": "Rush into things.",
+    "sourceItemTotalCorrelation": 0.72
+  },
+  {
+    "original300ItemNumber": 91,
+    "itemNumber": 91,
+    "facetCode": "N1",
+    "reverseScored": false,
+    "stem": "Get stressed out easily.",
+    "sourceItemTotalCorrelation": 0.61
+  },
+  {
+    "original300ItemNumber": 272,
+    "itemNumber": 92,
+    "facetCode": "E1",
+    "reverseScored": true,
+    "stem": "Keep others at a distance.",
+    "sourceItemTotalCorrelation": 0.58
+  },
+  {
+    "original300ItemNumber": 93,
+    "itemNumber": 93,
+    "facetCode": "O1",
+    "reverseScored": false,
+    "stem": "Like to get lost in thought.",
+    "sourceItemTotalCorrelation": 0.56
+  },
+  {
+    "original300ItemNumber": 184,
+    "itemNumber": 94,
+    "facetCode": "A1",
+    "reverseScored": true,
+    "stem": "Distrust people.",
+    "sourceItemTotalCorrelation": 0.74
+  },
+  {
+    "original300ItemNumber": 155,
+    "itemNumber": 95,
+    "facetCode": "C1",
+    "reverseScored": false,
+    "stem": "Know how to get things done.",
+    "sourceItemTotalCorrelation": 0.21
+  },
+  {
+    "original300ItemNumber": 216,
+    "itemNumber": 96,
+    "facetCode": "N2",
+    "reverseScored": true,
+    "stem": "Am not easily annoyed.",
+    "sourceItemTotalCorrelation": 0.65
+  },
+  {
+    "original300ItemNumber": 247,
+    "itemNumber": 97,
+    "facetCode": "E2",
+    "reverseScored": true,
+    "stem": "Avoid crowds.",
+    "sourceItemTotalCorrelation": 0.64
+  },
+  {
+    "original300ItemNumber": 218,
+    "itemNumber": 98,
+    "facetCode": "O2",
+    "reverseScored": true,
+    "stem": "Do not enjoy going to art museums.",
+    "sourceItemTotalCorrelation": 0.62
+  },
+  {
+    "original300ItemNumber": 279,
+    "itemNumber": 99,
+    "facetCode": "A2",
+    "reverseScored": true,
+    "stem": "Obstruct others' plans.",
+    "sourceItemTotalCorrelation": 0.47
+  },
+  {
+    "original300ItemNumber": 220,
+    "itemNumber": 100,
+    "facetCode": "C2",
+    "reverseScored": true,
+    "stem": "Leave my belongings around.",
+    "sourceItemTotalCorrelation": 0.67
+  },
+  {
+    "original300ItemNumber": 251,
+    "itemNumber": 101,
+    "facetCode": "N3",
+    "reverseScored": true,
+    "stem": "Feel comfortable with myself.",
+    "sourceItemTotalCorrelation": 0.63
+  },
+  {
+    "original300ItemNumber": 162,
+    "itemNumber": 102,
+    "facetCode": "E3",
+    "reverseScored": true,
+    "stem": "Wait for others to lead the way.",
+    "sourceItemTotalCorrelation": 0.61
+  },
+  {
+    "original300ItemNumber": 283,
+    "itemNumber": 103,
+    "facetCode": "O3",
+    "reverseScored": true,
+    "stem": "Don't understand people who get emotional.",
+    "sourceItemTotalCorrelation": 0.52
+  },
+  {
+    "original300ItemNumber": 284,
+    "itemNumber": 104,
+    "facetCode": "A3",
+    "reverseScored": true,
+    "stem": "Take no time for others.",
+    "sourceItemTotalCorrelation": 0.52
+  },
+  {
+    "original300ItemNumber": 195,
+    "itemNumber": 105,
+    "facetCode": "C3",
+    "reverseScored": true,
+    "stem": "Break my promises.",
+    "sourceItemTotalCorrelation": 0.58
+  },
+  {
+    "original300ItemNumber": 256,
+    "itemNumber": 106,
+    "facetCode": "N4",
+    "reverseScored": true,
+    "stem": "Am not bothered by difficult social situations.",
+    "sourceItemTotalCorrelation": 0.46
+  },
+  {
+    "original300ItemNumber": 167,
+    "itemNumber": 107,
+    "facetCode": "E4",
+    "reverseScored": true,
+    "stem": "Like to take it easy.",
+    "sourceItemTotalCorrelation": 0.26
+  },
+  {
+    "original300ItemNumber": 288,
+    "itemNumber": 108,
+    "facetCode": "O4",
+    "reverseScored": true,
+    "stem": "Am attached to conventional ways.",
+    "sourceItemTotalCorrelation": 0.49
+  },
+  {
+    "original300ItemNumber": 259,
+    "itemNumber": 109,
+    "facetCode": "A4",
+    "reverseScored": true,
+    "stem": "Get back at others.",
+    "sourceItemTotalCorrelation": 0.53
+  },
+  {
+    "original300ItemNumber": 290,
+    "itemNumber": 110,
+    "facetCode": "C4",
+    "reverseScored": true,
+    "stem": "Put little time and effort into my work.",
+    "sourceItemTotalCorrelation": 0.64
+  },
+  {
+    "original300ItemNumber": 231,
+    "itemNumber": 111,
+    "facetCode": "N5",
+    "reverseScored": true,
+    "stem": "Am able to control my cravings.",
+    "sourceItemTotalCorrelation": 0.55
+  },
+  {
+    "original300ItemNumber": 172,
+    "itemNumber": 112,
+    "facetCode": "E5",
+    "reverseScored": false,
+    "stem": "Act wild and crazy.",
+    "sourceItemTotalCorrelation": 0.6
+  },
+  {
+    "original300ItemNumber": 263,
+    "itemNumber": 113,
+    "facetCode": "O5",
+    "reverseScored": true,
+    "stem": "Am not interested in theoretical discussions.",
+    "sourceItemTotalCorrelation": 0.65
+  },
+  {
+    "original300ItemNumber": 264,
+    "itemNumber": 114,
+    "facetCode": "A5",
+    "reverseScored": true,
+    "stem": "Boast about my virtues.",
+    "sourceItemTotalCorrelation": 0.32
+  },
+  {
+    "original300ItemNumber": 265,
+    "itemNumber": 115,
+    "facetCode": "C5",
+    "reverseScored": true,
+    "stem": "Have difficulty starting tasks.",
+    "sourceItemTotalCorrelation": 0.58
+  },
+  {
+    "original300ItemNumber": 176,
+    "itemNumber": 116,
+    "facetCode": "N6",
+    "reverseScored": true,
+    "stem": "Remain calm under pressure.",
+    "sourceItemTotalCorrelation": 0.53
+  },
+  {
+    "original300ItemNumber": 177,
+    "itemNumber": 117,
+    "facetCode": "E6",
+    "reverseScored": false,
+    "stem": "Look at the bright side of life.",
+    "sourceItemTotalCorrelation": 0.66
+  },
+  {
+    "original300ItemNumber": 268,
+    "itemNumber": 118,
+    "facetCode": "O6",
+    "reverseScored": true,
+    "stem": "Believe that we should be tough on crime.",
+    "sourceItemTotalCorrelation": 0.31
+  },
+  {
+    "original300ItemNumber": 239,
+    "itemNumber": 119,
+    "facetCode": "A6",
+    "reverseScored": true,
+    "stem": "Try not to think about the needy.",
+    "sourceItemTotalCorrelation": 0.49
+  },
+  {
+    "original300ItemNumber": 270,
+    "itemNumber": 120,
+    "facetCode": "C6",
+    "reverseScored": true,
+    "stem": "Act without thinking.",
+    "sourceItemTotalCorrelation": 0.75
+  }
+]
+

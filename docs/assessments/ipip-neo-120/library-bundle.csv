@@ -1,0 +1,296 @@
+entity,name,slug,dimension,factor,description,definition,display_order,is_active,indicators_low,indicators_mid,indicators_high,anchor_low,anchor_high,strength_commentary,development_suggestion,source,stem,purpose,construct,response_format,reverse_scored,weight,difficulty,status
+dimension,Emotional Reactivity,ipip-neo-120-johnson-2014-n-neuroticism,,,"N — Typical frequency and intensity of distress, emotional reactivity and difficulty coping with pressure.","Typical frequency and intensity of distress, emotional reactivity and difficulty coping with pressure.",0,false,"Usually remains emotionally steady.
+Experiences fewer worries or frustrations.
+Recovers composure relatively readily.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Experiences distress or worry more readily.
+Reacts more strongly to setbacks.
+Can feel overwhelmed under pressure.",Usually remains emotionally steady.,Experiences distress or worry more readily.,"Lower reactivity can support steadiness; greater sensitivity may bring concerns to attention. Neither end establishes coping skill, mental health status or leadership effectiveness.",Identify situations that intensify emotional reactions and the responses that help you act constructively.,ipip-neo-120-johnson-2014,,,,,,,,
+dimension,Extraversion,ipip-neo-120-johnson-2014-e-extraversion,,,"E — Typical engagement with social interaction, assertive action, activity, excitement and positive emotion.","Typical engagement with social interaction, assertive action, activity, excitement and positive emotion.",1,false,"Often prefers quieter or more solitary settings.
+May allow others to initiate interaction.
+Can favour a measured pace and lower stimulation.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Often seeks social engagement and stimulation.
+Is more inclined to speak up or take the lead.
+Can prefer a busy and energetic pace.",Often prefers quieter or more solitary settings.,Often seeks social engagement and stimulation.,A quieter approach can suit independent concentration; an outgoing approach can suit frequent interaction. Effectiveness depends on the situation and behaviour.,"Consider when to initiate and speak up, and when to listen, slow down or allow space for others.",ipip-neo-120-johnson-2014,,,,,,,,
+dimension,Openness,ipip-neo-120-johnson-2014-o-openness-to-experience,,,"O — Interest in imagination, aesthetics, feelings, unfamiliar experiences, abstract ideas and reconsidering conventional values.","Interest in imagination, aesthetics, feelings, unfamiliar experiences, abstract ideas and reconsidering conventional values.",2,false,"Often favours familiar and concrete approaches.
+May prefer established routines or views.
+Can place less emphasis on abstract or aesthetic exploration.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Often explores ideas, imagination and unfamiliar experiences.
+May attend closely to feelings or aesthetics.
+Can be more willing to question conventional views.",Often favours familiar and concrete approaches.,"Often explores ideas, imagination and unfamiliar experiences.","Familiar approaches can support continuity; exploration can support discovering alternatives. This domain is not a test of intelligence, creativity performance or adaptability skill.",Choose where exploration could add value and where an established approach should be retained or tested carefully.,ipip-neo-120-johnson-2014,,,,,,,,
+dimension,Agreeableness,ipip-neo-120-johnson-2014-a-agreeableness,,,"A — Typical interpersonal trust, candour, helpfulness, cooperation, modesty and concern for others.","Typical interpersonal trust, candour, helpfulness, cooperation, modesty and concern for others.",3,false,"May be more sceptical or guarded with others.
+Can place personal interests or direct challenge first.
+May take a more self-promoting or emotionally detached approach.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Often gives others the benefit of the doubt.
+Is more inclined to help, cooperate and show concern.
+May take a modest and accommodating approach.",May be more sceptical or guarded with others.,Often gives others the benefit of the doubt.,"A challenging approach can surface disagreement; a cooperative approach can support relationships. Context determines whether trust, accommodation or challenge is appropriate.","Consider how to balance care and cooperation with clear boundaries, candid disagreement and appropriate scrutiny.",ipip-neo-120-johnson-2014,,,,,,,,
+dimension,Conscientiousness,ipip-neo-120-johnson-2014-c-conscientiousness,,,"C — Typical perceived effectiveness, orderliness, commitment, achievement striving, self-discipline and deliberation.","Typical perceived effectiveness, orderliness, commitment, achievement striving, self-discipline and deliberation.",4,false,"May prefer a less structured or more spontaneous approach.
+Can be less focused on commitments, targets or sustained task effort.
+May decide with less advance deliberation.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Often organises work and takes commitments seriously.
+Is inclined to pursue goals and persist with tasks.
+May think carefully before acting.",May prefer a less structured or more spontaneous approach.,Often organises work and takes commitments seriously.,Structure and persistence can support follow-through; a less structured style may allow spontaneity. Neither end establishes competence or actual delivery.,"Review whether planning, effort and checking match the task, and where flexibility or a clearer commitment would help.",ipip-neo-120-johnson-2014,,,,,,,,
+construct,Anxiety,ipip-neo-120-johnson-2014-n1-anxiety,ipip-neo-120-johnson-2014-n-neuroticism,,"N1 — Proneness to worry, fear and anticipatory tension.","Proneness to worry, fear and anticipatory tension.",0,false,"Usually worries less.
+Feels less threatened by uncertain outcomes.
+Reports fewer fears.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Often anticipates what could go wrong.
+Experiences worry or tension readily.
+Reports more fears.",Usually worries less.,Often anticipates what could go wrong.,Lower anxiety may make uncertainty easier to tolerate; greater concern can prompt preparation. Neither end establishes risk judgement.,Distinguish useful preparation from repetitive worry and identify a practical next action.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Irritability,ipip-neo-120-johnson-2014-n2-anger,ipip-neo-120-johnson-2014-n-neuroticism,,"N2 — Readiness to experience irritation, frustration and anger.","Readiness to experience irritation, frustration and anger.",1,false,"Is usually difficult to irritate.
+Reports less frequent anger.
+Often tolerates frustrations calmly.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Becomes irritated readily.
+May experience anger when frustrated.
+Can react strongly to perceived provocation.",Is usually difficult to irritate.,Becomes irritated readily.,Lower anger can support calm exchanges; anger can signal that a boundary or concern needs attention. The expression and consequences of anger require separate evidence.,Notice early signs of irritation and choose how to express a concern without escalating the exchange.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Discouragement,ipip-neo-120-johnson-2014-n3-depression,ipip-neo-120-johnson-2014-n-neuroticism,,"N3 — Tendency to experience low mood, discouragement and negative feelings about oneself, as represented by these personality items.","Tendency to experience low mood, discouragement and negative feelings about oneself, as represented by these personality items.",2,false,"Reports fewer periods of feeling down.
+Usually feels more comfortable with oneself.
+Is less prone to discouragement.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"More often feels down or discouraged.
+May evaluate oneself negatively.
+Reports less comfort with oneself.",Reports fewer periods of feeling down.,More often feels down or discouraged.,"This is a personality facet score, not a diagnosis or a measure of clinical severity. Interpret experiences in context rather than labelling capability.","Reflect on situations associated with discouragement and the support, routines or adjustments that are helpful.",ipip-neo-120-johnson-2014,,,,,,,,
+construct,Social Confidence,ipip-neo-120-johnson-2014-n4-self-consciousness,ipip-neo-120-johnson-2014-n-neuroticism,,"N4 — Reported comfort approaching others, receiving social attention and handling unfamiliar or difficult social situations.","Reported comfort approaching others, receiving social attention and handling unfamiliar or difficult social situations.",3,false,"May hesitate to approach others.
+Prefers to avoid drawing attention.
+Feels less comfortable in unfamiliar social situations.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Is less troubled by social attention.
+Approaches unfamiliar people more readily.
+Feels less constrained by possible embarrassment.",May hesitate to approach others.,Is less troubled by social attention.,Lower discomfort can make public participation easier; greater sensitivity may encourage preparation. This facet does not measure self-awareness or insight.,Identify a manageable way to participate in situations where attention or unfamiliarity feels uncomfortable.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Indulgence,ipip-neo-120-johnson-2014-n5-immoderation,ipip-neo-120-johnson-2014-n-neuroticism,,"N5 — Difficulty resisting cravings, temptations and urges to overindulge.","Difficulty resisting cravings, temptations and urges to overindulge.",4,false,"Finds temptations easier to resist.
+Usually regulates indulgence.
+Reports more control over cravings.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Finds strong cravings harder to resist.
+May overindulge.
+Reports difficulty limiting tempting activities.",Finds temptations easier to resist.,Finds strong cravings harder to resist.,The content concerns regulation of appetites and indulgence. It should not be treated as a comprehensive measure of impulsive decision-making.,Identify tempting situations and decide in advance what limits or routines would be useful.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Stress Tolerance,ipip-neo-120-johnson-2014-n6-vulnerability,ipip-neo-120-johnson-2014-n-neuroticism,,N6 — Reported tendency to remain calm and feel able to cope under pressure rather than become overwhelmed.,Reported tendency to remain calm and feel able to cope under pressure rather than become overwhelmed.,5,false,"Can become overwhelmed by events.
+May panic under pressure.
+Can feel unable to deal with demands.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Usually feels able to cope under pressure.
+Maintains composure during difficult events.
+Is less readily overwhelmed.",Can become overwhelmed by events.,Usually feels able to cope under pressure.,Lower vulnerability reflects reported steadiness under stress; it does not demonstrate coping skill or recovery from adversity. Greater vulnerability can highlight situations that need support.,Identify demands that become overwhelming and the practical supports or actions that help restore control.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Friendliness,ipip-neo-120-johnson-2014-e1-friendliness,ipip-neo-120-johnson-2014-e-extraversion,,E1 — Warmth and ease in approaching and engaging with other people.,Warmth and ease in approaching and engaging with other people.,6,false,"Maintains more interpersonal distance.
+May be slow to approach new people.
+Can prefer a more reserved manner.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Makes friends readily.
+Feels comfortable around people.
+Often engages with warmth.",Maintains more interpersonal distance.,Makes friends readily.,A reserved approach can preserve boundaries; warmth can make contact easier. Relationship effectiveness still depends on behaviour and context.,Choose when to initiate contact and when to respect personal or professional distance.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Sociability,ipip-neo-120-johnson-2014-e2-gregariousness,ipip-neo-120-johnson-2014-e-extraversion,,"E2 — Preference for company, crowds and frequent social interaction rather than solitude.","Preference for company, crowds and frequent social interaction rather than solitude.",7,false,"Often prefers solitude or smaller settings.
+May avoid crowds.
+Needs less frequent social contact.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Enjoys being around many people.
+Often seeks group interaction.
+Is comfortable with crowded social settings.",Often prefers solitude or smaller settings.,Enjoys being around many people.,Solitude can support concentration and recovery; company can provide stimulation and connection. Neither preference establishes teamwork skill.,Plan a workable balance between social contact and quieter time.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Assertiveness,ipip-neo-120-johnson-2014-e3-assertiveness,ipip-neo-120-johnson-2014-e-extraversion,,"E3 — Inclination to take charge, express direction and assume a leading role.","Inclination to take charge, express direction and assume a leading role.",8,false,"Often lets others lead.
+May be less inclined to take control.
+Can prefer a less directive role.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Readily takes charge.
+Is inclined to lead others.
+Often seeks control of group action.",Often lets others lead.,Readily takes charge.,Taking charge can help a group act; allowing others to lead can support participation. More assertiveness does not automatically produce more effective leadership.,Consider when clear direction is needed and when to invite input or share control.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Activity Level,ipip-neo-120-johnson-2014-e4-activity-level,ipip-neo-120-johnson-2014-e-extraversion,,"E4 — Preference for a busy, active and fast-moving pace of life.","Preference for a busy, active and fast-moving pace of life.",9,false,"Often prefers a leisurely pace.
+Allows more downtime.
+May avoid keeping continuously busy.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Often stays busy.
+Prefers frequent activity.
+May maintain a demanding pace.",Often prefers a leisurely pace.,Often stays busy.,A measured pace can allow reflection and recovery; activity can support engagement with a busy environment. This facet does not establish productivity.,Check whether your pace matches the task and whether adequate recovery or momentum is needed.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Excitement-Seeking,ipip-neo-120-johnson-2014-e5-excitement-seeking,ipip-neo-120-johnson-2014-e-extraversion,,"E5 — Appetite for excitement, adventure and stimulating or potentially reckless experiences.","Appetite for excitement, adventure and stimulating or potentially reckless experiences.",10,false,"Prefers lower stimulation.
+May avoid adventurous situations.
+Usually has less appetite for excitement.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Seeks excitement and adventure.
+Enjoys strong stimulation.
+May be attracted to reckless experiences.",Prefers lower stimulation.,Seeks excitement and adventure.,Lower stimulation can suit predictable settings; excitement can make stimulating settings appealing. This facet does not establish the quality of risk decisions.,Distinguish the appeal of excitement from the benefits and consequences of a particular action.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Cheerfulness,ipip-neo-120-johnson-2014-e6-cheerfulness,ipip-neo-120-johnson-2014-e-extraversion,,"E6 — Frequency and expression of positive emotion, enjoyment and enthusiasm.","Frequency and expression of positive emotion, enjoyment and enthusiasm.",11,false,"Expresses less visible joy.
+May experience positive emotion less frequently.
+Can take a more subdued emotional tone.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Often feels and expresses joy.
+Readily finds enjoyment.
+Can take an enthusiastic or positive tone.",Expresses less visible joy.,Often feels and expresses joy.,A subdued style need not indicate distress; cheerfulness can make positive engagement visible. Neither end alone establishes realism or performance.,Consider how your emotional expression affects others and when a realistic concern should also be voiced.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Imagination,ipip-neo-120-johnson-2014-o1-imagination,ipip-neo-120-johnson-2014-o-openness-to-experience,,"O1 — Interest in fantasy, daydreaming and a vivid inner imaginative life.","Interest in fantasy, daydreaming and a vivid inner imaginative life.",12,false,"Focuses more on concrete experience.
+Spends less time daydreaming.
+May have less interest in fantasy.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Enjoys vivid imagination.
+Often daydreams.
+Can become absorbed in fantasy or thought.",Focuses more on concrete experience.,Enjoys vivid imagination.,Concrete attention can support practical focus; imagination can provide possibilities. This facet is not a test of creative problem-solving performance.,Choose when imaginative exploration is useful and how to connect possibilities with practical action.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Artistic Interests,ipip-neo-120-johnson-2014-o2-artistic-interests,ipip-neo-120-johnson-2014-o-openness-to-experience,,"O2 — Interest in art, poetry, beauty and aesthetic experience.","Interest in art, poetry, beauty and aesthetic experience.",13,false,"Has less interest in artistic activities.
+May give aesthetics less attention.
+Often prefers other forms of engagement.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Values artistic experience.
+Notices beauty.
+May enjoy art, poetry or museums.",Has less interest in artistic activities.,Values artistic experience.,Different levels of artistic interest reflect preferences rather than artistic skill or leadership capability.,Consider whether aesthetic experiences add enjoyment or perspective without treating them as a performance requirement.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Emotional Sensitivity,ipip-neo-120-johnson-2014-o3-emotionality,ipip-neo-120-johnson-2014-o-openness-to-experience,,"O3 — Attention to, intensity of and interest in emotional experience.","Attention to, intensity of and interest in emotional experience.",14,false,"Pays less attention to emotional reactions.
+May experience feelings less intensely.
+Can find emotional expression harder to relate to.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Experiences feelings intensely.
+Notices emotional responses.
+Often attends to others' emotions.",Pays less attention to emotional reactions.,Experiences feelings intensely.,Lower emotional emphasis can support emotional distance; stronger emotional experience can bring feelings into awareness. This facet does not establish emotion-reading accuracy or emotional intelligence.,Notice relevant feelings while checking interpretations of other people's emotions through conversation.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Variety Seeking,ipip-neo-120-johnson-2014-o4-adventurousness,ipip-neo-120-johnson-2014-o-openness-to-experience,,O4 — Preference for variety and unfamiliar experiences rather than familiar routines and conventional ways.,Preference for variety and unfamiliar experiences rather than familiar routines and conventional ways.,15,false,"Often favours familiar approaches.
+Prefers established routines.
+May dislike changes to known ways.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Enjoys variety.
+Is more open to unfamiliar experiences.
+May be less attached to conventional routines.",Often favours familiar approaches.,Enjoys variety.,Familiarity can support continuity; variety can support exploration. Preference for change is different from effective adaptation to change.,Decide where trying something unfamiliar is worthwhile and what preparation or continuity is needed.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Intellectual Curiosity,ipip-neo-120-johnson-2014-o5-intellect,ipip-neo-120-johnson-2014-o-openness-to-experience,,"O5 — Interest in abstract ideas, challenging material and theoretical or philosophical discussion.","Interest in abstract ideas, challenging material and theoretical or philosophical discussion.",16,false,"Often prefers concrete or practical material.
+Has less interest in theoretical discussion.
+May find abstract ideas less appealing.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Enjoys challenging reading.
+Is interested in abstract ideas.
+Often engages with theory or philosophy.",Often prefers concrete or practical material.,Enjoys challenging reading.,"Concrete and abstract interests can each suit different work. This is a self-report personality facet, not an intelligence or reasoning test.",Match the level of abstraction to the problem and seek evidence that ideas can explain or improve something useful.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Liberalism,ipip-neo-120-johnson-2014-o6-liberalism,ipip-neo-120-johnson-2014-o-openness-to-experience,,"O6 — Willingness to question conventional social values, as operationalised here using political and moral-attitude items.","Willingness to question conventional social values, as operationalised here using political and moral-attitude items.",17,false,"More often endorses conventional or conservative views.
+May favour established social rules.
+Can prefer firmer moral boundaries.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"More often endorses liberal political views.
+May question absolute moral rules.
+Can be more willing to reconsider conventions.",More often endorses conventional or conservative views.,More often endorses liberal political views.,"The original English items concern political and moral attitudes. This facet does not establish leadership quality, fairness, learning agility or organisational suitability.",Discuss the meaning of differing views without treating a political preference as a capability score.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Trust,ipip-neo-120-johnson-2014-a1-trust,ipip-neo-120-johnson-2014-a-agreeableness,,"A1 — Readiness to believe that other people are honest, well-intentioned and dependable.","Readiness to believe that other people are honest, well-intentioned and dependable.",18,false,"Is more sceptical of others' intentions.
+May verify claims before relying on them.
+Can be guarded in extending trust.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Gives others the benefit of the doubt.
+Often assumes good intentions.
+Readily believes what others say.",Is more sceptical of others' intentions.,Gives others the benefit of the doubt.,Scrutiny can protect against misplaced trust; trust can make cooperation easier. The appropriate balance depends on evidence and consequences.,Choose how much trust to extend and what verification is proportionate to the situation.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Fairness,ipip-neo-120-johnson-2014-a2-morality,ipip-neo-120-johnson-2014-a-agreeableness,,"A2 — Reported avoidance of cheating, manipulating, exploiting or obstructing other people. This does not establish impartiality, justice or verified ethical conduct.","Reported avoidance of cheating, manipulating, exploiting or obstructing other people. This does not establish impartiality, justice or verified ethical conduct.",19,false,"May endorse more instrumental treatment of others.
+Can be more willing to gain advantage at others' expense.
+May report obstructive or exploitative behaviour.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Reports avoiding exploitation or cheating.
+Is less inclined to manipulate others for gain.
+Usually rejects obstructing others for personal advantage.",May endorse more instrumental treatment of others.,Reports avoiding exploitation or cheating.,"The retained scale label is Morality. These self-reports are not verification of integrity, ethical conduct or honesty-humility.",Examine concrete decisions and their effects on other people rather than treating the label as a character verdict.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Helpfulness,ipip-neo-120-johnson-2014-a3-altruism,ipip-neo-120-johnson-2014-a-agreeableness,,A3 — Inclination to care about other people's needs and offer practical help.,Inclination to care about other people's needs and offer practical help.,20,false,"May give others' needs less attention.
+Is less inclined to spend time helping.
+Can prefer clearer boundaries around assistance.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Often offers help.
+Shows concern for others.
+Is willing to spend time supporting people.",May give others' needs less attention.,Often offers help.,Boundaries can protect capacity; helping can support others. Effective support requires attention to what help is needed and what is sustainable.,"Balance useful assistance with clear priorities, consent and sustainable boundaries.",ipip-neo-120-johnson-2014,,,,,,,,
+construct,Cooperation,ipip-neo-120-johnson-2014-a4-cooperation,ipip-neo-120-johnson-2014-a-agreeableness,,"A4 — Inclination to avoid interpersonal aggression, retaliation and unnecessary conflict.","Inclination to avoid interpersonal aggression, retaliation and unnecessary conflict.",21,false,"May be more confrontational.
+Can respond to conflict with hostility.
+May be inclined to retaliate.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Is less inclined to insult or retaliate.
+Often avoids aggressive exchanges.
+Can prefer an accommodating approach.",May be more confrontational.,Is less inclined to insult or retaliate.,A cooperative approach can reduce friction. Constructive disagreement and assertive boundaries should be distinguished from the aggression represented by the lower end.,"Raise disagreements directly while avoiding insults, revenge or unnecessary escalation.",ipip-neo-120-johnson-2014,,,,,,,,
+construct,Modesty,ipip-neo-120-johnson-2014-a5-modesty,ipip-neo-120-johnson-2014-a-agreeableness,,"A5 — Restraint in claiming superiority, praising oneself or drawing attention to one's virtues.","Restraint in claiming superiority, praising oneself or drawing attention to one's virtues.",22,false,"Readily expresses a high opinion of oneself.
+May emphasise personal virtues.
+Can make superiority claims.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Avoids claiming superiority.
+Is less inclined to boast.
+May downplay personal virtues.",Readily expresses a high opinion of oneself.,Avoids claiming superiority.,Visible self-advocacy can communicate achievements; modesty can leave room for others. This facet does not establish accurate self-insight or confidence.,Describe achievements with evidence while recognising the contributions and strengths of others.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Compassion,ipip-neo-120-johnson-2014-a6-sympathy,ipip-neo-120-johnson-2014-a-agreeableness,,A6 — Compassion and concern for people experiencing hardship or disadvantage.,Compassion and concern for people experiencing hardship or disadvantage.,23,false,"Maintains more distance from others' difficulties.
+May give hardship less attention.
+Can prefer to avoid distressing concerns.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Feels concern for people facing hardship.
+Responds with compassion.
+Often attends to others' difficulties.",Maintains more distance from others' difficulties.,Feels concern for people facing hardship.,Emotional distance can help maintain boundaries; compassion can draw attention to unmet needs. Neither alone establishes sound decisions or effective assistance.,"Consider others' needs alongside evidence, fairness and the practical consequences of a response.",ipip-neo-120-johnson-2014,,,,,,,,
+construct,Perceived Competence,ipip-neo-120-johnson-2014-c1-self-efficacy,ipip-neo-120-johnson-2014-c-conscientiousness,,"C1 — Belief in one's effectiveness at completing tasks and handling practical demands. This is perceived competence, not independently demonstrated ability.","Belief in one's effectiveness at completing tasks and handling practical demands. This is perceived competence, not independently demonstrated ability.",24,false,"Reports less confidence in task effectiveness.
+May doubt how well tasks will be handled.
+Can feel less certain about getting things done.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Reports confidence in completing tasks.
+Feels able to handle demands.
+Usually expects to know how to get things done.",Reports less confidence in task effectiveness.,Reports confidence in completing tasks.,Confidence can support willingness to act; doubt can encourage checking or assistance. This facet measures perceived effectiveness rather than demonstrated competence.,"Compare confidence with task evidence and identify where practice, feedback or help would improve calibration.",ipip-neo-120-johnson-2014,,,,,,,,
+construct,Orderliness,ipip-neo-120-johnson-2014-c2-orderliness,ipip-neo-120-johnson-2014-c-conscientiousness,,"C2 — Preference for tidiness, organisation and returning belongings to their proper place.","Preference for tidiness, organisation and returning belongings to their proper place.",25,false,"Is less concerned with tidiness.
+May leave belongings out of place.
+Can prefer a less orderly environment.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Usually keeps things tidy.
+Returns belongings to their place.
+Prefers an orderly environment.",Is less concerned with tidiness.,Usually keeps things tidy.,An orderly environment can make retrieval and routines easier; less concern with tidiness may suit some flexible settings. This facet does not establish planning or management skill.,Use enough structure to make work manageable without adding organisation that serves little purpose.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Dependability,ipip-neo-120-johnson-2014-c3-dutifulness,ipip-neo-120-johnson-2014-c-conscientiousness,,"C3 — Reported commitment to promises, truthfulness and following rules.","Reported commitment to promises, truthfulness and following rules.",26,false,"May treat commitments or rules more flexibly.
+Can report breaking promises.
+May be less consistent about truthfulness.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Usually reports keeping promises.
+Takes rules and commitments seriously.
+Endorses telling the truth.",May treat commitments or rules more flexibly.,Usually reports keeping promises.,Commitment can support reliability. Whether a rule should be followed or challenged requires judgement beyond this self-report facet.,"Make commitments explicitly, raise difficulties early and explain any necessary challenge to an inappropriate rule.",ipip-neo-120-johnson-2014,,,,,,,,
+construct,Achievement Striving,ipip-neo-120-johnson-2014-c4-achievement-striving,ipip-neo-120-johnson-2014-c-conscientiousness,,"C4 — Willingness to work hard, exceed requirements and invest effort in achievement.","Willingness to work hard, exceed requirements and invest effort in achievement.",27,false,"May be satisfied with meeting minimum requirements.
+Often invests less additional effort.
+Can place less emphasis on demanding achievement.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Often works hard.
+Tries to exceed expectations.
+Invests effort in achieving more.",May be satisfied with meeting minimum requirements.,Often works hard.,A measured level of striving can protect other priorities; strong striving can sustain demanding goals. Actual outcomes and the value of the goals require separate evidence.,Choose goals deliberately and check that effort remains proportionate to priorities and available capacity.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Self-Discipline,ipip-neo-120-johnson-2014-c5-self-discipline,ipip-neo-120-johnson-2014-c-conscientiousness,,"C5 — Inclination to start tasks, stay prepared and carry plans through rather than delay or waste time.","Inclination to start tasks, stay prepared and carry plans through rather than delay or waste time.",28,false,"May delay starting tasks.
+Can find follow-through difficult.
+May spend time on competing distractions.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Often starts tasks readily.
+Prepares for what needs doing.
+Usually carries out plans.",May delay starting tasks.,Often starts tasks readily.,Sustained task focus can support completion; willingness to pause can sometimes allow reprioritisation. The facet does not establish whether a task should be continued.,Identify the next useful action and review whether persistence or a deliberate change of plan is needed.,ipip-neo-120-johnson-2014,,,,,,,,
+construct,Deliberation,ipip-neo-120-johnson-2014-c6-cautiousness,ipip-neo-120-johnson-2014-c-conscientiousness,,C6 — Tendency to deliberate before acting rather than rush into decisions.,Tendency to deliberate before acting rather than rush into decisions.,29,false,"May act quickly with limited advance thought.
+Can make spontaneous decisions.
+May rush into action.",Expression can vary by context; examine examples of both ends. This text does not define a population-average band.,"Usually thinks before acting.
+Is less inclined to make rash decisions.
+Often considers actions in advance.",May act quickly with limited advance thought.,Usually thinks before acting.,Speed can matter when action is urgent; deliberation can help examine consequences. Neither end establishes decision quality or an appropriate appetite for risk.,"Match the amount of deliberation to the stakes, time available and reversibility of the decision.",ipip-neo-120-johnson-2014,,,,,,,,
+item,,,,,,,0,,,,,,,,,ipip-neo-120-johnson-2014,Worry about things.,construct,ipip-neo-120-johnson-2014-n1-anxiety,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,1,,,,,,,,,ipip-neo-120-johnson-2014,Make friends easily.,construct,ipip-neo-120-johnson-2014-e1-friendliness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,2,,,,,,,,,ipip-neo-120-johnson-2014,Have a vivid imagination.,construct,ipip-neo-120-johnson-2014-o1-imagination,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,3,,,,,,,,,ipip-neo-120-johnson-2014,Trust others.,construct,ipip-neo-120-johnson-2014-a1-trust,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,4,,,,,,,,,ipip-neo-120-johnson-2014,Complete tasks successfully.,construct,ipip-neo-120-johnson-2014-c1-self-efficacy,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,5,,,,,,,,,ipip-neo-120-johnson-2014,Get angry easily.,construct,ipip-neo-120-johnson-2014-n2-anger,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,6,,,,,,,,,ipip-neo-120-johnson-2014,Love large parties.,construct,ipip-neo-120-johnson-2014-e2-gregariousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,7,,,,,,,,,ipip-neo-120-johnson-2014,Believe in the importance of art.,construct,ipip-neo-120-johnson-2014-o2-artistic-interests,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,8,,,,,,,,,ipip-neo-120-johnson-2014,Use others for my own ends.,construct,ipip-neo-120-johnson-2014-a2-morality,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,9,,,,,,,,,ipip-neo-120-johnson-2014,Like to tidy up.,construct,ipip-neo-120-johnson-2014-c2-orderliness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,10,,,,,,,,,ipip-neo-120-johnson-2014,Often feel blue.,construct,ipip-neo-120-johnson-2014-n3-depression,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,11,,,,,,,,,ipip-neo-120-johnson-2014,Take charge.,construct,ipip-neo-120-johnson-2014-e3-assertiveness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,12,,,,,,,,,ipip-neo-120-johnson-2014,Experience my emotions intensely.,construct,ipip-neo-120-johnson-2014-o3-emotionality,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,13,,,,,,,,,ipip-neo-120-johnson-2014,Love to help others.,construct,ipip-neo-120-johnson-2014-a3-altruism,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,14,,,,,,,,,ipip-neo-120-johnson-2014,Keep my promises.,construct,ipip-neo-120-johnson-2014-c3-dutifulness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,15,,,,,,,,,ipip-neo-120-johnson-2014,Find it difficult to approach others.,construct,ipip-neo-120-johnson-2014-n4-self-consciousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,16,,,,,,,,,ipip-neo-120-johnson-2014,Am always busy.,construct,ipip-neo-120-johnson-2014-e4-activity-level,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,17,,,,,,,,,ipip-neo-120-johnson-2014,Prefer variety to routine.,construct,ipip-neo-120-johnson-2014-o4-adventurousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,18,,,,,,,,,ipip-neo-120-johnson-2014,Love a good fight.,construct,ipip-neo-120-johnson-2014-a4-cooperation,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,19,,,,,,,,,ipip-neo-120-johnson-2014,Work hard.,construct,ipip-neo-120-johnson-2014-c4-achievement-striving,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,20,,,,,,,,,ipip-neo-120-johnson-2014,Go on binges.,construct,ipip-neo-120-johnson-2014-n5-immoderation,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,21,,,,,,,,,ipip-neo-120-johnson-2014,Love excitement.,construct,ipip-neo-120-johnson-2014-e5-excitement-seeking,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,22,,,,,,,,,ipip-neo-120-johnson-2014,Love to read challenging material.,construct,ipip-neo-120-johnson-2014-o5-intellect,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,23,,,,,,,,,ipip-neo-120-johnson-2014,Believe that I am better than others.,construct,ipip-neo-120-johnson-2014-a5-modesty,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,24,,,,,,,,,ipip-neo-120-johnson-2014,Am always prepared.,construct,ipip-neo-120-johnson-2014-c5-self-discipline,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,25,,,,,,,,,ipip-neo-120-johnson-2014,Panic easily.,construct,ipip-neo-120-johnson-2014-n6-vulnerability,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,26,,,,,,,,,ipip-neo-120-johnson-2014,Radiate joy.,construct,ipip-neo-120-johnson-2014-e6-cheerfulness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,27,,,,,,,,,ipip-neo-120-johnson-2014,Tend to vote for liberal political candidates.,construct,ipip-neo-120-johnson-2014-o6-liberalism,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,28,,,,,,,,,ipip-neo-120-johnson-2014,Sympathize with the homeless.,construct,ipip-neo-120-johnson-2014-a6-sympathy,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,29,,,,,,,,,ipip-neo-120-johnson-2014,Jump into things without thinking.,construct,ipip-neo-120-johnson-2014-c6-cautiousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,30,,,,,,,,,ipip-neo-120-johnson-2014,Fear for the worst.,construct,ipip-neo-120-johnson-2014-n1-anxiety,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,31,,,,,,,,,ipip-neo-120-johnson-2014,Feel comfortable around people.,construct,ipip-neo-120-johnson-2014-e1-friendliness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,32,,,,,,,,,ipip-neo-120-johnson-2014,Enjoy wild flights of fantasy.,construct,ipip-neo-120-johnson-2014-o1-imagination,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,33,,,,,,,,,ipip-neo-120-johnson-2014,Believe that others have good intentions.,construct,ipip-neo-120-johnson-2014-a1-trust,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,34,,,,,,,,,ipip-neo-120-johnson-2014,Excel in what I do.,construct,ipip-neo-120-johnson-2014-c1-self-efficacy,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,35,,,,,,,,,ipip-neo-120-johnson-2014,Get irritated easily.,construct,ipip-neo-120-johnson-2014-n2-anger,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,36,,,,,,,,,ipip-neo-120-johnson-2014,Talk to a lot of different people at parties.,construct,ipip-neo-120-johnson-2014-e2-gregariousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,37,,,,,,,,,ipip-neo-120-johnson-2014,See beauty in things that others might not notice.,construct,ipip-neo-120-johnson-2014-o2-artistic-interests,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,38,,,,,,,,,ipip-neo-120-johnson-2014,Cheat to get ahead.,construct,ipip-neo-120-johnson-2014-a2-morality,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,39,,,,,,,,,ipip-neo-120-johnson-2014,Often forget to put things back in their proper place.,construct,ipip-neo-120-johnson-2014-c2-orderliness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,40,,,,,,,,,ipip-neo-120-johnson-2014,Dislike myself.,construct,ipip-neo-120-johnson-2014-n3-depression,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,41,,,,,,,,,ipip-neo-120-johnson-2014,Try to lead others.,construct,ipip-neo-120-johnson-2014-e3-assertiveness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,42,,,,,,,,,ipip-neo-120-johnson-2014,Feel others' emotions.,construct,ipip-neo-120-johnson-2014-o3-emotionality,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,43,,,,,,,,,ipip-neo-120-johnson-2014,Am concerned about others.,construct,ipip-neo-120-johnson-2014-a3-altruism,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,44,,,,,,,,,ipip-neo-120-johnson-2014,Tell the truth.,construct,ipip-neo-120-johnson-2014-c3-dutifulness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,45,,,,,,,,,ipip-neo-120-johnson-2014,Am afraid to draw attention to myself.,construct,ipip-neo-120-johnson-2014-n4-self-consciousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,46,,,,,,,,,ipip-neo-120-johnson-2014,Am always on the go.,construct,ipip-neo-120-johnson-2014-e4-activity-level,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,47,,,,,,,,,ipip-neo-120-johnson-2014,Prefer to stick with things that I know.,construct,ipip-neo-120-johnson-2014-o4-adventurousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,48,,,,,,,,,ipip-neo-120-johnson-2014,Yell at people.,construct,ipip-neo-120-johnson-2014-a4-cooperation,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,49,,,,,,,,,ipip-neo-120-johnson-2014,Do more than what's expected of me.,construct,ipip-neo-120-johnson-2014-c4-achievement-striving,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,50,,,,,,,,,ipip-neo-120-johnson-2014,Rarely overindulge.,construct,ipip-neo-120-johnson-2014-n5-immoderation,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,51,,,,,,,,,ipip-neo-120-johnson-2014,Seek adventure.,construct,ipip-neo-120-johnson-2014-e5-excitement-seeking,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,52,,,,,,,,,ipip-neo-120-johnson-2014,Avoid philosophical discussions.,construct,ipip-neo-120-johnson-2014-o5-intellect,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,53,,,,,,,,,ipip-neo-120-johnson-2014,Think highly of myself.,construct,ipip-neo-120-johnson-2014-a5-modesty,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,54,,,,,,,,,ipip-neo-120-johnson-2014,Carry out my plans.,construct,ipip-neo-120-johnson-2014-c5-self-discipline,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,55,,,,,,,,,ipip-neo-120-johnson-2014,Become overwhelmed by events.,construct,ipip-neo-120-johnson-2014-n6-vulnerability,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,56,,,,,,,,,ipip-neo-120-johnson-2014,Have a lot of fun.,construct,ipip-neo-120-johnson-2014-e6-cheerfulness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,57,,,,,,,,,ipip-neo-120-johnson-2014,Believe that there is no absolute right or wrong.,construct,ipip-neo-120-johnson-2014-o6-liberalism,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,58,,,,,,,,,ipip-neo-120-johnson-2014,Feel sympathy for those who are worse off than myself.,construct,ipip-neo-120-johnson-2014-a6-sympathy,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,59,,,,,,,,,ipip-neo-120-johnson-2014,Make rash decisions.,construct,ipip-neo-120-johnson-2014-c6-cautiousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,60,,,,,,,,,ipip-neo-120-johnson-2014,Am afraid of many things.,construct,ipip-neo-120-johnson-2014-n1-anxiety,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,61,,,,,,,,,ipip-neo-120-johnson-2014,Avoid contacts with others.,construct,ipip-neo-120-johnson-2014-e1-friendliness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,62,,,,,,,,,ipip-neo-120-johnson-2014,Love to daydream.,construct,ipip-neo-120-johnson-2014-o1-imagination,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,63,,,,,,,,,ipip-neo-120-johnson-2014,Trust what people say.,construct,ipip-neo-120-johnson-2014-a1-trust,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,64,,,,,,,,,ipip-neo-120-johnson-2014,Handle tasks smoothly.,construct,ipip-neo-120-johnson-2014-c1-self-efficacy,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,65,,,,,,,,,ipip-neo-120-johnson-2014,Lose my temper.,construct,ipip-neo-120-johnson-2014-n2-anger,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,66,,,,,,,,,ipip-neo-120-johnson-2014,Prefer to be alone.,construct,ipip-neo-120-johnson-2014-e2-gregariousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,67,,,,,,,,,ipip-neo-120-johnson-2014,Do not like poetry.,construct,ipip-neo-120-johnson-2014-o2-artistic-interests,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,68,,,,,,,,,ipip-neo-120-johnson-2014,Take advantage of others.,construct,ipip-neo-120-johnson-2014-a2-morality,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,69,,,,,,,,,ipip-neo-120-johnson-2014,Leave a mess in my room.,construct,ipip-neo-120-johnson-2014-c2-orderliness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,70,,,,,,,,,ipip-neo-120-johnson-2014,Am often down in the dumps.,construct,ipip-neo-120-johnson-2014-n3-depression,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,71,,,,,,,,,ipip-neo-120-johnson-2014,Take control of things.,construct,ipip-neo-120-johnson-2014-e3-assertiveness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,72,,,,,,,,,ipip-neo-120-johnson-2014,Rarely notice my emotional reactions.,construct,ipip-neo-120-johnson-2014-o3-emotionality,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,73,,,,,,,,,ipip-neo-120-johnson-2014,Am indifferent to the feelings of others.,construct,ipip-neo-120-johnson-2014-a3-altruism,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,74,,,,,,,,,ipip-neo-120-johnson-2014,Break rules.,construct,ipip-neo-120-johnson-2014-c3-dutifulness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,75,,,,,,,,,ipip-neo-120-johnson-2014,Only feel comfortable with friends.,construct,ipip-neo-120-johnson-2014-n4-self-consciousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,76,,,,,,,,,ipip-neo-120-johnson-2014,Do a lot in my spare time.,construct,ipip-neo-120-johnson-2014-e4-activity-level,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,77,,,,,,,,,ipip-neo-120-johnson-2014,Dislike changes.,construct,ipip-neo-120-johnson-2014-o4-adventurousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,78,,,,,,,,,ipip-neo-120-johnson-2014,Insult people.,construct,ipip-neo-120-johnson-2014-a4-cooperation,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,79,,,,,,,,,ipip-neo-120-johnson-2014,Do just enough work to get by.,construct,ipip-neo-120-johnson-2014-c4-achievement-striving,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,80,,,,,,,,,ipip-neo-120-johnson-2014,Easily resist temptations.,construct,ipip-neo-120-johnson-2014-n5-immoderation,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,81,,,,,,,,,ipip-neo-120-johnson-2014,Enjoy being reckless.,construct,ipip-neo-120-johnson-2014-e5-excitement-seeking,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,82,,,,,,,,,ipip-neo-120-johnson-2014,Have difficulty understanding abstract ideas.,construct,ipip-neo-120-johnson-2014-o5-intellect,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,83,,,,,,,,,ipip-neo-120-johnson-2014,Have a high opinion of myself.,construct,ipip-neo-120-johnson-2014-a5-modesty,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,84,,,,,,,,,ipip-neo-120-johnson-2014,Waste my time.,construct,ipip-neo-120-johnson-2014-c5-self-discipline,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,85,,,,,,,,,ipip-neo-120-johnson-2014,Feel that I'm unable to deal with things.,construct,ipip-neo-120-johnson-2014-n6-vulnerability,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,86,,,,,,,,,ipip-neo-120-johnson-2014,Love life.,construct,ipip-neo-120-johnson-2014-e6-cheerfulness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,87,,,,,,,,,ipip-neo-120-johnson-2014,Tend to vote for conservative political candidates.,construct,ipip-neo-120-johnson-2014-o6-liberalism,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,88,,,,,,,,,ipip-neo-120-johnson-2014,Am not interested in other people's problems.,construct,ipip-neo-120-johnson-2014-a6-sympathy,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,89,,,,,,,,,ipip-neo-120-johnson-2014,Rush into things.,construct,ipip-neo-120-johnson-2014-c6-cautiousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,90,,,,,,,,,ipip-neo-120-johnson-2014,Get stressed out easily.,construct,ipip-neo-120-johnson-2014-n1-anxiety,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,91,,,,,,,,,ipip-neo-120-johnson-2014,Keep others at a distance.,construct,ipip-neo-120-johnson-2014-e1-friendliness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,92,,,,,,,,,ipip-neo-120-johnson-2014,Like to get lost in thought.,construct,ipip-neo-120-johnson-2014-o1-imagination,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,93,,,,,,,,,ipip-neo-120-johnson-2014,Distrust people.,construct,ipip-neo-120-johnson-2014-a1-trust,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,94,,,,,,,,,ipip-neo-120-johnson-2014,Know how to get things done.,construct,ipip-neo-120-johnson-2014-c1-self-efficacy,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,95,,,,,,,,,ipip-neo-120-johnson-2014,Am not easily annoyed.,construct,ipip-neo-120-johnson-2014-n2-anger,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,96,,,,,,,,,ipip-neo-120-johnson-2014,Avoid crowds.,construct,ipip-neo-120-johnson-2014-e2-gregariousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,97,,,,,,,,,ipip-neo-120-johnson-2014,Do not enjoy going to art museums.,construct,ipip-neo-120-johnson-2014-o2-artistic-interests,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,98,,,,,,,,,ipip-neo-120-johnson-2014,Obstruct others' plans.,construct,ipip-neo-120-johnson-2014-a2-morality,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,99,,,,,,,,,ipip-neo-120-johnson-2014,Leave my belongings around.,construct,ipip-neo-120-johnson-2014-c2-orderliness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,100,,,,,,,,,ipip-neo-120-johnson-2014,Feel comfortable with myself.,construct,ipip-neo-120-johnson-2014-n3-depression,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,101,,,,,,,,,ipip-neo-120-johnson-2014,Wait for others to lead the way.,construct,ipip-neo-120-johnson-2014-e3-assertiveness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,102,,,,,,,,,ipip-neo-120-johnson-2014,Don't understand people who get emotional.,construct,ipip-neo-120-johnson-2014-o3-emotionality,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,103,,,,,,,,,ipip-neo-120-johnson-2014,Take no time for others.,construct,ipip-neo-120-johnson-2014-a3-altruism,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,104,,,,,,,,,ipip-neo-120-johnson-2014,Break my promises.,construct,ipip-neo-120-johnson-2014-c3-dutifulness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,105,,,,,,,,,ipip-neo-120-johnson-2014,Am not bothered by difficult social situations.,construct,ipip-neo-120-johnson-2014-n4-self-consciousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,106,,,,,,,,,ipip-neo-120-johnson-2014,Like to take it easy.,construct,ipip-neo-120-johnson-2014-e4-activity-level,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,107,,,,,,,,,ipip-neo-120-johnson-2014,Am attached to conventional ways.,construct,ipip-neo-120-johnson-2014-o4-adventurousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,108,,,,,,,,,ipip-neo-120-johnson-2014,Get back at others.,construct,ipip-neo-120-johnson-2014-a4-cooperation,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,109,,,,,,,,,ipip-neo-120-johnson-2014,Put little time and effort into my work.,construct,ipip-neo-120-johnson-2014-c4-achievement-striving,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,110,,,,,,,,,ipip-neo-120-johnson-2014,Am able to control my cravings.,construct,ipip-neo-120-johnson-2014-n5-immoderation,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,111,,,,,,,,,ipip-neo-120-johnson-2014,Act wild and crazy.,construct,ipip-neo-120-johnson-2014-e5-excitement-seeking,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,112,,,,,,,,,ipip-neo-120-johnson-2014,Am not interested in theoretical discussions.,construct,ipip-neo-120-johnson-2014-o5-intellect,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,113,,,,,,,,,ipip-neo-120-johnson-2014,Boast about my virtues.,construct,ipip-neo-120-johnson-2014-a5-modesty,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,114,,,,,,,,,ipip-neo-120-johnson-2014,Have difficulty starting tasks.,construct,ipip-neo-120-johnson-2014-c5-self-discipline,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,115,,,,,,,,,ipip-neo-120-johnson-2014,Remain calm under pressure.,construct,ipip-neo-120-johnson-2014-n6-vulnerability,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,116,,,,,,,,,ipip-neo-120-johnson-2014,Look at the bright side of life.,construct,ipip-neo-120-johnson-2014-e6-cheerfulness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),false,1,medium,draft
+item,,,,,,,117,,,,,,,,,ipip-neo-120-johnson-2014,Believe that we should be tough on crime.,construct,ipip-neo-120-johnson-2014-o6-liberalism,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,118,,,,,,,,,ipip-neo-120-johnson-2014,Try not to think about the needy.,construct,ipip-neo-120-johnson-2014-a6-sympathy,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft
+item,,,,,,,119,,,,,,,,,ipip-neo-120-johnson-2014,Act without thinking.,construct,ipip-neo-120-johnson-2014-c6-cautiousness,IPIP-NEO-120 accuracy 1-5 (Johnson 2014),true,1,medium,draft

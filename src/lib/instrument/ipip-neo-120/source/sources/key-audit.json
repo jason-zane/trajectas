@@ -1,0 +1,20 @@
+{
+  "capturedOn": "2026-10-29",
+  "officialKeyUrl": "https://ipip.ori.org/30FacetNEO-PI-RItems.htm",
+  "publicationTable": "Johnson (2014), Table 1",
+  "officialKeyItems": 120,
+  "publicationItems": 120,
+  "exactItemAndKeyMatchesAfterPunctuationNormalization": 119,
+  "documentedWordingDifferences": [
+    {
+      "itemNumber": 58,
+      "facetCode": "O6",
+      "publicationStem": "Believe that there is no absolute right or wrong.",
+      "officialKeyStem": "Believe that there is no absolute right and wrong.",
+      "decision": "Use the published Table 1 wording. Do not silently substitute the web-key wording."
+    }
+  ],
+  "keyDirectionMismatches": 0,
+  "presentationNote": "Display order follows the IPIP-120 item numbers in publication Table 1; the web key groups items by facet and key direction."
+}
+

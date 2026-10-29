@@ -1,0 +1,17 @@
+{
+  "name": "IPIP-NEO-120 accuracy 1-5 (Johnson 2014)",
+  "type": "likert",
+  "isActive": true,
+  "config": {
+    "points": 5,
+    "minValue": 1,
+    "maxValue": 5,
+    "anchors": {
+      "1": "Very Inaccurate",
+      "2": "Moderately Inaccurate",
+      "3": "Neither Inaccurate nor Accurate",
+      "4": "Moderately Accurate",
+      "5": "Very Accurate"
+    }
+  }
+}

@@ -1,0 +1,1531 @@
+{
+  "instrumentId": "ipip-neo-120-johnson-2014",
+  "formVersion": "johnson-2014-table1-v1",
+  "scoringVersion": "ipip-neo-120-raw-v1",
+  "preparedOn": "2026-10-29",
+  "referenceCheckout": "883222dc",
+  "itemsetSha256": "0a1c55b136a3a6021cfaeb210931b61d19f4e0d5ced7787c6daf3228cfdd50e6",
+  "canonicalItemSource": "https://doi.org/10.1016/j.jrp.2014.05.003",
+  "canonicalTable": "Table 1",
+  "keyAudit": "sources/key-audit.json",
+  "officialKeyCapture": "sources/official-key-capture.txt",
+  "descriptiveTextProvenance": {
+    "instrumentLabels": "IPIP official Johnson (2014) key; original labels retained",
+    "descriptiveText": "Trajectas preparation draft authored 2026-10-29 from the facet constructs and item content. Not a published interpretive manual, a validated competency mapping, a set of normative bands or a clinical interpretation.",
+    "midIndicatorPolicy": "Middle descriptions are contextual prompts, not classifications as population average.",
+    "factorPolicy": "The library importer copies each construct to one composition-locked factor; do not create additional factor rows."
+  },
+  "csvRowCounts": {
+    "dimensions": 5,
+    "constructs": 30,
+    "factors": 0,
+    "items": 120
+  },
+  "expectedCreatedCounts": {
+    "dimensions": 5,
+    "constructs": 30,
+    "factors": 30,
+    "items": 120
+  },
+  "totalCsvDataRows": 155,
+  "totalExpectedLibraryEntities": 185,
+  "factorCreation": "Existing importer auto-wraps each parentless construct as a composition-locked factor, copying its metadata; link weight 1; not match-eligible.",
+  "domainAggregation": "Each dimension contains exactly six facet factors. Sum their native facet totals for the native domain total; average their POMP scores for the domain POMP. Never aggregate constructs and their factor copies together.",
+  "dimensions": [
+    {
+      "code": "N",
+      "name": "Neuroticism",
+      "slug": "ipip-neo-120-johnson-2014-n-neuroticism"
+    },
+    {
+      "code": "E",
+      "name": "Extraversion",
+      "slug": "ipip-neo-120-johnson-2014-e-extraversion"
+    },
+    {
+      "code": "O",
+      "name": "Openness to Experience",
+      "slug": "ipip-neo-120-johnson-2014-o-openness-to-experience"
+    },
+    {
+      "code": "A",
+      "name": "Agreeableness",
+      "slug": "ipip-neo-120-johnson-2014-a-agreeableness"
+    },
+    {
+      "code": "C",
+      "name": "Conscientiousness",
+      "slug": "ipip-neo-120-johnson-2014-c-conscientiousness"
+    }
+  ],
+  "facets": [
+    {
+      "code": "N1",
+      "name": "Anxiety",
+      "constructSlug": "ipip-neo-120-johnson-2014-n1-anxiety",
+      "factorSlug": "ipip-neo-120-johnson-2014-n1-anxiety",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-n-neuroticism",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "N2",
+      "name": "Anger",
+      "constructSlug": "ipip-neo-120-johnson-2014-n2-anger",
+      "factorSlug": "ipip-neo-120-johnson-2014-n2-anger",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-n-neuroticism",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "N3",
+      "name": "Depression",
+      "constructSlug": "ipip-neo-120-johnson-2014-n3-depression",
+      "factorSlug": "ipip-neo-120-johnson-2014-n3-depression",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-n-neuroticism",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "N4",
+      "name": "Self-Consciousness",
+      "constructSlug": "ipip-neo-120-johnson-2014-n4-self-consciousness",
+      "factorSlug": "ipip-neo-120-johnson-2014-n4-self-consciousness",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-n-neuroticism",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "N5",
+      "name": "Immoderation",
+      "constructSlug": "ipip-neo-120-johnson-2014-n5-immoderation",
+      "factorSlug": "ipip-neo-120-johnson-2014-n5-immoderation",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-n-neuroticism",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "N6",
+      "name": "Vulnerability",
+      "constructSlug": "ipip-neo-120-johnson-2014-n6-vulnerability",
+      "factorSlug": "ipip-neo-120-johnson-2014-n6-vulnerability",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-n-neuroticism",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "E1",
+      "name": "Friendliness",
+      "constructSlug": "ipip-neo-120-johnson-2014-e1-friendliness",
+      "factorSlug": "ipip-neo-120-johnson-2014-e1-friendliness",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-e-extraversion",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "E2",
+      "name": "Gregariousness",
+      "constructSlug": "ipip-neo-120-johnson-2014-e2-gregariousness",
+      "factorSlug": "ipip-neo-120-johnson-2014-e2-gregariousness",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-e-extraversion",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "E3",
+      "name": "Assertiveness",
+      "constructSlug": "ipip-neo-120-johnson-2014-e3-assertiveness",
+      "factorSlug": "ipip-neo-120-johnson-2014-e3-assertiveness",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-e-extraversion",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "E4",
+      "name": "Activity Level",
+      "constructSlug": "ipip-neo-120-johnson-2014-e4-activity-level",
+      "factorSlug": "ipip-neo-120-johnson-2014-e4-activity-level",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-e-extraversion",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "E5",
+      "name": "Excitement-Seeking",
+      "constructSlug": "ipip-neo-120-johnson-2014-e5-excitement-seeking",
+      "factorSlug": "ipip-neo-120-johnson-2014-e5-excitement-seeking",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-e-extraversion",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "E6",
+      "name": "Cheerfulness",
+      "constructSlug": "ipip-neo-120-johnson-2014-e6-cheerfulness",
+      "factorSlug": "ipip-neo-120-johnson-2014-e6-cheerfulness",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-e-extraversion",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "O1",
+      "name": "Imagination",
+      "constructSlug": "ipip-neo-120-johnson-2014-o1-imagination",
+      "factorSlug": "ipip-neo-120-johnson-2014-o1-imagination",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-o-openness-to-experience",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "O2",
+      "name": "Artistic Interests",
+      "constructSlug": "ipip-neo-120-johnson-2014-o2-artistic-interests",
+      "factorSlug": "ipip-neo-120-johnson-2014-o2-artistic-interests",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-o-openness-to-experience",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "O3",
+      "name": "Emotionality",
+      "constructSlug": "ipip-neo-120-johnson-2014-o3-emotionality",
+      "factorSlug": "ipip-neo-120-johnson-2014-o3-emotionality",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-o-openness-to-experience",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "O4",
+      "name": "Adventurousness",
+      "constructSlug": "ipip-neo-120-johnson-2014-o4-adventurousness",
+      "factorSlug": "ipip-neo-120-johnson-2014-o4-adventurousness",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-o-openness-to-experience",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "O5",
+      "name": "Intellect",
+      "constructSlug": "ipip-neo-120-johnson-2014-o5-intellect",
+      "factorSlug": "ipip-neo-120-johnson-2014-o5-intellect",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-o-openness-to-experience",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "O6",
+      "name": "Liberalism",
+      "constructSlug": "ipip-neo-120-johnson-2014-o6-liberalism",
+      "factorSlug": "ipip-neo-120-johnson-2014-o6-liberalism",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-o-openness-to-experience",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "A1",
+      "name": "Trust",
+      "constructSlug": "ipip-neo-120-johnson-2014-a1-trust",
+      "factorSlug": "ipip-neo-120-johnson-2014-a1-trust",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-a-agreeableness",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "A2",
+      "name": "Morality",
+      "constructSlug": "ipip-neo-120-johnson-2014-a2-morality",
+      "factorSlug": "ipip-neo-120-johnson-2014-a2-morality",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-a-agreeableness",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "A3",
+      "name": "Altruism",
+      "constructSlug": "ipip-neo-120-johnson-2014-a3-altruism",
+      "factorSlug": "ipip-neo-120-johnson-2014-a3-altruism",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-a-agreeableness",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "A4",
+      "name": "Cooperation",
+      "constructSlug": "ipip-neo-120-johnson-2014-a4-cooperation",
+      "factorSlug": "ipip-neo-120-johnson-2014-a4-cooperation",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-a-agreeableness",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "A5",
+      "name": "Modesty",
+      "constructSlug": "ipip-neo-120-johnson-2014-a5-modesty",
+      "factorSlug": "ipip-neo-120-johnson-2014-a5-modesty",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-a-agreeableness",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "A6",
+      "name": "Sympathy",
+      "constructSlug": "ipip-neo-120-johnson-2014-a6-sympathy",
+      "factorSlug": "ipip-neo-120-johnson-2014-a6-sympathy",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-a-agreeableness",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "C1",
+      "name": "Self-Efficacy",
+      "constructSlug": "ipip-neo-120-johnson-2014-c1-self-efficacy",
+      "factorSlug": "ipip-neo-120-johnson-2014-c1-self-efficacy",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-c-conscientiousness",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "C2",
+      "name": "Orderliness",
+      "constructSlug": "ipip-neo-120-johnson-2014-c2-orderliness",
+      "factorSlug": "ipip-neo-120-johnson-2014-c2-orderliness",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-c-conscientiousness",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "C3",
+      "name": "Dutifulness",
+      "constructSlug": "ipip-neo-120-johnson-2014-c3-dutifulness",
+      "factorSlug": "ipip-neo-120-johnson-2014-c3-dutifulness",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-c-conscientiousness",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "C4",
+      "name": "Achievement-Striving",
+      "constructSlug": "ipip-neo-120-johnson-2014-c4-achievement-striving",
+      "factorSlug": "ipip-neo-120-johnson-2014-c4-achievement-striving",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-c-conscientiousness",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "C5",
+      "name": "Self-Discipline",
+      "constructSlug": "ipip-neo-120-johnson-2014-c5-self-discipline",
+      "factorSlug": "ipip-neo-120-johnson-2014-c5-self-discipline",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-c-conscientiousness",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    },
+    {
+      "code": "C6",
+      "name": "Cautiousness",
+      "constructSlug": "ipip-neo-120-johnson-2014-c6-cautiousness",
+      "factorSlug": "ipip-neo-120-johnson-2014-c6-cautiousness",
+      "dimensionSlug": "ipip-neo-120-johnson-2014-c-conscientiousness",
+      "theoreticalLineage": "IPIP-NEO-120; Johnson (2014); Five-Factor Model facet representation"
+    }
+  ],
+  "items": [
+    {
+      "itemId": "q001",
+      "itemNumber": 1,
+      "original300ItemNumber": 1,
+      "stem": "Worry about things.",
+      "facetCode": "N1",
+      "constructSlug": "ipip-neo-120-johnson-2014-n1-anxiety",
+      "reverseScored": false,
+      "displayOrder": 0
+    },
+    {
+      "itemId": "q002",
+      "itemNumber": 2,
+      "original300ItemNumber": 2,
+      "stem": "Make friends easily.",
+      "facetCode": "E1",
+      "constructSlug": "ipip-neo-120-johnson-2014-e1-friendliness",
+      "reverseScored": false,
+      "displayOrder": 1
+    },
+    {
+      "itemId": "q003",
+      "itemNumber": 3,
+      "original300ItemNumber": 3,
+      "stem": "Have a vivid imagination.",
+      "facetCode": "O1",
+      "constructSlug": "ipip-neo-120-johnson-2014-o1-imagination",
+      "reverseScored": false,
+      "displayOrder": 2
+    },
+    {
+      "itemId": "q004",
+      "itemNumber": 4,
+      "original300ItemNumber": 4,
+      "stem": "Trust others.",
+      "facetCode": "A1",
+      "constructSlug": "ipip-neo-120-johnson-2014-a1-trust",
+      "reverseScored": false,
+      "displayOrder": 3
+    },
+    {
+      "itemId": "q005",
+      "itemNumber": 5,
+      "original300ItemNumber": 5,
+      "stem": "Complete tasks successfully.",
+      "facetCode": "C1",
+      "constructSlug": "ipip-neo-120-johnson-2014-c1-self-efficacy",
+      "reverseScored": false,
+      "displayOrder": 4
+    },
+    {
+      "itemId": "q006",
+      "itemNumber": 6,
+      "original300ItemNumber": 6,
+      "stem": "Get angry easily.",
+      "facetCode": "N2",
+      "constructSlug": "ipip-neo-120-johnson-2014-n2-anger",
+      "reverseScored": false,
+      "displayOrder": 5
+    },
+    {
+      "itemId": "q007",
+      "itemNumber": 7,
+      "original300ItemNumber": 7,
+      "stem": "Love large parties.",
+      "facetCode": "E2",
+      "constructSlug": "ipip-neo-120-johnson-2014-e2-gregariousness",
+      "reverseScored": false,
+      "displayOrder": 6
+    },
+    {
+      "itemId": "q008",
+      "itemNumber": 8,
+      "original300ItemNumber": 8,
+      "stem": "Believe in the importance of art.",
+      "facetCode": "O2",
+      "constructSlug": "ipip-neo-120-johnson-2014-o2-artistic-interests",
+      "reverseScored": false,
+      "displayOrder": 7
+    },
+    {
+      "itemId": "q009",
+      "itemNumber": 9,
+      "original300ItemNumber": 99,
+      "stem": "Use others for my own ends.",
+      "facetCode": "A2",
+      "constructSlug": "ipip-neo-120-johnson-2014-a2-morality",
+      "reverseScored": true,
+      "displayOrder": 8
+    },
+    {
+      "itemId": "q010",
+      "itemNumber": 10,
+      "original300ItemNumber": 40,
+      "stem": "Like to tidy up.",
+      "facetCode": "C2",
+      "constructSlug": "ipip-neo-120-johnson-2014-c2-orderliness",
+      "reverseScored": false,
+      "displayOrder": 9
+    },
+    {
+      "itemId": "q011",
+      "itemNumber": 11,
+      "original300ItemNumber": 11,
+      "stem": "Often feel blue.",
+      "facetCode": "N3",
+      "constructSlug": "ipip-neo-120-johnson-2014-n3-depression",
+      "reverseScored": false,
+      "displayOrder": 10
+    },
+    {
+      "itemId": "q012",
+      "itemNumber": 12,
+      "original300ItemNumber": 12,
+      "stem": "Take charge.",
+      "facetCode": "E3",
+      "constructSlug": "ipip-neo-120-johnson-2014-e3-assertiveness",
+      "reverseScored": false,
+      "displayOrder": 11
+    },
+    {
+      "itemId": "q013",
+      "itemNumber": 13,
+      "original300ItemNumber": 13,
+      "stem": "Experience my emotions intensely.",
+      "facetCode": "O3",
+      "constructSlug": "ipip-neo-120-johnson-2014-o3-emotionality",
+      "reverseScored": false,
+      "displayOrder": 12
+    },
+    {
+      "itemId": "q014",
+      "itemNumber": 14,
+      "original300ItemNumber": 74,
+      "stem": "Love to help others.",
+      "facetCode": "A3",
+      "constructSlug": "ipip-neo-120-johnson-2014-a3-altruism",
+      "reverseScored": false,
+      "displayOrder": 13
+    },
+    {
+      "itemId": "q015",
+      "itemNumber": 15,
+      "original300ItemNumber": 45,
+      "stem": "Keep my promises.",
+      "facetCode": "C3",
+      "constructSlug": "ipip-neo-120-johnson-2014-c3-dutifulness",
+      "reverseScored": false,
+      "displayOrder": 14
+    },
+    {
+      "itemId": "q016",
+      "itemNumber": 16,
+      "original300ItemNumber": 76,
+      "stem": "Find it difficult to approach others.",
+      "facetCode": "N4",
+      "constructSlug": "ipip-neo-120-johnson-2014-n4-self-consciousness",
+      "reverseScored": false,
+      "displayOrder": 15
+    },
+    {
+      "itemId": "q017",
+      "itemNumber": 17,
+      "original300ItemNumber": 17,
+      "stem": "Am always busy.",
+      "facetCode": "E4",
+      "constructSlug": "ipip-neo-120-johnson-2014-e4-activity-level",
+      "reverseScored": false,
+      "displayOrder": 16
+    },
+    {
+      "itemId": "q018",
+      "itemNumber": 18,
+      "original300ItemNumber": 18,
+      "stem": "Prefer variety to routine.",
+      "facetCode": "O4",
+      "constructSlug": "ipip-neo-120-johnson-2014-o4-adventurousness",
+      "reverseScored": false,
+      "displayOrder": 17
+    },
+    {
+      "itemId": "q019",
+      "itemNumber": 19,
+      "original300ItemNumber": 169,
+      "stem": "Love a good fight.",
+      "facetCode": "A4",
+      "constructSlug": "ipip-neo-120-johnson-2014-a4-cooperation",
+      "reverseScored": true,
+      "displayOrder": 18
+    },
+    {
+      "itemId": "q020",
+      "itemNumber": 20,
+      "original300ItemNumber": 50,
+      "stem": "Work hard.",
+      "facetCode": "C4",
+      "constructSlug": "ipip-neo-120-johnson-2014-c4-achievement-striving",
+      "reverseScored": false,
+      "displayOrder": 19
+    },
+    {
+      "itemId": "q021",
+      "itemNumber": 21,
+      "original300ItemNumber": 111,
+      "stem": "Go on binges.",
+      "facetCode": "N5",
+      "constructSlug": "ipip-neo-120-johnson-2014-n5-immoderation",
+      "reverseScored": false,
+      "displayOrder": 20
+    },
+    {
+      "itemId": "q022",
+      "itemNumber": 22,
+      "original300ItemNumber": 22,
+      "stem": "Love excitement.",
+      "facetCode": "E5",
+      "constructSlug": "ipip-neo-120-johnson-2014-e5-excitement-seeking",
+      "reverseScored": false,
+      "displayOrder": 21
+    },
+    {
+      "itemId": "q023",
+      "itemNumber": 23,
+      "original300ItemNumber": 53,
+      "stem": "Love to read challenging material.",
+      "facetCode": "O5",
+      "constructSlug": "ipip-neo-120-johnson-2014-o5-intellect",
+      "reverseScored": false,
+      "displayOrder": 22
+    },
+    {
+      "itemId": "q024",
+      "itemNumber": 24,
+      "original300ItemNumber": 144,
+      "stem": "Believe that I am better than others.",
+      "facetCode": "A5",
+      "constructSlug": "ipip-neo-120-johnson-2014-a5-modesty",
+      "reverseScored": true,
+      "displayOrder": 23
+    },
+    {
+      "itemId": "q025",
+      "itemNumber": 25,
+      "original300ItemNumber": 55,
+      "stem": "Am always prepared.",
+      "facetCode": "C5",
+      "constructSlug": "ipip-neo-120-johnson-2014-c5-self-discipline",
+      "reverseScored": false,
+      "displayOrder": 24
+    },
+    {
+      "itemId": "q026",
+      "itemNumber": 26,
+      "original300ItemNumber": 26,
+      "stem": "Panic easily.",
+      "facetCode": "N6",
+      "constructSlug": "ipip-neo-120-johnson-2014-n6-vulnerability",
+      "reverseScored": false,
+      "displayOrder": 25
+    },
+    {
+      "itemId": "q027",
+      "itemNumber": 27,
+      "original300ItemNumber": 27,
+      "stem": "Radiate joy.",
+      "facetCode": "E6",
+      "constructSlug": "ipip-neo-120-johnson-2014-e6-cheerfulness",
+      "reverseScored": false,
+      "displayOrder": 26
+    },
+    {
+      "itemId": "q028",
+      "itemNumber": 28,
+      "original300ItemNumber": 28,
+      "stem": "Tend to vote for liberal political candidates.",
+      "facetCode": "O6",
+      "constructSlug": "ipip-neo-120-johnson-2014-o6-liberalism",
+      "reverseScored": false,
+      "displayOrder": 27
+    },
+    {
+      "itemId": "q029",
+      "itemNumber": 29,
+      "original300ItemNumber": 29,
+      "stem": "Sympathize with the homeless.",
+      "facetCode": "A6",
+      "constructSlug": "ipip-neo-120-johnson-2014-a6-sympathy",
+      "reverseScored": false,
+      "displayOrder": 28
+    },
+    {
+      "itemId": "q030",
+      "itemNumber": 30,
+      "original300ItemNumber": 120,
+      "stem": "Jump into things without thinking.",
+      "facetCode": "C6",
+      "constructSlug": "ipip-neo-120-johnson-2014-c6-cautiousness",
+      "reverseScored": true,
+      "displayOrder": 29
+    },
+    {
+      "itemId": "q031",
+      "itemNumber": 31,
+      "original300ItemNumber": 31,
+      "stem": "Fear for the worst.",
+      "facetCode": "N1",
+      "constructSlug": "ipip-neo-120-johnson-2014-n1-anxiety",
+      "reverseScored": false,
+      "displayOrder": 30
+    },
+    {
+      "itemId": "q032",
+      "itemNumber": 32,
+      "original300ItemNumber": 62,
+      "stem": "Feel comfortable around people.",
+      "facetCode": "E1",
+      "constructSlug": "ipip-neo-120-johnson-2014-e1-friendliness",
+      "reverseScored": false,
+      "displayOrder": 31
+    },
+    {
+      "itemId": "q033",
+      "itemNumber": 33,
+      "original300ItemNumber": 33,
+      "stem": "Enjoy wild flights of fantasy.",
+      "facetCode": "O1",
+      "constructSlug": "ipip-neo-120-johnson-2014-o1-imagination",
+      "reverseScored": false,
+      "displayOrder": 32
+    },
+    {
+      "itemId": "q034",
+      "itemNumber": 34,
+      "original300ItemNumber": 34,
+      "stem": "Believe that others have good intentions.",
+      "facetCode": "A1",
+      "constructSlug": "ipip-neo-120-johnson-2014-a1-trust",
+      "reverseScored": false,
+      "displayOrder": 33
+    },
+    {
+      "itemId": "q035",
+      "itemNumber": 35,
+      "original300ItemNumber": 35,
+      "stem": "Excel in what I do.",
+      "facetCode": "C1",
+      "constructSlug": "ipip-neo-120-johnson-2014-c1-self-efficacy",
+      "reverseScored": false,
+      "displayOrder": 34
+    },
+    {
+      "itemId": "q036",
+      "itemNumber": 36,
+      "original300ItemNumber": 36,
+      "stem": "Get irritated easily.",
+      "facetCode": "N2",
+      "constructSlug": "ipip-neo-120-johnson-2014-n2-anger",
+      "reverseScored": false,
+      "displayOrder": 35
+    },
+    {
+      "itemId": "q037",
+      "itemNumber": 37,
+      "original300ItemNumber": 37,
+      "stem": "Talk to a lot of different people at parties.",
+      "facetCode": "E2",
+      "constructSlug": "ipip-neo-120-johnson-2014-e2-gregariousness",
+      "reverseScored": false,
+      "displayOrder": 36
+    },
+    {
+      "itemId": "q038",
+      "itemNumber": 38,
+      "original300ItemNumber": 68,
+      "stem": "See beauty in things that others might not notice.",
+      "facetCode": "O2",
+      "constructSlug": "ipip-neo-120-johnson-2014-o2-artistic-interests",
+      "reverseScored": false,
+      "displayOrder": 37
+    },
+    {
+      "itemId": "q039",
+      "itemNumber": 39,
+      "original300ItemNumber": 159,
+      "stem": "Cheat to get ahead.",
+      "facetCode": "A2",
+      "constructSlug": "ipip-neo-120-johnson-2014-a2-morality",
+      "reverseScored": true,
+      "displayOrder": 38
+    },
+    {
+      "itemId": "q040",
+      "itemNumber": 40,
+      "original300ItemNumber": 160,
+      "stem": "Often forget to put things back in their proper place.",
+      "facetCode": "C2",
+      "constructSlug": "ipip-neo-120-johnson-2014-c2-orderliness",
+      "reverseScored": true,
+      "displayOrder": 39
+    },
+    {
+      "itemId": "q041",
+      "itemNumber": 41,
+      "original300ItemNumber": 41,
+      "stem": "Dislike myself.",
+      "facetCode": "N3",
+      "constructSlug": "ipip-neo-120-johnson-2014-n3-depression",
+      "reverseScored": false,
+      "displayOrder": 40
+    },
+    {
+      "itemId": "q042",
+      "itemNumber": 42,
+      "original300ItemNumber": 42,
+      "stem": "Try to lead others.",
+      "facetCode": "E3",
+      "constructSlug": "ipip-neo-120-johnson-2014-e3-assertiveness",
+      "reverseScored": false,
+      "displayOrder": 41
+    },
+    {
+      "itemId": "q043",
+      "itemNumber": 43,
+      "original300ItemNumber": 43,
+      "stem": "Feel others' emotions.",
+      "facetCode": "O3",
+      "constructSlug": "ipip-neo-120-johnson-2014-o3-emotionality",
+      "reverseScored": false,
+      "displayOrder": 42
+    },
+    {
+      "itemId": "q044",
+      "itemNumber": 44,
+      "original300ItemNumber": 104,
+      "stem": "Am concerned about others.",
+      "facetCode": "A3",
+      "constructSlug": "ipip-neo-120-johnson-2014-a3-altruism",
+      "reverseScored": false,
+      "displayOrder": 43
+    },
+    {
+      "itemId": "q045",
+      "itemNumber": 45,
+      "original300ItemNumber": 105,
+      "stem": "Tell the truth.",
+      "facetCode": "C3",
+      "constructSlug": "ipip-neo-120-johnson-2014-c3-dutifulness",
+      "reverseScored": false,
+      "displayOrder": 44
+    },
+    {
+      "itemId": "q046",
+      "itemNumber": 46,
+      "original300ItemNumber": 106,
+      "stem": "Am afraid to draw attention to myself.",
+      "facetCode": "N4",
+      "constructSlug": "ipip-neo-120-johnson-2014-n4-self-consciousness",
+      "reverseScored": false,
+      "displayOrder": 45
+    },
+    {
+      "itemId": "q047",
+      "itemNumber": 47,
+      "original300ItemNumber": 47,
+      "stem": "Am always on the go.",
+      "facetCode": "E4",
+      "constructSlug": "ipip-neo-120-johnson-2014-e4-activity-level",
+      "reverseScored": false,
+      "displayOrder": 46
+    },
+    {
+      "itemId": "q048",
+      "itemNumber": 48,
+      "original300ItemNumber": 138,
+      "stem": "Prefer to stick with things that I know.",
+      "facetCode": "O4",
+      "constructSlug": "ipip-neo-120-johnson-2014-o4-adventurousness",
+      "reverseScored": true,
+      "displayOrder": 47
+    },
+    {
+      "itemId": "q049",
+      "itemNumber": 49,
+      "original300ItemNumber": 199,
+      "stem": "Yell at people.",
+      "facetCode": "A4",
+      "constructSlug": "ipip-neo-120-johnson-2014-a4-cooperation",
+      "reverseScored": true,
+      "displayOrder": 48
+    },
+    {
+      "itemId": "q050",
+      "itemNumber": 50,
+      "original300ItemNumber": 140,
+      "stem": "Do more than what's expected of me.",
+      "facetCode": "C4",
+      "constructSlug": "ipip-neo-120-johnson-2014-c4-achievement-striving",
+      "reverseScored": false,
+      "displayOrder": 49
+    },
+    {
+      "itemId": "q051",
+      "itemNumber": 51,
+      "original300ItemNumber": 171,
+      "stem": "Rarely overindulge.",
+      "facetCode": "N5",
+      "constructSlug": "ipip-neo-120-johnson-2014-n5-immoderation",
+      "reverseScored": true,
+      "displayOrder": 50
+    },
+    {
+      "itemId": "q052",
+      "itemNumber": 52,
+      "original300ItemNumber": 52,
+      "stem": "Seek adventure.",
+      "facetCode": "E5",
+      "constructSlug": "ipip-neo-120-johnson-2014-e5-excitement-seeking",
+      "reverseScored": false,
+      "displayOrder": 51
+    },
+    {
+      "itemId": "q053",
+      "itemNumber": 53,
+      "original300ItemNumber": 203,
+      "stem": "Avoid philosophical discussions.",
+      "facetCode": "O5",
+      "constructSlug": "ipip-neo-120-johnson-2014-o5-intellect",
+      "reverseScored": true,
+      "displayOrder": 52
+    },
+    {
+      "itemId": "q054",
+      "itemNumber": 54,
+      "original300ItemNumber": 174,
+      "stem": "Think highly of myself.",
+      "facetCode": "A5",
+      "constructSlug": "ipip-neo-120-johnson-2014-a5-modesty",
+      "reverseScored": true,
+      "displayOrder": 53
+    },
+    {
+      "itemId": "q055",
+      "itemNumber": 55,
+      "original300ItemNumber": 145,
+      "stem": "Carry out my plans.",
+      "facetCode": "C5",
+      "constructSlug": "ipip-neo-120-johnson-2014-c5-self-discipline",
+      "reverseScored": false,
+      "displayOrder": 54
+    },
+    {
+      "itemId": "q056",
+      "itemNumber": 56,
+      "original300ItemNumber": 56,
+      "stem": "Become overwhelmed by events.",
+      "facetCode": "N6",
+      "constructSlug": "ipip-neo-120-johnson-2014-n6-vulnerability",
+      "reverseScored": false,
+      "displayOrder": 55
+    },
+    {
+      "itemId": "q057",
+      "itemNumber": 57,
+      "original300ItemNumber": 57,
+      "stem": "Have a lot of fun.",
+      "facetCode": "E6",
+      "constructSlug": "ipip-neo-120-johnson-2014-e6-cheerfulness",
+      "reverseScored": false,
+      "displayOrder": 56
+    },
+    {
+      "itemId": "q058",
+      "itemNumber": 58,
+      "original300ItemNumber": 58,
+      "stem": "Believe that there is no absolute right or wrong.",
+      "facetCode": "O6",
+      "constructSlug": "ipip-neo-120-johnson-2014-o6-liberalism",
+      "reverseScored": false,
+      "displayOrder": 57
+    },
+    {
+      "itemId": "q059",
+      "itemNumber": 59,
+      "original300ItemNumber": 59,
+      "stem": "Feel sympathy for those who are worse off than myself.",
+      "facetCode": "A6",
+      "constructSlug": "ipip-neo-120-johnson-2014-a6-sympathy",
+      "reverseScored": false,
+      "displayOrder": 58
+    },
+    {
+      "itemId": "q060",
+      "itemNumber": 60,
+      "original300ItemNumber": 150,
+      "stem": "Make rash decisions.",
+      "facetCode": "C6",
+      "constructSlug": "ipip-neo-120-johnson-2014-c6-cautiousness",
+      "reverseScored": true,
+      "displayOrder": 59
+    },
+    {
+      "itemId": "q061",
+      "itemNumber": 61,
+      "original300ItemNumber": 61,
+      "stem": "Am afraid of many things.",
+      "facetCode": "N1",
+      "constructSlug": "ipip-neo-120-johnson-2014-n1-anxiety",
+      "reverseScored": false,
+      "displayOrder": 60
+    },
+    {
+      "itemId": "q062",
+      "itemNumber": 62,
+      "original300ItemNumber": 212,
+      "stem": "Avoid contacts with others.",
+      "facetCode": "E1",
+      "constructSlug": "ipip-neo-120-johnson-2014-e1-friendliness",
+      "reverseScored": true,
+      "displayOrder": 61
+    },
+    {
+      "itemId": "q063",
+      "itemNumber": 63,
+      "original300ItemNumber": 63,
+      "stem": "Love to daydream.",
+      "facetCode": "O1",
+      "constructSlug": "ipip-neo-120-johnson-2014-o1-imagination",
+      "reverseScored": false,
+      "displayOrder": 62
+    },
+    {
+      "itemId": "q064",
+      "itemNumber": 64,
+      "original300ItemNumber": 64,
+      "stem": "Trust what people say.",
+      "facetCode": "A1",
+      "constructSlug": "ipip-neo-120-johnson-2014-a1-trust",
+      "reverseScored": false,
+      "displayOrder": 63
+    },
+    {
+      "itemId": "q065",
+      "itemNumber": 65,
+      "original300ItemNumber": 65,
+      "stem": "Handle tasks smoothly.",
+      "facetCode": "C1",
+      "constructSlug": "ipip-neo-120-johnson-2014-c1-self-efficacy",
+      "reverseScored": false,
+      "displayOrder": 64
+    },
+    {
+      "itemId": "q066",
+      "itemNumber": 66,
+      "original300ItemNumber": 126,
+      "stem": "Lose my temper.",
+      "facetCode": "N2",
+      "constructSlug": "ipip-neo-120-johnson-2014-n2-anger",
+      "reverseScored": false,
+      "displayOrder": 65
+    },
+    {
+      "itemId": "q067",
+      "itemNumber": 67,
+      "original300ItemNumber": 157,
+      "stem": "Prefer to be alone.",
+      "facetCode": "E2",
+      "constructSlug": "ipip-neo-120-johnson-2014-e2-gregariousness",
+      "reverseScored": true,
+      "displayOrder": 66
+    },
+    {
+      "itemId": "q068",
+      "itemNumber": 68,
+      "original300ItemNumber": 188,
+      "stem": "Do not like poetry.",
+      "facetCode": "O2",
+      "constructSlug": "ipip-neo-120-johnson-2014-o2-artistic-interests",
+      "reverseScored": true,
+      "displayOrder": 67
+    },
+    {
+      "itemId": "q069",
+      "itemNumber": 69,
+      "original300ItemNumber": 249,
+      "stem": "Take advantage of others.",
+      "facetCode": "A2",
+      "constructSlug": "ipip-neo-120-johnson-2014-a2-morality",
+      "reverseScored": true,
+      "displayOrder": 68
+    },
+    {
+      "itemId": "q070",
+      "itemNumber": 70,
+      "original300ItemNumber": 190,
+      "stem": "Leave a mess in my room.",
+      "facetCode": "C2",
+      "constructSlug": "ipip-neo-120-johnson-2014-c2-orderliness",
+      "reverseScored": true,
+      "displayOrder": 69
+    },
+    {
+      "itemId": "q071",
+      "itemNumber": 71,
+      "original300ItemNumber": 71,
+      "stem": "Am often down in the dumps.",
+      "facetCode": "N3",
+      "constructSlug": "ipip-neo-120-johnson-2014-n3-depression",
+      "reverseScored": false,
+      "displayOrder": 70
+    },
+    {
+      "itemId": "q072",
+      "itemNumber": 72,
+      "original300ItemNumber": 132,
+      "stem": "Take control of things.",
+      "facetCode": "E3",
+      "constructSlug": "ipip-neo-120-johnson-2014-e3-assertiveness",
+      "reverseScored": false,
+      "displayOrder": 71
+    },
+    {
+      "itemId": "q073",
+      "itemNumber": 73,
+      "original300ItemNumber": 223,
+      "stem": "Rarely notice my emotional reactions.",
+      "facetCode": "O3",
+      "constructSlug": "ipip-neo-120-johnson-2014-o3-emotionality",
+      "reverseScored": true,
+      "displayOrder": 72
+    },
+    {
+      "itemId": "q074",
+      "itemNumber": 74,
+      "original300ItemNumber": 194,
+      "stem": "Am indifferent to the feelings of others.",
+      "facetCode": "A3",
+      "constructSlug": "ipip-neo-120-johnson-2014-a3-altruism",
+      "reverseScored": true,
+      "displayOrder": 73
+    },
+    {
+      "itemId": "q075",
+      "itemNumber": 75,
+      "original300ItemNumber": 165,
+      "stem": "Break rules.",
+      "facetCode": "C3",
+      "constructSlug": "ipip-neo-120-johnson-2014-c3-dutifulness",
+      "reverseScored": true,
+      "displayOrder": 74
+    },
+    {
+      "itemId": "q076",
+      "itemNumber": 76,
+      "original300ItemNumber": 136,
+      "stem": "Only feel comfortable with friends.",
+      "facetCode": "N4",
+      "constructSlug": "ipip-neo-120-johnson-2014-n4-self-consciousness",
+      "reverseScored": false,
+      "displayOrder": 75
+    },
+    {
+      "itemId": "q077",
+      "itemNumber": 77,
+      "original300ItemNumber": 77,
+      "stem": "Do a lot in my spare time.",
+      "facetCode": "E4",
+      "constructSlug": "ipip-neo-120-johnson-2014-e4-activity-level",
+      "reverseScored": false,
+      "displayOrder": 76
+    },
+    {
+      "itemId": "q078",
+      "itemNumber": 78,
+      "original300ItemNumber": 168,
+      "stem": "Dislike changes.",
+      "facetCode": "O4",
+      "constructSlug": "ipip-neo-120-johnson-2014-o4-adventurousness",
+      "reverseScored": true,
+      "displayOrder": 77
+    },
+    {
+      "itemId": "q079",
+      "itemNumber": 79,
+      "original300ItemNumber": 229,
+      "stem": "Insult people.",
+      "facetCode": "A4",
+      "constructSlug": "ipip-neo-120-johnson-2014-a4-cooperation",
+      "reverseScored": true,
+      "displayOrder": 78
+    },
+    {
+      "itemId": "q080",
+      "itemNumber": 80,
+      "original300ItemNumber": 260,
+      "stem": "Do just enough work to get by.",
+      "facetCode": "C4",
+      "constructSlug": "ipip-neo-120-johnson-2014-c4-achievement-striving",
+      "reverseScored": true,
+      "displayOrder": 79
+    },
+    {
+      "itemId": "q081",
+      "itemNumber": 81,
+      "original300ItemNumber": 201,
+      "stem": "Easily resist temptations.",
+      "facetCode": "N5",
+      "constructSlug": "ipip-neo-120-johnson-2014-n5-immoderation",
+      "reverseScored": true,
+      "displayOrder": 80
+    },
+    {
+      "itemId": "q082",
+      "itemNumber": 82,
+      "original300ItemNumber": 142,
+      "stem": "Enjoy being reckless.",
+      "facetCode": "E5",
+      "constructSlug": "ipip-neo-120-johnson-2014-e5-excitement-seeking",
+      "reverseScored": false,
+      "displayOrder": 81
+    },
+    {
+      "itemId": "q083",
+      "itemNumber": 83,
+      "original300ItemNumber": 233,
+      "stem": "Have difficulty understanding abstract ideas.",
+      "facetCode": "O5",
+      "constructSlug": "ipip-neo-120-johnson-2014-o5-intellect",
+      "reverseScored": true,
+      "displayOrder": 82
+    },
+    {
+      "itemId": "q084",
+      "itemNumber": 84,
+      "original300ItemNumber": 204,
+      "stem": "Have a high opinion of myself.",
+      "facetCode": "A5",
+      "constructSlug": "ipip-neo-120-johnson-2014-a5-modesty",
+      "reverseScored": true,
+      "displayOrder": 83
+    },
+    {
+      "itemId": "q085",
+      "itemNumber": 85,
+      "original300ItemNumber": 205,
+      "stem": "Waste my time.",
+      "facetCode": "C5",
+      "constructSlug": "ipip-neo-120-johnson-2014-c5-self-discipline",
+      "reverseScored": true,
+      "displayOrder": 84
+    },
+    {
+      "itemId": "q086",
+      "itemNumber": 86,
+      "original300ItemNumber": 86,
+      "stem": "Feel that I'm unable to deal with things.",
+      "facetCode": "N6",
+      "constructSlug": "ipip-neo-120-johnson-2014-n6-vulnerability",
+      "reverseScored": false,
+      "displayOrder": 85
+    },
+    {
+      "itemId": "q087",
+      "itemNumber": 87,
+      "original300ItemNumber": 147,
+      "stem": "Love life.",
+      "facetCode": "E6",
+      "constructSlug": "ipip-neo-120-johnson-2014-e6-cheerfulness",
+      "reverseScored": false,
+      "displayOrder": 86
+    },
+    {
+      "itemId": "q088",
+      "itemNumber": 88,
+      "original300ItemNumber": 148,
+      "stem": "Tend to vote for conservative political candidates.",
+      "facetCode": "O6",
+      "constructSlug": "ipip-neo-120-johnson-2014-o6-liberalism",
+      "reverseScored": true,
+      "displayOrder": 87
+    },
+    {
+      "itemId": "q089",
+      "itemNumber": 89,
+      "original300ItemNumber": 149,
+      "stem": "Am not interested in other people's problems.",
+      "facetCode": "A6",
+      "constructSlug": "ipip-neo-120-johnson-2014-a6-sympathy",
+      "reverseScored": true,
+      "displayOrder": 88
+    },
+    {
+      "itemId": "q090",
+      "itemNumber": 90,
+      "original300ItemNumber": 210,
+      "stem": "Rush into things.",
+      "facetCode": "C6",
+      "constructSlug": "ipip-neo-120-johnson-2014-c6-cautiousness",
+      "reverseScored": true,
+      "displayOrder": 89
+    },
+    {
+      "itemId": "q091",
+      "itemNumber": 91,
+      "original300ItemNumber": 91,
+      "stem": "Get stressed out easily.",
+      "facetCode": "N1",
+      "constructSlug": "ipip-neo-120-johnson-2014-n1-anxiety",
+      "reverseScored": false,
+      "displayOrder": 90
+    },
+    {
+      "itemId": "q092",
+      "itemNumber": 92,
+      "original300ItemNumber": 272,
+      "stem": "Keep others at a distance.",
+      "facetCode": "E1",
+      "constructSlug": "ipip-neo-120-johnson-2014-e1-friendliness",
+      "reverseScored": true,
+      "displayOrder": 91
+    },
+    {
+      "itemId": "q093",
+      "itemNumber": 93,
+      "original300ItemNumber": 93,
+      "stem": "Like to get lost in thought.",
+      "facetCode": "O1",
+      "constructSlug": "ipip-neo-120-johnson-2014-o1-imagination",
+      "reverseScored": false,
+      "displayOrder": 92
+    },
+    {
+      "itemId": "q094",
+      "itemNumber": 94,
+      "original300ItemNumber": 184,
+      "stem": "Distrust people.",
+      "facetCode": "A1",
+      "constructSlug": "ipip-neo-120-johnson-2014-a1-trust",
+      "reverseScored": true,
+      "displayOrder": 93
+    },
+    {
+      "itemId": "q095",
+      "itemNumber": 95,
+      "original300ItemNumber": 155,
+      "stem": "Know how to get things done.",
+      "facetCode": "C1",
+      "constructSlug": "ipip-neo-120-johnson-2014-c1-self-efficacy",
+      "reverseScored": false,
+      "displayOrder": 94
+    },
+    {
+      "itemId": "q096",
+      "itemNumber": 96,
+      "original300ItemNumber": 216,
+      "stem": "Am not easily annoyed.",
+      "facetCode": "N2",
+      "constructSlug": "ipip-neo-120-johnson-2014-n2-anger",
+      "reverseScored": true,
+      "displayOrder": 95
+    },
+    {
+      "itemId": "q097",
+      "itemNumber": 97,
+      "original300ItemNumber": 247,
+      "stem": "Avoid crowds.",
+      "facetCode": "E2",
+      "constructSlug": "ipip-neo-120-johnson-2014-e2-gregariousness",
+      "reverseScored": true,
+      "displayOrder": 96
+    },
+    {
+      "itemId": "q098",
+      "itemNumber": 98,
+      "original300ItemNumber": 218,
+      "stem": "Do not enjoy going to art museums.",
+      "facetCode": "O2",
+      "constructSlug": "ipip-neo-120-johnson-2014-o2-artistic-interests",
+      "reverseScored": true,
+      "displayOrder": 97
+    },
+    {
+      "itemId": "q099",
+      "itemNumber": 99,
+      "original300ItemNumber": 279,
+      "stem": "Obstruct others' plans.",
+      "facetCode": "A2",
+      "constructSlug": "ipip-neo-120-johnson-2014-a2-morality",
+      "reverseScored": true,
+      "displayOrder": 98
+    },
+    {
+      "itemId": "q100",
+      "itemNumber": 100,
+      "original300ItemNumber": 220,
+      "stem": "Leave my belongings around.",
+      "facetCode": "C2",
+      "constructSlug": "ipip-neo-120-johnson-2014-c2-orderliness",
+      "reverseScored": true,
+      "displayOrder": 99
+    },
+    {
+      "itemId": "q101",
+      "itemNumber": 101,
+      "original300ItemNumber": 251,
+      "stem": "Feel comfortable with myself.",
+      "facetCode": "N3",
+      "constructSlug": "ipip-neo-120-johnson-2014-n3-depression",
+      "reverseScored": true,
+      "displayOrder": 100
+    },
+    {
+      "itemId": "q102",
+      "itemNumber": 102,
+      "original300ItemNumber": 162,
+      "stem": "Wait for others to lead the way.",
+      "facetCode": "E3",
+      "constructSlug": "ipip-neo-120-johnson-2014-e3-assertiveness",
+      "reverseScored": true,
+      "displayOrder": 101
+    },
+    {
+      "itemId": "q103",
+      "itemNumber": 103,
+      "original300ItemNumber": 283,
+      "stem": "Don't understand people who get emotional.",
+      "facetCode": "O3",
+      "constructSlug": "ipip-neo-120-johnson-2014-o3-emotionality",
+      "reverseScored": true,
+      "displayOrder": 102
+    },
+    {
+      "itemId": "q104",
+      "itemNumber": 104,
+      "original300ItemNumber": 284,
+      "stem": "Take no time for others.",
+      "facetCode": "A3",
+      "constructSlug": "ipip-neo-120-johnson-2014-a3-altruism",
+      "reverseScored": true,
+      "displayOrder": 103
+    },
+    {
+      "itemId": "q105",
+      "itemNumber": 105,
+      "original300ItemNumber": 195,
+      "stem": "Break my promises.",
+      "facetCode": "C3",
+      "constructSlug": "ipip-neo-120-johnson-2014-c3-dutifulness",
+      "reverseScored": true,
+      "displayOrder": 104
+    },
+    {
+      "itemId": "q106",
+      "itemNumber": 106,
+      "original300ItemNumber": 256,
+      "stem": "Am not bothered by difficult social situations.",
+      "facetCode": "N4",
+      "constructSlug": "ipip-neo-120-johnson-2014-n4-self-consciousness",
+      "reverseScored": true,
+      "displayOrder": 105
+    },
+    {
+      "itemId": "q107",
+      "itemNumber": 107,
+      "original300ItemNumber": 167,
+      "stem": "Like to take it easy.",
+      "facetCode": "E4",
+      "constructSlug": "ipip-neo-120-johnson-2014-e4-activity-level",
+      "reverseScored": true,
+      "displayOrder": 106
+    },
+    {
+      "itemId": "q108",
+      "itemNumber": 108,
+      "original300ItemNumber": 288,
+      "stem": "Am attached to conventional ways.",
+      "facetCode": "O4",
+      "constructSlug": "ipip-neo-120-johnson-2014-o4-adventurousness",
+      "reverseScored": true,
+      "displayOrder": 107
+    },
+    {
+      "itemId": "q109",
+      "itemNumber": 109,
+      "original300ItemNumber": 259,
+      "stem": "Get back at others.",
+      "facetCode": "A4",
+      "constructSlug": "ipip-neo-120-johnson-2014-a4-cooperation",
+      "reverseScored": true,
+      "displayOrder": 108
+    },
+    {
+      "itemId": "q110",
+      "itemNumber": 110,
+      "original300ItemNumber": 290,
+      "stem": "Put little time and effort into my work.",
+      "facetCode": "C4",
+      "constructSlug": "ipip-neo-120-johnson-2014-c4-achievement-striving",
+      "reverseScored": true,
+      "displayOrder": 109
+    },
+    {
+      "itemId": "q111",
+      "itemNumber": 111,
+      "original300ItemNumber": 231,
+      "stem": "Am able to control my cravings.",
+      "facetCode": "N5",
+      "constructSlug": "ipip-neo-120-johnson-2014-n5-immoderation",
+      "reverseScored": true,
+      "displayOrder": 110
+    },
+    {
+      "itemId": "q112",
+      "itemNumber": 112,
+      "original300ItemNumber": 172,
+      "stem": "Act wild and crazy.",
+      "facetCode": "E5",
+      "constructSlug": "ipip-neo-120-johnson-2014-e5-excitement-seeking",
+      "reverseScored": false,
+      "displayOrder": 111
+    },
+    {
+      "itemId": "q113",
+      "itemNumber": 113,
+      "original300ItemNumber": 263,
+      "stem": "Am not interested in theoretical discussions.",
+      "facetCode": "O5",
+      "constructSlug": "ipip-neo-120-johnson-2014-o5-intellect",
+      "reverseScored": true,
+      "displayOrder": 112
+    },
+    {
+      "itemId": "q114",
+      "itemNumber": 114,
+      "original300ItemNumber": 264,
+      "stem": "Boast about my virtues.",
+      "facetCode": "A5",
+      "constructSlug": "ipip-neo-120-johnson-2014-a5-modesty",
+      "reverseScored": true,
+      "displayOrder": 113
+    },
+    {
+      "itemId": "q115",
+      "itemNumber": 115,
+      "original300ItemNumber": 265,
+      "stem": "Have difficulty starting tasks.",
+      "facetCode": "C5",
+      "constructSlug": "ipip-neo-120-johnson-2014-c5-self-discipline",
+      "reverseScored": true,
+      "displayOrder": 114
+    },
+    {
+      "itemId": "q116",
+      "itemNumber": 116,
+      "original300ItemNumber": 176,
+      "stem": "Remain calm under pressure.",
+      "facetCode": "N6",
+      "constructSlug": "ipip-neo-120-johnson-2014-n6-vulnerability",
+      "reverseScored": true,
+      "displayOrder": 115
+    },
+    {
+      "itemId": "q117",
+      "itemNumber": 117,
+      "original300ItemNumber": 177,
+      "stem": "Look at the bright side of life.",
+      "facetCode": "E6",
+      "constructSlug": "ipip-neo-120-johnson-2014-e6-cheerfulness",
+      "reverseScored": false,
+      "displayOrder": 116
+    },
+    {
+      "itemId": "q118",
+      "itemNumber": 118,
+      "original300ItemNumber": 268,
+      "stem": "Believe that we should be tough on crime.",
+      "facetCode": "O6",
+      "constructSlug": "ipip-neo-120-johnson-2014-o6-liberalism",
+      "reverseScored": true,
+      "displayOrder": 117
+    },
+    {
+      "itemId": "q119",
+      "itemNumber": 119,
+      "original300ItemNumber": 239,
+      "stem": "Try not to think about the needy.",
+      "facetCode": "A6",
+      "constructSlug": "ipip-neo-120-johnson-2014-a6-sympathy",
+      "reverseScored": true,
+      "displayOrder": 118
+    },
+    {
+      "itemId": "q120",
+      "itemNumber": 120,
+      "original300ItemNumber": 270,
+      "stem": "Act without thinking.",
+      "facetCode": "C6",
+      "constructSlug": "ipip-neo-120-johnson-2014-c6-cautiousness",
+      "reverseScored": true,
+      "displayOrder": 119
+    }
+  ],
+  "normReference": null,
+  "normStatus": "Not normed in Trajectas; reference-data candidates documented separately.",
+  "rawRanges": {
+    "construct": [
+      4,
+      20
+    ],
+    "factor": [
+      4,
+      20
+    ],
+    "dimension": [
+      24,
+      120
+    ]
+  },
+  "reportTemplates": [],
+  "productionImported": false,
+  "prerequisites": [
+    "Create or verify exact source record before CSV import: unknown source names are otherwise silently omitted by the current importer.",
+    "Create or verify exact response format, including 1-5 bounds and all five accuracy anchors.",
+    "Verify no existing dimension/construct/auto-wrapped-factor slug collisions; the importer creates records and is not idempotent.",
+    "The library import does not create an assessment or materialise its section items.",
+    "The proposed instrument scorer and full-form campaign protections are not installed by this package.",
+    "Do not activate or distribute the assessment until strict 120-item delivery and native scoring have passed synthetic end-to-end checks."
+  ]
+}
