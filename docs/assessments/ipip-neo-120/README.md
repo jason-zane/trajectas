@@ -163,3 +163,8 @@ Generators are offline; `--check` writes nothing. The norm auditor streams the
 provided archive and emits aggregates only. It never extracts or uploads raw
 respondent records. Database commands require a separately verified development
 target. CI continues to provision disposable local Supabase stacks.
+
+Secret scanning identified the two SHA-256 entries whose filenames contain
+`key` as generic API keys. `.gitleaksignore` records only their exact source
+commit/path/rule/line fingerprints. All scanner rules and other findings remain
+active; the source integrity tests independently verify both file digests.
