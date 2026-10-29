@@ -40,8 +40,12 @@ test('completes 120 original items plus the separate supplement, resumes it, and
         await page.getByRole('button', { name: index === 7 ? 'Continue to finish' : 'Continue', exact: true }).click()
       }
     }
-    await expect(page).toHaveURL(new RegExp(`/assess/${token}/review$`))
-    await page.getByRole('button', { name: 'Submit assessment', exact: true }).click()
+    // Review is configurable. With it disabled, CompletePage submits through
+    // the same server completeness/quality gate before rendering completion.
+    await expect(page).toHaveURL(new RegExp(`/assess/${token}/(?:review|complete)$`))
+    if (new URL(page.url()).pathname.endsWith('/review')) {
+      await page.getByRole('button', { name: 'Submit assessment', exact: true }).click()
+    }
     await expect.poll(async () => (await db.from('participant_response_quality_results').select('status').eq('session_id', sessionId).maybeSingle()).data?.status).toBe('review_recommended')
     const native = await db.from('participant_instrument_results').select('result').eq('session_id', sessionId).single()
     expect(native.data?.result.responseCount).toBe(120)
