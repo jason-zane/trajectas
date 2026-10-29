@@ -168,3 +168,10 @@ Secret scanning identified the two SHA-256 entries whose filenames contain
 `key` as generic API keys. `.gitleaksignore` records only their exact source
 commit/path/rule/line fingerprints. All scanner rules and other findings remain
 active; the source integrity tests independently verify both file digests.
+
+A further comparison of the supplied printable 120-item questionnaire found
+119/120 canonical stems after ignoring punctuation/numbering. Printable item 32
+adds “other” (“around other people” versus Table 1's “around people”). The
+canonical Johnson 2014 wording is preserved. The raw .dat file has no item text;
+confirm the administration/version equivalence before activating a normative
+reference. Item 58 in the supplied printable agrees with the preserved “or”.

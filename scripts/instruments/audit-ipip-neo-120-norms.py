@@ -79,7 +79,7 @@ def audit(archive_path):
     with open(archive_path, 'rb') as original:
         archive_digest = hashlib.file_digest(original, 'sha256').hexdigest()
     return {
-        'status': 'candidate-only; not installed or licensed for commercial norm reporting',
+        'status': 'candidate-only; not installed; commercial reuse terms unverified',
         'codebook': 'DAT120.doc supplied in the same archive',
         'responseEncoding': 'already reverse-keyed; 0 missing; complete-case sums only',
         'itemsetSha256': manifest['itemsetSha256'],
