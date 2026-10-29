@@ -45,7 +45,7 @@ add('assessments',{id:ids.assessmentId,title:setup.nativeDraftFields.title,slug:
   min_custom_factors:null,time_limit_minutes:null,source_id:ids.sourceId,deleted_at:null})
 for (const [index,f] of manifest.facets.entries()) add('assessment_factors',{id:id(`assessment-factor:${f.code}`),assessment_id:ids.assessmentId,factor_id:ids.facets[f.code].factorId,weight:1,item_count:4,min_items:4,max_items:4,display_order:index,composite_weight:null})
 add('assessment_sections',{id:ids.sectionId,assessment_id:ids.assessmentId,response_format_id:ids.responseFormatId,title:setup.section.title,instructions:setup.section.instructions,
-  display_order:0,item_ordering:'fixed',section_role:'scored',time_limit_seconds:null,allow_back_nav:true,items_per_page:10})
+  display_order:0,item_ordering:'fixed',section_role:'scored',time_limit_seconds:null,allow_back_nav:true})
 for (const item of manifest.items) add('assessment_section_items',{id:id(`section-item:${item.itemId}`),section_id:ids.sectionId,item_id:ids.items[item.itemId],display_order:item.itemNumber-1})
 const references = {
   items:{construct_id:Object.values(ids.facets).map(x=>x.constructId),response_format_id:[ids.responseFormatId]},
