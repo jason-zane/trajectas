@@ -62,7 +62,25 @@ snapshots, and 15 seed items. The ordered source-hash plan is
 shared development, copy production data/credentials, or bypass provider denials.
 See `docs/runbook.md` for the target and release policy.
 
-Apply reviewed migrations in order:
+Completed on 29 October 2026: all 221 missing committed baseline migrations and
+all three native IPIP migrations were applied through the authorized development
+connection. `development-bootstrap-receipt.json` records successes, expired
+requests, the reconciled automatic-review rejection, actual history and source
+hashes. The assessment is draft, activation is blocked, and the canonical
+5/30/30/120 content is inactive.
+
+`hosted-acceptance.sql` passed under `service_role` using three independent golden
+scoring payloads. It checked exact frozen forms, native/display arithmetic,
+idempotent scoring, private grants, no overall/norm claims, incomplete-response
+refusal, immutable content and draft status, and campaign subset/move refusal.
+All synthetic fixtures were rolled back; sessions and instrument results returned
+to zero. This is database acceptance, not browser/HTTP or report/PDF acceptance.
+The original seed library was captured before initialization; recovery has not
+been rehearsed. Tool-generated grouped migration history needs deliberate
+reconciliation before a future CLI push; do not force `--include-all` or invent
+source-version records.
+
+For a new target, apply reviewed migrations in order:
 
 1. `20261029023753_ipip_neo_120_scoring_profile.sql` (commit enum first).
 2. `20261029023754_ipip_neo_120_fixed_form.sql` (service-only persistence/guards).
