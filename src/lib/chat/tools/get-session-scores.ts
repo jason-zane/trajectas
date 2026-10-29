@@ -113,6 +113,9 @@ export const getSessionScoresTool = defineChatTool({
         )
       }
 
+      if (scores.personalityRows) {
+        return toolFail('unavailable', 'This is a personality assessment. Open its assessment results for the five dimensions and 30 traits; competency effectiveness cards do not apply.')
+      }
       if (scores.factors.length === 0) {
         return toolFail(
           'not_found',

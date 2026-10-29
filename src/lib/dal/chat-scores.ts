@@ -60,6 +60,8 @@ export interface SessionScores {
   droppedRows: number
   /** Rows on a cognitive metric, which this card does not render. */
   cognitiveRows: number
+  /** Personality scale positions do not use competency effectiveness bands. */
+  personalityRows?: number
 }
 
 /**
@@ -102,8 +104,10 @@ export async function getSessionScores(
   const factors: FactorScore[] = []
   let droppedRows = 0
   let cognitiveRows = 0
+  let personalityRows = 0
 
   for (const row of rows) {
+    if (row.metric === 'personality_pomp') { personalityRows += 1; continue }
     if (!isCompetencyMetric(row.metric)) {
       // Cognitive scores have their own ladder and their own presentation;
       // rendering percent-correct against competency bands is the exact
@@ -133,6 +137,7 @@ export async function getSessionScores(
     factors,
     droppedRows,
     cognitiveRows,
+    ...(personalityRows > 0 ? { personalityRows } : {}),
   }
 }
 

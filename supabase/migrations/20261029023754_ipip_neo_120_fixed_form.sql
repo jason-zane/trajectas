@@ -164,7 +164,7 @@ BEGIN
       OR abs((score->'display'->>'pomp')::numeric-100*(display_sum-4)/16)>0.00000001
       OR NOT coalesce(private.ipip_statistics_match(score->'native',native_sum,4),false)
       OR NOT coalesce(private.ipip_statistics_match(score->'display',display_sum,4),false)
-      OR score->>'direction' IS DISTINCT FROM CASE WHEN facet.key IN ('N4','N6') THEN 'reversed' ELSE 'original' END THEN RAISE EXCEPTION 'IPIP facet score mismatch: %',facet.key; END IF;
+      OR score->>'direction' IS DISTINCT FROM (CASE WHEN facet.key IN ('N4','N6') THEN 'reversed' ELSE 'original' END) THEN RAISE EXCEPTION 'IPIP facet score mismatch: %',facet.key; END IF;
   END LOOP;
   FOR domain IN SELECT key,value FROM jsonb_each(config->'dimensions') LOOP
     SELECT sum((value->'native'->>'rawSum')::numeric) INTO native_sum FROM jsonb_each(p_result->'facets') WHERE left(key,1)=domain.key;

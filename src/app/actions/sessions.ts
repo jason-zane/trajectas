@@ -372,7 +372,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       : (logSessionDetailError('score lookup', scoresResult.reason), [])
 
   const personalityResult = canViewIndividual
-    ? await getAuthorizedIpipNeo120Result(reportDb, sessionId, String(session.assessment_id))
+    ? await getAuthorizedIpipNeo120Result(db, sessionId, String(session.assessment_id))
     : null
 
   let scores: SessionDetailScore[] = scoreRows
@@ -418,6 +418,8 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       dimensionDisplayOrder: IPIP_DOMAINS.findIndex(domain => domain.code === facet.domainCode),
     }))
   }
+
+  if (session.assessment_id === IPIP_DATABASE.assessmentId && !personalityResult) scores = []
 
   // Per-dimension aggregates: mean of children that report a parent dimension.
   const dimensionBuckets = new Map<
