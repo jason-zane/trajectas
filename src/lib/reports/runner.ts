@@ -192,7 +192,8 @@ async function processSnapshotWithinBudget(snapshotId: string): Promise<void> {
       throw new Error(`Session not found: ${snapshot.participantSessionId}`)
     }
 
-    const template = mapReportTemplateRow(templateResult.data)
+    const template = mapReportTemplateRow(snapshot.generationManifest?.template ?? templateResult.data)
+    if (snapshot.generationIntent === 'manager_requested') template.autoRelease = false
 
     // -----------------------------------------------------------------------
     // Custom-report branch — bypass block resolution entirely.
@@ -482,7 +483,7 @@ async function processSnapshotWithinBudget(snapshotId: string): Promise<void> {
     console.error(`[runner] processSnapshot failed for ${snapshotId}:`, message)
     const { data: failedSnapshot } = await db
       .from('report_snapshots')
-      .select('participant_session_id')
+      .select('participant_session_id,generation_intent')
       .eq('id', snapshotId)
       .maybeSingle()
 
@@ -491,7 +492,7 @@ async function processSnapshotWithinBudget(snapshotId: string): Promise<void> {
       error_message: message,
     }).eq('id', snapshotId)
 
-    if (failedSnapshot?.participant_session_id) {
+    if (failedSnapshot?.participant_session_id && failedSnapshot.generation_intent !== 'manager_requested') {
       await db
         .from('participant_sessions')
         .update({
@@ -538,6 +539,11 @@ async function runCustomReport(
   if (ctx.personalityResult && !report.supportedInstrumentIds?.includes(ctx.personalityResult.instrumentId)) {
     throw new Error('This report is not registered for IPIP-NEO-120 personality results')
   }
+  if (snapshot.referenceVersionId && !report.supportsReferenceComparison) throw new Error('This report does not support reference comparisons')
+  if (snapshot.referenceVersionId) {
+    const { data: reference, error } = await db.from('norm_reference_versions').select('status').eq('id', snapshot.referenceVersionId).single()
+    if (error || !reference || !['active', 'superseded'].includes(reference.status)) throw new Error('The selected reference is no longer approved; saved earlier reports remain available')
+  }
   const payload = await report.buildData(ctx)
 
   const resolvedBlock: ResolvedBlockData = {
@@ -573,7 +579,7 @@ async function runCustomReport(
     throw new Error(`Failed to persist generated snapshot: ${snapshotWriteError.message}`)
   }
 
-  const { error: sessionWriteError } = await db
+  const { error: sessionWriteError } = snapshot.generationIntent === 'manager_requested' ? { error: null } : await db
     .from('participant_sessions')
     .update({
       processing_status: 'ready',

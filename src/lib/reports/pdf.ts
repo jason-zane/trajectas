@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { reportError } from '@/lib/observability/report-error'
 import { notifyConsultantsForSnapshot } from '@/lib/notifications/consultant-notification'
-import { withReportPdfBrowser } from '@/lib/reports/pdf-browser'
+import { configureReportPagePreviewAccess, withReportPdfBrowser } from '@/lib/reports/pdf-browser'
 import { createReportPdfToken } from '@/lib/reports/pdf-token'
 import { requireAppUrl } from '@/lib/hosts'
 import { maybeSendPublicBuildReportEmail } from '@/lib/public-builds/report-email'
@@ -222,6 +222,7 @@ export async function generateAndStoreReportPdf(
 
     const pdf = await withReportPdfBrowser(async (browser) => {
       const page = await browser.newPage()
+      await configureReportPagePreviewAccess(page)
       page.setDefaultTimeout(15_000)
       // Full A4 viewport at 96 dpi — cover page uses 100vh to fill the page.
       await page.setViewport({ width: 794, height: 1123 })

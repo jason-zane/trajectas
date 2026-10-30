@@ -11,7 +11,7 @@ export async function getQualitySupplement(token: string, sessionId: string): Pr
   const parsed = participantInput.safeParse({ token, sessionId })
   if (!parsed.success) return { error: 'Invalid access' } as const
   try { return { module: await getParticipantQualityModule(token, sessionId) } }
-  catch (error) { logActionError('responseQuality.load', error); return { error: 'Unable to load the final statements. Please refresh or reopen your assessment link.' } as const }
+  catch (error) { logActionError('responseQuality.load', error); return { error: 'Unable to load your assessment statements. Please refresh or reopen your assessment link.' } as const }
 }
 
 export async function saveQualitySupplementAnswer(input: { token: string; sessionId: string; questionId: string; value: number; revision: number }): Promise<{ saved: { answers: Record<string, number>; revision: number } } | { error: string }> {

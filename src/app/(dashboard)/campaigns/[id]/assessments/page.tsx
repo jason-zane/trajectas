@@ -1,3 +1,4 @@
+import { CampaignReferences } from '@/components/norms/reference-pages'
 import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { getCampaignById, getActiveAssessments } from "@/app/actions/campaigns";
@@ -59,6 +60,7 @@ export default async function CampaignAssessmentsPage({
   );
 
   return (
+    <div className="space-y-8">
     <CampaignAssessmentsList
       campaignId={campaign.id}
       linkedAssessments={campaign.assessments}
@@ -67,5 +69,7 @@ export default async function CampaignAssessmentsPage({
       itemSelectionRules={itemSelectionRules}
       hasCompletedParticipants={hasCompletedParticipants}
     />
+    <CampaignReferences campaignId={campaign.id} />
+    </div>
   );
 }

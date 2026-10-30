@@ -15,6 +15,7 @@ export function StandardizedPersonalityOverview({ description }: { description?:
         <CardHeader><CardTitle>About this profile</CardTitle></CardHeader>
         <CardContent className="space-y-4 text-sm">
           <p>{description}</p>
+          <p>Report display names, descriptions and behavioural endpoints can be edited in the standard report template. Campaign and report references are managed in their References and Reports views.</p>
           <p>Based on {PERSONALITY_PROFILE_SOURCE}. The original 120 statements, five response options and scoring keys are preserved.</p>
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline">120 statements</Badge>
@@ -82,7 +83,7 @@ export function StandardizedPersonalityOverview({ description }: { description?:
       <Card>
         <CardHeader><CardTitle>Scoring and scientific references</CardTitle></CardHeader>
         <CardContent className="space-y-4 text-sm">
-          <p>Each trait uses four items; each dimension uses 24. Responses are keyed in the original scientific direction, then displayed as scale scores from 0–100. Native totals are retained. There is no overall personality score or norm percentile.</p>
+          <p>Each trait uses four items; each dimension uses 24. Responses are keyed in the original scientific direction, then displayed as scale scores from 0–100. Native totals are retained. There is no overall personality score. Reports can compare these native results against a selected, approved norm reference; each report retains that reference and version.</p>
           <p>Higher Social Confidence and Stress Tolerance indicate more confidence and tolerance. Their displays reverse the original Self-Consciousness and Vulnerability scales. Emotional Reactivity still uses the six original native trait totals.</p>
           <details className="rounded-lg border p-4">
             <summary className="cursor-pointer font-medium">Original scale names and reference codes</summary>

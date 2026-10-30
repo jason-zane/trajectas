@@ -23,6 +23,7 @@ const TABS = [
   { label: "Presentation", segment: "presentation" },
   { label: "Intro", segment: "intro" },
   { label: "Reports", segment: "reports" },
+  { label: "References", segment: "references" },
   { label: "Settings", segment: "settings" },
 ]
 
@@ -43,7 +44,7 @@ export function AssessmentEditShell({
   children: React.ReactNode
 }) {
   const { features } = usePortal()
-  const tabs = TABS.filter(tab => (!standardized || tab.segment === "overview" || tab.segment === "reports") && (tab.segment !== "reports" || features.reportTemplateLibrary))
+  const tabs = TABS.filter(tab => (!standardized || tab.segment === "overview" || (tab.segment === "reports" || tab.segment === "references")) && (tab.segment !== "reports" || features.reportTemplateLibrary))
   const pathname = usePathname()
   const editRoot = basePath ?? `/assessments/${assessment.id}/edit`
 
@@ -96,7 +97,7 @@ export function AssessmentEditShell({
 
       <RouteTabs tabs={tabs} basePath={editRoot} activeSegment={activeSegment} />
 
-      {standardized && activeSegment !== "reports" ? (
+      {standardized && activeSegment !== "reports" && activeSegment !== "references" ? (
         standardizedContent
       ) : children}
     </div>

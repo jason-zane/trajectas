@@ -200,7 +200,7 @@ export async function mintPartnerStorageState(): Promise<void> {
   await mintStorageState(SEEDED_PARTNER_ADMIN.email, PARTNER_STORAGE_STATE);
 }
 
-async function mintStorageState(email: string, outputPath: string): Promise<void> {
+export async function mintStorageState(email: string, outputPath: string): Promise<void> {
   const { url, anonKey, serviceKey } = resolveSupabaseEnv();
 
   const admin = createClient(url, serviceKey, {

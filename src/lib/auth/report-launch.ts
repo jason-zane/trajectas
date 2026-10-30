@@ -90,6 +90,7 @@ async function findSnapshotForParticipant(
     .select("id")
     .in("participant_session_id", sessionIds)
     .eq("status", "released")
+    .eq("participant_selected", true)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

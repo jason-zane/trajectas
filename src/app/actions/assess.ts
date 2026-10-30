@@ -2,7 +2,7 @@
 
 import { finalizeCompletedSessionProcessing, getExistingCompletedSessionOutcome } from '@/lib/dal/session-processing'
 import { markPublicBuildStarted } from '@/lib/dal/public-builds'
-import { restoreMissingSessionClient } from '@/lib/dal/participant-session-ownership'
+import { restoreMissingSessionClient, findResumableParticipantSession } from '@/lib/dal/participant-session-ownership'
 import { createAssessSessionProof } from '@/lib/assess/session-proof'
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -406,12 +406,11 @@ export async function startSession(
   const startedAt = new Date().toISOString()
 
   // Check for existing session
-  const { data: existing } = await db
-    .from('participant_sessions')
-    .select('id, client_id')
-    .eq('campaign_participant_id', campaignParticipantId)
-    .eq('assessment_id', assessmentId)
-    .single()
+  const { data: existing, error: lookupError } = await findResumableParticipantSession(db, access, assessmentId)
+  if (lookupError) {
+    logActionError('startSession.lookup', lookupError)
+    return { error: 'Unable to start this assessment right now' }
+  }
 
   if (existing) {
     if (!await restoreMissingSessionClient(db, existing, access)) {
@@ -438,8 +437,7 @@ export async function startSession(
 
   if (error) {
     if (error.code === '23505') {
-      const { data: winner } = await db.from('participant_sessions').select('id, client_id')
-        .eq('campaign_participant_id', campaignParticipantId).eq('assessment_id', assessmentId).single()
+      const { data: winner } = await findResumableParticipantSession(db, access, assessmentId)
       if (winner) {
         if (!await restoreMissingSessionClient(db, winner, access)) {
           return { error: 'Unable to resume this assessment right now' }
@@ -1237,7 +1235,7 @@ export async function getParticipantReportSnapshot(
   if (snapshotId) {
     query = query.eq('id', snapshotId)
   } else {
-    query = query.limit(1)
+    query = query.eq('participant_selected', true).limit(1)
   }
 
   const { data, error } = await query.maybeSingle()

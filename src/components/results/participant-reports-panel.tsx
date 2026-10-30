@@ -74,6 +74,7 @@ export function ParticipantReportsPanel({
             <TableRow key={s.id}>
               <TableCell className="font-medium">
                 {s.templateName ?? "Template"}
+                <p className="mt-1 text-caption font-normal text-muted-foreground">Edition {s.editionNumber ?? 1} · {s.referenceInterpretation?.reference.name ?? "Scale scores only"}</p>
               </TableCell>
               <TableCell>
                 <div className="flex flex-wrap items-center gap-2">

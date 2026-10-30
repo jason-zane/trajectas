@@ -1,3 +1,4 @@
+import { ReportPreviewSurface } from '@/components/reports/report-preview-surface'
 import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from 'next/navigation'
@@ -46,15 +47,16 @@ export default async function PreviewPage({ params, searchParams }: Props) {
     previewEntities,
     template.name,
     scheme,
+    template.customReportSlug, template.presentationConfig,
   )
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-16">
+    <div className={`${template.customReportSlug ? 'max-w-4xl' : 'max-w-3xl'} mx-auto space-y-6 pb-16`}>
       <PageHeader
         eyebrow="Report templates"
         title={template.name}
         description={
-          selectedAssessment
+          selectedAssessment && !template.customReportSlug
             ? `Preview — sample data for ${selectedAssessment.title}`
             : 'Preview'
         }
@@ -69,11 +71,11 @@ export default async function PreviewPage({ params, searchParams }: Props) {
         </div>
       </PageHeader>
 
-      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+      <ReportPreviewSurface blocks={sampleBlocks}>
         <Suspense>
           <ReportRenderer blocks={sampleBlocks} />
         </Suspense>
-      </div>
+      </ReportPreviewSurface>
     </div>
   )
 }

@@ -6,7 +6,7 @@ describe("next config integration", () => {
   it("applies security headers through Next's config testing utilities", async () => {
     const response = await unstable_getResponseFromNextConfig({
       url: "https://trajectas.test/surface-coming-soon",
-      nextConfig,
+      nextConfig: await nextConfig(),
     });
 
     expect(response.headers.get("referrer-policy")).toBe(

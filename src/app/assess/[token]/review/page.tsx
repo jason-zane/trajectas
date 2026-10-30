@@ -13,6 +13,11 @@ import { interpolateContent } from "@/lib/experience/interpolate";
 import { getNextFlowUrl } from "@/lib/experience/flow-router";
 import { ReviewScreen } from "@/components/assess/review-screen";
 import type { TemplateVariables } from "@/lib/experience/types";
+import { getQualitySupplement } from '@/app/actions/response-quality';
+import { PERSONALITY_PROFILE_ASSESSMENT_ID } from '@/lib/instrument/ipip-neo-120/catalogue';
+import { INTEGRATED_QUALITY_MODULE_VERSION, INTEGRATED_QUALITY_ANCHORS } from '@/lib/instrument/ipip-neo-120/response-quality';
+import { interleaveSupplementalItems, supplementalItemId, type SupplementalQuestion } from '@/lib/assess/supplemental-sequence';
+import { firstPersonPersonalityStem } from '@/lib/instrument/ipip-neo-120/administration';
 
 export default async function ReviewPage({
   params,
@@ -35,7 +40,16 @@ export default async function ReviewPage({
     redirect(`/assess/${token}/welcome`);
   }
 
-  const { sections, responses } = stateResult.data;
+  let { sections, responses } = stateResult.data;
+  if (currentSession.assessmentId === PERSONALITY_PROFILE_ASSESSMENT_ID) {
+    const quality = await getQualitySupplement(token, currentSession.id);
+    if ('error' in quality) redirect(`/assess/${token}/section/0`);
+    if (quality.module?.version === INTEGRATED_QUALITY_MODULE_VERSION) {
+      const qualityModule = quality.module;
+      sections = sections.map(section => ({ ...section, items: interleaveSupplementalItems(section.items.map(item => ({ ...item, stem: firstPersonPersonalityStem(item.stem) })), qualityModule.questions as SupplementalQuestion[], INTEGRATED_QUALITY_ANCHORS) }));
+      responses = { ...responses, ...Object.fromEntries(Object.entries(qualityModule.answers).map(([id, value]) => [supplementalItemId(id), { value, data: {}, revision: qualityModule.revision }])) };
+    }
+  }
 
   // Load brand + experience in parallel — independent.
   const [brandConfig, experience] = await Promise.all([

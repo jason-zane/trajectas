@@ -12,6 +12,17 @@ export const QUALITY_QUESTIONS = [
   { id: 'attention_disagree', stem: 'For this statement, please select Strongly disagree.' },
 ] as const
 export const QUALITY_ANCHORS = ['Strongly disagree', 'Disagree', 'Neither agree nor disagree', 'Agree', 'Strongly agree'] as const
+/** New administrations use the native accuracy scale, interleaved after these
+ * canonical positions. v1 wording/anchors remain available for frozen attempts. */
+export const INTEGRATED_QUALITY_MODULE_VERSION = 'trajectas-response-quality-v2' as const
+export const INTEGRATED_QUALITY_ANCHORS = ['Very Inaccurate', 'Moderately Inaccurate', 'Neither Inaccurate nor Accurate', 'Moderately Accurate', 'Very Accurate'] as const
+export const INTEGRATED_QUALITY_QUESTIONS = QUALITY_QUESTIONS.map((question, index) => ({
+  ...question,
+  stem: question.id === 'attention_agree' ? 'For this statement, please select Very Accurate.'
+    : question.id === 'attention_disagree' ? 'For this statement, please select Very Inaccurate.' : question.stem,
+  afterItem: [12, 27, 42, 57, 72, 87, 102, 117][index],
+}))
+export type QualityModuleVersion = typeof QUALITY_MODULE_VERSION | typeof INTEGRATED_QUALITY_MODULE_VERSION
 export type QualityQuestionId = typeof QUALITY_QUESTIONS[number]['id']
 export type QualityStatus = 'no_concerns_detected' | 'review_recommended' | 'insufficient_information'
 export const QUALITY_STATUS_LABELS: Record<QualityStatus, string> = {
@@ -29,7 +40,7 @@ export interface QualityIndicator {
 }
 export interface ResponseQualityResult {
   policyVersion: typeof QUALITY_POLICY_VERSION
-  moduleVersion: typeof QUALITY_MODULE_VERSION | null
+  moduleVersion: QualityModuleVersion | null
   status: QualityStatus
   provisional: true
   indicators: QualityIndicator[]
@@ -55,8 +66,8 @@ export interface ResponseQualityDetail {
   canReview: boolean
 }
 export interface QualityModuleForRunner {
-  version: typeof QUALITY_MODULE_VERSION
-  questions: readonly { id: string; stem: string }[]
+  version: QualityModuleVersion
+  questions: readonly { id: string; stem: string; afterItem?: number }[]
   answers: Record<string, number>
   revision: number
 }

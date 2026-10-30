@@ -227,7 +227,7 @@ async function AssessmentIntroContent({
             </span>
           </div>
 
-          {assessment.assessmentId === PERSONALITY_PROFILE_ASSESSMENT_ID ? <p className="text-sm" style={{ color: 'var(--runner-text-muted)' }}>New attempts include 120 personality statements followed by eight supplementary statements used separately to review response quality.</p> : null}
+          {assessment.assessmentId === PERSONALITY_PROFILE_ASSESSMENT_ID ? <p className="text-sm leading-relaxed" style={{ color: 'var(--runner-text-muted)' }}>The questionnaire includes personality statements and a small number of response checks. Read each statement carefully and answer as you generally are. Response checks help an assessor review your answers and do not contribute to your personality scores.</p> : null}
 
           {/* CTA — client component: this page is a Server Component and
               must not pass event handlers across the RSC boundary. */}

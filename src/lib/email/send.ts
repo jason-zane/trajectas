@@ -130,6 +130,7 @@ export async function sendEmail(params: {
 
   // ── 6. Send ───────────────────────────────────────────────────────────────
   await sendHtmlEmail({
+    ...(type === 'magic_link' ? { purpose: 'staff_auth' as const } : {}),
     to,
     subject,
     html,

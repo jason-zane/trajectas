@@ -1,3 +1,4 @@
+import { SessionReferenceReports } from '@/components/norms/reference-pages'
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowLeft, ChevronDown } from "lucide-react";
@@ -195,12 +196,12 @@ export function SessionView({
           <h2 className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             Reports
           </h2>
-          <CampaignSessionReportsPanel
+          {session.personalityResult ? <SessionReferenceReports sessionId={session.id} reportBasePath={reportBasePath} /> : <CampaignSessionReportsPanel
             sessionId={session.id}
             initialRows={reportRows}
             reportBasePath={reportBasePath}
             settingsHref={settingsHref}
-          />
+          />}
         </section>
 
         <section className="space-y-5">

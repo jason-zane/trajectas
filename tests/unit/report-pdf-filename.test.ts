@@ -28,6 +28,13 @@ describe('buildReportPdfFilename — canonical report PDF naming', () => {
     expect(name).toBe('Assessment - John Smith - April 2026.pdf')
   })
 
+  it('distinguishes reference editions and preserves the edition suffix for long names', () => {
+    const parts = { assessmentTitle: 'Personality', firstName: 'Test', date: '2026-10-30', referenceName: 'General adult', editionNumber: 2 }
+    expect(buildReportPdfFilename(parts)).toBe('Personality - Test - October 2026 - General adult - Edition 2.pdf')
+    expect(buildReportPdfFilename({ ...parts, assessmentTitle: 'A'.repeat(200) })).toMatch(/ - Edition 2\.pdf$/)
+    expect(buildReportPdfFilename({ ...parts, editionNumber: 3 })).not.toBe(buildReportPdfFilename(parts))
+  })
+
   it('drops the name segment when the candidate name is missing', () => {
     expect(
       buildReportPdfFilename({

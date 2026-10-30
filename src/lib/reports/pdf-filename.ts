@@ -69,6 +69,8 @@ export function buildReportPdfFilename(parts: {
   date?: string | null
   /** Stable id used only if there's nothing else to name the file by. */
   fallbackId?: string
+  editionNumber?: number | null
+  referenceName?: string | null
 }): string {
   const assessment = sanitizeReportFilename(parts.assessmentTitle ?? '')
   const fullName = sanitizeReportFilename(
@@ -86,7 +88,12 @@ export function buildReportPdfFilename(parts: {
     [assessment || 'Report', fullName, monthYear].filter(Boolean).join(' - '),
   )
 
-  return `${composed}.pdf`
+  // Keep original filenames stable. Preserve edition identity even when a
+  // long assessment or reference name reaches the filename length limit.
+  const edition = parts.editionNumber && parts.editionNumber > 1 ? ` - Edition ${parts.editionNumber}` : ''
+  const reference = sanitizeReportFilename(parts.referenceName ?? '')
+  const base = sanitizeReportFilename([composed, reference].filter(Boolean).join(' - '))
+  return `${base.slice(0, MAX_FILENAME_BASE_LENGTH - edition.length).trim()}${edition}.pdf`
 }
 
 /**
@@ -101,6 +108,8 @@ export async function getReportPdfFilename(snapshotId: string): Promise<string> 
     .select(
       `
       id,
+      edition_number,
+      reference_interpretation,
       released_at,
       generated_at,
       created_at,
@@ -134,6 +143,8 @@ export async function getReportPdfFilename(snapshotId: string): Promise<string> 
     lastName: participant?.last_name,
     date,
     fallbackId: snapshotId,
+    editionNumber: data.edition_number,
+    referenceName: data.reference_interpretation?.reference?.name,
   })
 }
 

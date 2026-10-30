@@ -21,6 +21,8 @@ export interface SendHtmlEmailAttachment {
 }
 
 export interface SendHtmlEmailOptions {
+  /** Set only by the staff OTP template path, never by client form data. */
+  purpose?: 'staff_auth'
   to: string | string[]
   subject: string
   html: string
@@ -31,6 +33,15 @@ export interface SendHtmlEmailOptions {
 }
 
 export async function sendHtmlEmail(options: SendHtmlEmailOptions) {
+  const staffOnlyPreview = process.env.VERCEL_ENV === 'preview' && (
+    process.env.TRAJECTAS_PERSONALITY_PREVIEW_TARGET === 'bgrvqvtlhmfmvcytncgw' ||
+    process.env.VERCEL_GIT_COMMIT_REF === 'codex/personality-preview-ready-20261030'
+  )
+  if (staffOnlyPreview && (
+    options.purpose !== 'staff_auth' || typeof options.to !== 'string' || options.attachments?.length
+  )) {
+    throw new Error('This synthetic Preview only sends staff sign-in codes; other outbound email is disabled.')
+  }
   const client = getResendClient()
   const from =
     options.from ?? process.env.EMAIL_FROM ?? 'Trajectas <noreply@mail.trajectas.com>'
@@ -60,5 +71,9 @@ export async function sendHtmlEmail(options: SendHtmlEmailOptions) {
     throw new Error(message)
   }
 
+  if (staffOnlyPreview && data?.id) {
+    // Positive delivery evidence without recipients, OTPs or bearer links.
+    console.info('[email] Preview staff sign-in email accepted', { providerMessageId: data.id })
+  }
   return data
 }

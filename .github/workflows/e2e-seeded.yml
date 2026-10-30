@@ -68,7 +68,15 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run seeded Playwright suite
-        run: npm run test:e2e:seeded
+        env:
+          ADMIN_APP_URL: http://localhost:3101
+          INTERNAL_API_KEY: e2e-local-internal-key-do-not-use-in-production
+          REPORT_ACCESS_TOKEN_SECRET: e2e-local-report-key-do-not-use-in-production
+          REPORT_PDF_TOKEN_SECRET: e2e-local-pdf-key-do-not-use-in-production
+          CRON_SECRET: e2e-local-cron-key-do-not-use-in-production
+        run: |
+          export PUPPETEER_EXECUTABLE_PATH="$(node -e 'process.stdout.write(require("@playwright/test").chromium.executablePath())')"
+          npm run test:e2e:seeded
 
       - name: Upload Playwright report
         if: always()

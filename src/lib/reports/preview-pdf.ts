@@ -1,4 +1,4 @@
-import { launchReportPdfBrowser } from '@/lib/reports/pdf-browser'
+import { configureReportPagePreviewAccess, launchReportPdfBrowser } from '@/lib/reports/pdf-browser'
 import { createPreviewPdfToken } from '@/lib/reports/preview-pdf-token'
 import { requireAppUrl } from '@/lib/hosts'
 
@@ -24,6 +24,7 @@ export async function generatePreviewPdf(
   const browser = await launchReportPdfBrowser()
   try {
     const page = await browser.newPage()
+    await configureReportPagePreviewAccess(page)
     await page.setViewport({ width: 794, height: 1123 })
     await page.emulateMediaType('print')
 

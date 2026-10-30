@@ -49,6 +49,7 @@ export interface ReportContextSession {
 export interface ReportContext {
   /** Native 35-scale personality result. No overall score, percentiles or effectiveness bands. */
   personalityResult?: IpipNeo120Result | null
+  referenceInterpretation?: import('@/lib/norms/types').ReferenceInterpretation | null
   /** The snapshot being generated. */
   snapshot: ReportSnapshot
   /** The template row. */
@@ -126,7 +127,7 @@ export async function buildReportContext(
     throw new Error(`Session not found: ${snapshot.participantSessionId}`)
   }
 
-  const template = mapReportTemplateRow(templateResult.data)
+  const template = mapReportTemplateRow(snapshot.generationManifest?.template ?? templateResult.data)
 
   // Band scheme cascade
   const templateRow = templateResult.data as Record<string, unknown>
@@ -209,7 +210,7 @@ export async function buildReportContext(
     clientId,
   }
 
-  const personalityResult = await getAuthorizedIpipNeo120Result(db, session.id, session.assessmentId)
+  const personalityResult = snapshot.generationManifest?.nativeResult ?? await getAuthorizedIpipNeo120Result(db, session.id, session.assessmentId)
   if (session.assessmentId === IPIP_DATABASE.assessmentId && !personalityResult) throw new Error('Personality scores are not available')
   if (personalityResult) {
     for (const domain of IPIP_DOMAINS) scoreMap[IPIP_DATABASE.dimensions[domain.code]] = personalityResult.dimensions[domain.code].display.pomp
@@ -255,6 +256,7 @@ export async function buildReportContext(
 
   return {
     personalityResult,
+    referenceInterpretation: snapshot.referenceInterpretation ?? null,
     snapshot,
     template,
     session,

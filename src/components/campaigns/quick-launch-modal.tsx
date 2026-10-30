@@ -35,6 +35,9 @@ import {
   sendParticipantInviteEmails,
   type CampaignAssessmentOption,
 } from "@/app/actions/campaigns";
+import { ReferenceChooser } from '@/components/norms/reference-chooser';
+import { getCampaignSetupReferenceChoices, setCampaignAssessmentReference } from '@/app/actions/norm-references';
+import type { ReferenceOption } from '@/lib/norms/types';
 import { getFactorsForAssessment } from "@/app/actions/factor-selection";
 import { saveFactorSelection } from "@/app/actions/factor-selection";
 import { getItemSelectionRulesForEstimate } from "@/app/actions/item-selection-rules";
@@ -185,6 +188,7 @@ type StepId =
   | "campaign"
   | "assessment"
   | "capabilities"
+  | "reference"
   | "notifications"
   | "invite"
   | "subject"
@@ -207,6 +211,9 @@ interface WizardState {
   description: string;
   selectedAssessmentId: string | null;
   selectedCapabilityIds: string[] | null;
+  referenceId: string | null;
+  references: ReferenceOption[];
+  referenceChoicesKey: string | null;
   assessmentFactors: FactorAssessmentData;
   itemSelectionRules: ItemSelectionRule[];
   inviteMode: "single" | "csv" | "link";
@@ -251,6 +258,9 @@ export function QuickLaunchModal({
     description: "",
     selectedAssessmentId: initialAssessmentId ?? null,
     selectedCapabilityIds: null,
+    referenceId: null,
+    references: [],
+    referenceChoicesKey: null,
     assessmentFactors: [],
     itemSelectionRules: [],
     inviteMode: "link",
@@ -324,6 +334,7 @@ export function QuickLaunchModal({
     ...(includeCapabilitiesStep
       ? [{ id: "capabilities", label: "Capabilities" }]
       : []),
+    { id: "reference", label: "Reference" },
     { id: "notifications", label: "Notifications" },
     // A 360 collects a subject + raters; a self campaign invites participants.
     ...(is360
@@ -350,6 +361,9 @@ export function QuickLaunchModal({
       description: "",
       selectedAssessmentId: initialAssessmentId ?? null,
       selectedCapabilityIds: null,
+    referenceId: null,
+    references: [],
+    referenceChoicesKey: null,
       assessmentFactors: [],
       itemSelectionRules: [],
       inviteMode: "link",
@@ -391,6 +405,7 @@ export function QuickLaunchModal({
     if (stepId === "assessment") {
       return !!state.selectedAssessmentId;
     }
+    if (stepId === "reference") return true;
     if (stepId === "capabilities") {
       return (
         state.selectedCapabilityIds === null ||
@@ -489,6 +504,18 @@ export function QuickLaunchModal({
       await fetchCapabilitiesForAssessment(state.selectedAssessmentId);
     }
 
+    if (stepId === "assessment" && state.selectedAssessmentId) {
+      const key = `${state.selectedAssessmentId}:${effectiveClientId ?? 'platform'}`;
+      if (key !== state.referenceChoicesKey) {
+        try {
+          const choices = await getCampaignSetupReferenceChoices(state.selectedAssessmentId, effectiveClientId);
+          setState(s => ({ ...s, references: choices.references, referenceId: choices.defaultId, referenceChoicesKey: key }));
+        } catch (error) {
+          toast.error(getErrorMessage(error));
+          return;
+        }
+      }
+    }
     const idx = wizardSteps.findIndex((s) => s.id === stepId);
     const next = wizardSteps[idx + 1];
     if (next) {
@@ -549,6 +576,11 @@ export function QuickLaunchModal({
       if (addAssessmentResult?.error) {
         throw new Error(addAssessmentResult.error);
       }
+
+      const { getCampaignAssessmentId } = await import("@/app/actions/campaigns");
+      const campaignAssessmentId = await getCampaignAssessmentId(campaignId, state.selectedAssessmentId);
+      if (!campaignAssessmentId) throw new Error('Unable to load the attached assessment');
+      await setCampaignAssessmentReference({ campaignId, campaignAssessmentId, referenceId: state.referenceId });
 
       // Persist the reviewed recipients before activation and sending invitations.
       const notificationsResult = await updateCampaignConsultantSettings(campaignId, {
@@ -1143,6 +1175,13 @@ export function QuickLaunchModal({
             </div>
           )}
 
+          {stepId === "reference" && (
+            <div className="space-y-4">
+              <p className="font-medium">{selectedAssessment?.title}</p>
+              <p className="text-sm text-muted-foreground">Choose the comparison population for this campaign. The reference is fixed when you launch. Campaign managers can create other comparisons from completed assessments later.</p>
+              <ReferenceChooser references={state.references} value={state.referenceId} onChange={referenceId => setState(s => ({ ...s, referenceId }))} />
+            </div>
+          )}
           {stepId === "notifications" && (
             <NotificationsStep
               value={state.notifications}
@@ -1152,6 +1191,7 @@ export function QuickLaunchModal({
             />
           )}
 
+          {(stepId === "invite" || stepId === "raters") && <p className="rounded-lg border border-border bg-muted/30 p-3 text-sm"><span className="font-medium">Reporting reference: </span>{state.references.find(r => r.id === state.referenceId)?.name ?? 'Scale scores only'}{state.referenceId && <span className="block break-words text-caption text-muted-foreground">{state.references.find(r => r.id === state.referenceId)?.version}</span>}</p>}
           {stepId === "invite" && (
             <div className="space-y-4">
               <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">

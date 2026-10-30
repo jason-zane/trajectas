@@ -5,7 +5,7 @@ import { requireSessionAccess, canManageCampaign, assertIndividualResultsAccess 
 import { requireParticipantRuntimeSessionAccess } from '@/lib/auth/participant-runtime'
 import { IPIP_DATABASE } from '@/lib/instrument/ipip-neo-120/database-form'
 import { IPIP_ITEMS } from '@/lib/instrument/ipip-neo-120/definition'
-import { QUALITY_MODULE_VERSION, QUALITY_POLICY_VERSION, QUALITY_QUESTIONS, type QualityModuleForRunner, type QualityReviewDecision, type QualityStatus, type ResponseQualityDetail, type ResponseQualityResult } from '@/lib/instrument/ipip-neo-120/response-quality'
+import { QUALITY_MODULE_VERSION, INTEGRATED_QUALITY_MODULE_VERSION, INTEGRATED_QUALITY_QUESTIONS, QUALITY_POLICY_VERSION, QUALITY_QUESTIONS, type QualityModuleForRunner, type QualityReviewDecision, type QualityStatus, type ResponseQualityDetail, type ResponseQualityResult } from '@/lib/instrument/ipip-neo-120/response-quality'
 import { analyseResponseQuality } from '@/lib/scoring/response-quality'
 
 /** Internal boundary; caller has already authorised participant access or scoring. */
@@ -13,11 +13,14 @@ export async function readResponseQualityModule(db: SupabaseClient, sessionId: s
   const { data, error } = await db.from('session_response_quality_modules').select('module_version,questions,answers,revision').eq('session_id', sessionId).maybeSingle()
   if (error) throw new Error('Unable to load supplementary questions')
   if (!data) return null
-  const questions = data.questions as { id: string; stem: string }[]
+  const questions = data.questions as { id: string; stem: string; afterItem?: number }[]
+  const integrated = data.module_version === INTEGRATED_QUALITY_MODULE_VERSION
+  const expected = integrated ? INTEGRATED_QUALITY_QUESTIONS : QUALITY_QUESTIONS
   // jsonb key order is not preserved; field values and array order are frozen.
-  if (data.module_version !== QUALITY_MODULE_VERSION || !Array.isArray(questions) || questions.length !== QUALITY_QUESTIONS.length ||
-    QUALITY_QUESTIONS.some((question, i) => question.id !== questions[i]?.id || question.stem !== questions[i]?.stem)) throw new Error('Unsupported supplementary question version')
-  return { version: QUALITY_MODULE_VERSION, questions: questions.map(q => ({ id: q.id, stem: q.stem })), answers: data.answers as Record<string, number>, revision: Number(data.revision) }
+  if ((!integrated && data.module_version !== QUALITY_MODULE_VERSION) || !Array.isArray(questions) || questions.length !== expected.length ||
+    expected.some((question, i) => question.id !== questions[i]?.id || question.stem !== questions[i]?.stem ||
+      (integrated && INTEGRATED_QUALITY_QUESTIONS[i].afterItem !== questions[i]?.afterItem))) throw new Error('Unsupported supplementary question version')
+  return { version: integrated ? INTEGRATED_QUALITY_MODULE_VERSION : QUALITY_MODULE_VERSION, questions: questions.map(q => ({ id: q.id, stem: q.stem, ...(integrated ? { afterItem: q.afterItem } : {}) })), answers: data.answers as Record<string, number>, revision: Number(data.revision) }
 }
 
 export async function getParticipantQualityModule(token: string, sessionId: string) {

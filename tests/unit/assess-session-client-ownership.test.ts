@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   ownerUpdateError: false, insertRace: false, sessionLookups: 0,
   events: [] as string[],
   filters: [] as [string, unknown][],
+  signals: [] as AbortSignal[],
   participant: '10000000-0000-4000-8000-000000000001',
   campaign: '20000000-0000-4000-8000-000000000001',
   assessment: '30000000-0000-4000-8000-000000000001',
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({
   from(table: string) {
     let isInsert = false
+    let hasSignal = false
     const chain = {
       select: () => chain,
       eq: (column: string, value: unknown) => { if (table === 'participant_sessions') mocks.filters.push([column, value]); return chain },
@@ -25,7 +27,9 @@ vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({
         return chain
       },
       then: (resolve: (result: unknown) => unknown) => Promise.resolve({ error: mocks.ownerUpdateError ? { code: 'XX000' } : null }).then(resolve),
-      in: async () => ({ error: null }),
+      in: (column: string, value: unknown) => { if (table === 'participant_sessions') mocks.filters.push([column, value]); return chain },
+      abortSignal: (signal: AbortSignal) => { hasSignal = true; mocks.signals.push(signal); return chain },
+      maybeSingle: () => chain.single(),
       insert: (value: unknown) => { isInsert = true; mocks.inserted(value); return chain },
       single: async () => {
         if (table === 'campaigns') mocks.events.push('owner-read')
@@ -34,7 +38,7 @@ vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({
           campaign_participants: { id: mocks.participant, campaign_id: mocks.campaign, status: 'invited' },
           campaigns: { id: mocks.campaign, client_id: mocks.clientId, status: 'active' },
           campaign_assessments: { id: 'attachment' },
-          participant_sessions: isInsert ? { id: mocks.session } : mocks.insertRace && mocks.sessionLookups > 1 ? { id: mocks.session, client_id: null } : mocks.existingClientId === undefined ? null : { id: mocks.session, client_id: mocks.existingClientId },
+          participant_sessions: isInsert ? { id: mocks.session } : mocks.insertRace && mocks.sessionLookups > 1 && hasSignal ? { id: mocks.session, client_id: null } : mocks.existingClientId === undefined ? null : { id: mocks.session, client_id: mocks.existingClientId },
         }
         return { data: isInsert && mocks.insertRace ? null : rows[table], error: isInsert && mocks.insertRace ? { code: '23505' } : null }
       },
@@ -48,7 +52,7 @@ import { startSession } from '@/app/actions/assess'
 
 const token = 'a'.repeat(64)
 
-beforeEach(() => { mocks.clientId = '50000000-0000-4000-8000-000000000001'; mocks.existingClientId = undefined; mocks.ownerUpdateError = false; mocks.insertRace = false; mocks.sessionLookups = 0; mocks.events = []; mocks.filters = [] })
+beforeEach(() => { mocks.clientId = '50000000-0000-4000-8000-000000000001'; mocks.existingClientId = undefined; mocks.ownerUpdateError = false; mocks.insertRace = false; mocks.sessionLookups = 0; mocks.events = []; mocks.filters = []; mocks.signals = [] })
 
 describe('token assessment session ownership', () => {
   it('inherits the verified campaign client so tenant members can read its results', async () => {
@@ -103,6 +107,9 @@ describe('token assessment session ownership', () => {
     expect(await startSession(token, mocks.participant, mocks.assessment, mocks.campaign)).toEqual({ id: mocks.session })
     expect(mocks.updated).toHaveBeenCalledWith({ client_id: mocks.clientId })
     expect(mocks.sessionLookups).toBe(2)
+    expect(mocks.signals).toHaveLength(2)
+    expect(mocks.signals[0]).not.toBe(mocks.signals[1])
+    expect(mocks.filters).toEqual(expect.arrayContaining([['campaign_id', mocks.campaign], ['campaign_participant_id', mocks.participant], ['assessment_id', mocks.assessment], ['status', ['not_started', 'in_progress', 'completed']]]))
   })
 
 })

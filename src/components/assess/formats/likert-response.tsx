@@ -19,8 +19,8 @@ const GRID_COLS: Record<number, string> = {
 /**
  * Likert scale response format (dark-editorial re-skin).
  *
- * - Desktop (>=768px): CSS Grid with equal-width columns, all same height (min-h 62px)
- * - Mobile (<768px): vertical stack of full-width tap targets (min-h 46–54px)
+ * - Desktop (>=768px): equal-width columns, all the same height (min-h 72px)
+ * - Mobile (<768px): vertical stack of full-width tap targets (min-h 52px)
  * - Word labels only, 13–14px/500
  * - Ghost outline buttons (1px border, var(--runner-ghost-*) fill/border)
  * - Selected state flips to var(--runner-selected-*) with weight 600 + shadow
@@ -34,7 +34,7 @@ export function LikertResponse({
   const gridCols = GRID_COLS[options.length] ?? "md:grid-cols-5";
 
   return (
-    <div className={`grid grid-cols-1 gap-2 md:gap-3 ${gridCols}`}>
+    <div className={`grid grid-cols-1 gap-2 md:gap-3 ${gridCols}`} role="group" aria-label="Response options">
       {options.map((option) => {
         const isSelected = selectedValue === option.value;
         return (
@@ -43,12 +43,12 @@ export function LikertResponse({
             onClick={() => onSelect(option.value)}
             className="
               flex items-center justify-center text-center text-balance
-              leading-[1.15] transition-all duration-150 ease-out
+              leading-snug transition-colors duration-150 ease-out motion-reduce:transition-none
               focus-visible:outline-none focus-visible:ring-2
               focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--runner-page)]
               px-3 py-3 md:px-3 md:py-3
-              min-h-[46px] md:min-h-[68px] text-sm font-medium
-              active:scale-95
+              min-h-[52px] md:min-h-[72px] text-sm font-medium
+              disabled:cursor-wait
             "
             style={{
               borderRadius: "10px",
@@ -84,7 +84,7 @@ export function LikertResponse({
             }}
             aria-pressed={isSelected}
           >
-            {option.label}
+            <span>{option.label}</span>
           </button>
         );
       })}

@@ -42,9 +42,9 @@ describe('LikertResponse', () => {
     render(
       <LikertResponse options={FIVE_OPTIONS} selectedValue={3} onSelect={vi.fn()} />
     )
-    const neutral = screen.getByText('Neutral')
+    const neutral = screen.getByRole('button', { name: 'Neutral' })
     expect(neutral.getAttribute('aria-pressed')).toBe('true')
-    const agree = screen.getByText('Agree')
+    const agree = screen.getByRole('button', { name: /^Agree$/ })
     expect(agree.getAttribute('aria-pressed')).toBe('false')
   })
 

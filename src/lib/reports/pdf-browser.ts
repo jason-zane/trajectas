@@ -1,6 +1,25 @@
 import { existsSync } from 'node:fs'
 
-import type { Browser, LaunchOptions } from 'puppeteer-core'
+import type { Browser, LaunchOptions, Page } from 'puppeteer-core'
+import { previewDeploymentHeaders } from '@/lib/security/preview-deployment-access'
+
+/** Intercept per request so fonts, images and redirects to other origins never
+ * receive the Preview automation credential. */
+export async function configureReportPagePreviewAccess(page: Page) {
+  if (!Object.keys(previewDeploymentHeaders(process.env.ADMIN_APP_URL ?? '')).length) return
+  await page.setRequestInterception(true)
+  page.on('request', request => {
+    const headers = request.headers()
+    // Chromium may carry custom headers across a redirect. Remove any inherited
+    // credential before deciding whether this request's origin is trusted.
+    for (const key of Object.keys(headers)) {
+      if (key.toLowerCase() === 'x-vercel-protection-bypass') delete headers[key]
+    }
+    void request.continue({
+      headers: { ...headers, ...previewDeploymentHeaders(request.url()) },
+    }).catch(() => {})
+  })
+}
 
 const LOCAL_EXECUTABLE_ENV_VARS = [
   'PUPPETEER_EXECUTABLE_PATH',

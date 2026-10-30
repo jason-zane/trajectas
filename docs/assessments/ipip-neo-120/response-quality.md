@@ -1,5 +1,39 @@
 # Response-quality pilot
 
+## Current administration: integrated v2
+
+New, unanswered forms assigned after migration `20261030110000` freeze
+`trajectas-response-quality-v2`. The eight separately stored checks appear after
+canonical personality items 12, 27, 42, 57, 72, 87, 102 and 117. Native items keep
+their original relative order, IDs, response values, 55 reverse keys and scoring
+contract. The questionnaire has one 128-statement progress sequence, one Back
+control and one review/completion path. Each response check confirms earlier
+native saves before advancing. Failed saves offer retry/reload and cannot be skipped.
+
+The v2 presentation contract is `trajectas-first-person-v1`: prepend “I ” to each
+native sentence fragment and lowercase only its initial letter. For example,
+“Worry about things.” becomes “I worry about things.” No item is paraphrased.
+The shared prompt is “How accurately does this statement describe you as you
+generally are?” Native statements and checks use the five native accuracy
+anchors. The instructed-answer keys for v2 are Very Accurate (5) and Very
+Inaccurate (1). Original v1 agreement keys remain Agree (4) and Strongly disagree
+(1). The quality result records its actual module version; old answers are never recoded.
+
+This is a versioned administration change, not evidence of empirical equivalence
+to the historical administration. The review rules remain provisional. Native
+personality scores, reference distributions and report snapshots are independent
+of these checks. No automatic score adjustment or rejection is made.
+
+Existing v1 assignments retain the final-statements path documented below.
+Attempts without an assignment remain without one. The migration changes only
+future assignment and the supported-version constraint. It never updates a
+delivered form, module, answer, score or report.
+
+Deploy the v1/v2-compatible app before enabling the v2 assignment trigger.
+After the trigger is enabled, rollback must retain v2 reading and scoring support.
+
+## Legacy administration: separate v1 supplement
+
 The owner authorised this supplement on 30 October 2026. It is Trajectas-authored
 pilot material, not a published IPIP validity scale. The original 120 statements,
 order, accuracy anchors, 55 keys, native totals and display reversals are unchanged.

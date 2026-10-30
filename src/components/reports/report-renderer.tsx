@@ -1,6 +1,7 @@
 'use client'
 
 import { TrajectasLogo } from "@/components/brand/trajectas-logo";
+import { A4ReportFrame } from './a4-report-frame'
 
 import { useSearchParams } from 'next/navigation'
 import { CoverPageBlock } from './blocks/cover-page'
@@ -130,7 +131,9 @@ export function ReportRenderer({ blocks, className, onBlockSelect, selectedBlock
         className={className}
         style={brandTheme ? themeToStyle(brandTheme) : undefined}
       >
-        <Component data={data.payload} ctx={ctx} />
+        {slug === 'trajectas-personality-standard-v1' && !isPrint
+          ? <A4ReportFrame><Component data={data.payload} ctx={ctx} /></A4ReportFrame>
+          : <Component data={data.payload} ctx={ctx} />}
       </div>
     )
   }

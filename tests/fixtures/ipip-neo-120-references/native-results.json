@@ -1,0 +1,1869 @@
+{
+  "provenance": {
+    "assessmentCommit": "c8aa9fea1dd8f82aa54018e7d0d15ec14cecd627",
+    "scorerSha256": "71daaa4a144f57874392c458417fb092096d73841b53af6b4bed0a8525503cda",
+    "note": "Synthetic results executed through the unmodified scorer and definition at the pinned assessment commit. No respondent data."
+  },
+  "cases": [
+    {
+      "id": "all-midpoint",
+      "expectedDomainRawSums": {
+        "N": 72,
+        "E": 72,
+        "O": 72,
+        "A": 72,
+        "C": 72
+      },
+      "result": {
+        "instrumentId": "ipip-neo-120-johnson-2014",
+        "formVersion": "johnson-2014-table1-v1",
+        "scoringVersion": "ipip-neo-120-raw-v1",
+        "presentationVersion": "trajectas-personality-labels-v1",
+        "itemsetSha256": "0a1c55b136a3a6021cfaeb210931b61d19f4e0d5ced7787c6daf3228cfdd50e6",
+        "responseCount": 120,
+        "primaryMetric": "pomp",
+        "facets": {
+          "N1": {
+            "scientificName": "Anxiety",
+            "displayName": "Anxiety",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "N2": {
+            "scientificName": "Anger",
+            "displayName": "Irritability",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "N3": {
+            "scientificName": "Depression",
+            "displayName": "Discouragement",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "N4": {
+            "scientificName": "Self-Consciousness",
+            "displayName": "Social Confidence",
+            "direction": "reversed",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "N5": {
+            "scientificName": "Immoderation",
+            "displayName": "Indulgence",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "N6": {
+            "scientificName": "Vulnerability",
+            "displayName": "Stress Tolerance",
+            "direction": "reversed",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "E1": {
+            "scientificName": "Friendliness",
+            "displayName": "Friendliness",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "E2": {
+            "scientificName": "Gregariousness",
+            "displayName": "Sociability",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "E3": {
+            "scientificName": "Assertiveness",
+            "displayName": "Assertiveness",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "E4": {
+            "scientificName": "Activity Level",
+            "displayName": "Activity Level",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "E5": {
+            "scientificName": "Excitement-Seeking",
+            "displayName": "Excitement-Seeking",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "E6": {
+            "scientificName": "Cheerfulness",
+            "displayName": "Cheerfulness",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "O1": {
+            "scientificName": "Imagination",
+            "displayName": "Imagination",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "O2": {
+            "scientificName": "Artistic Interests",
+            "displayName": "Artistic Interests",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "O3": {
+            "scientificName": "Emotionality",
+            "displayName": "Emotional Sensitivity",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "O4": {
+            "scientificName": "Adventurousness",
+            "displayName": "Variety Seeking",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "O5": {
+            "scientificName": "Intellect",
+            "displayName": "Intellectual Curiosity",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "O6": {
+            "scientificName": "Liberalism",
+            "displayName": "Liberalism",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "A1": {
+            "scientificName": "Trust",
+            "displayName": "Trust",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "A2": {
+            "scientificName": "Morality",
+            "displayName": "Fairness",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "A3": {
+            "scientificName": "Altruism",
+            "displayName": "Helpfulness",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "A4": {
+            "scientificName": "Cooperation",
+            "displayName": "Cooperation",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "A5": {
+            "scientificName": "Modesty",
+            "displayName": "Modesty",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "A6": {
+            "scientificName": "Sympathy",
+            "displayName": "Compassion",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "C1": {
+            "scientificName": "Self-Efficacy",
+            "displayName": "Perceived Competence",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "C2": {
+            "scientificName": "Orderliness",
+            "displayName": "Orderliness",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "C3": {
+            "scientificName": "Dutifulness",
+            "displayName": "Dependability",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "C4": {
+            "scientificName": "Achievement-Striving",
+            "displayName": "Achievement Striving",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "C5": {
+            "scientificName": "Self-Discipline",
+            "displayName": "Self-Discipline",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "C6": {
+            "scientificName": "Cautiousness",
+            "displayName": "Deliberation",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          }
+        },
+        "dimensions": {
+          "N": {
+            "scientificName": "Neuroticism",
+            "displayName": "Emotional Reactivity",
+            "direction": "original",
+            "native": {
+              "rawSum": 72,
+              "itemsUsed": 24,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 72,
+              "itemsUsed": 24,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "E": {
+            "scientificName": "Extraversion",
+            "displayName": "Extraversion",
+            "direction": "original",
+            "native": {
+              "rawSum": 72,
+              "itemsUsed": 24,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 72,
+              "itemsUsed": 24,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "O": {
+            "scientificName": "Openness to Experience",
+            "displayName": "Openness",
+            "direction": "original",
+            "native": {
+              "rawSum": 72,
+              "itemsUsed": 24,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 72,
+              "itemsUsed": 24,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "A": {
+            "scientificName": "Agreeableness",
+            "displayName": "Agreeableness",
+            "direction": "original",
+            "native": {
+              "rawSum": 72,
+              "itemsUsed": 24,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 72,
+              "itemsUsed": 24,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "C": {
+            "scientificName": "Conscientiousness",
+            "displayName": "Conscientiousness",
+            "direction": "original",
+            "native": {
+              "rawSum": 72,
+              "itemsUsed": 24,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 72,
+              "itemsUsed": 24,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          }
+        },
+        "overallScore": null,
+        "normReference": null
+      }
+    },
+    {
+      "id": "all-very-inaccurate",
+      "expectedDomainRawSums": {
+        "N": 52,
+        "E": 48,
+        "O": 72,
+        "A": 92,
+        "C": 76
+      },
+      "result": {
+        "instrumentId": "ipip-neo-120-johnson-2014",
+        "formVersion": "johnson-2014-table1-v1",
+        "scoringVersion": "ipip-neo-120-raw-v1",
+        "presentationVersion": "trajectas-personality-labels-v1",
+        "itemsetSha256": "0a1c55b136a3a6021cfaeb210931b61d19f4e0d5ced7787c6daf3228cfdd50e6",
+        "responseCount": 120,
+        "primaryMetric": "pomp",
+        "facets": {
+          "N1": {
+            "scientificName": "Anxiety",
+            "displayName": "Anxiety",
+            "direction": "original",
+            "native": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            },
+            "display": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            }
+          },
+          "N2": {
+            "scientificName": "Anger",
+            "displayName": "Irritability",
+            "direction": "original",
+            "native": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            },
+            "display": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            }
+          },
+          "N3": {
+            "scientificName": "Depression",
+            "displayName": "Discouragement",
+            "direction": "original",
+            "native": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            },
+            "display": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            }
+          },
+          "N4": {
+            "scientificName": "Self-Consciousness",
+            "displayName": "Social Confidence",
+            "direction": "reversed",
+            "native": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            },
+            "display": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            }
+          },
+          "N5": {
+            "scientificName": "Immoderation",
+            "displayName": "Indulgence",
+            "direction": "original",
+            "native": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            },
+            "display": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            }
+          },
+          "N6": {
+            "scientificName": "Vulnerability",
+            "displayName": "Stress Tolerance",
+            "direction": "reversed",
+            "native": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            },
+            "display": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            }
+          },
+          "E1": {
+            "scientificName": "Friendliness",
+            "displayName": "Friendliness",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "E2": {
+            "scientificName": "Gregariousness",
+            "displayName": "Sociability",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "E3": {
+            "scientificName": "Assertiveness",
+            "displayName": "Assertiveness",
+            "direction": "original",
+            "native": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            },
+            "display": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            }
+          },
+          "E4": {
+            "scientificName": "Activity Level",
+            "displayName": "Activity Level",
+            "direction": "original",
+            "native": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            },
+            "display": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            }
+          },
+          "E5": {
+            "scientificName": "Excitement-Seeking",
+            "displayName": "Excitement-Seeking",
+            "direction": "original",
+            "native": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            },
+            "display": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            }
+          },
+          "E6": {
+            "scientificName": "Cheerfulness",
+            "displayName": "Cheerfulness",
+            "direction": "original",
+            "native": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            },
+            "display": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            }
+          },
+          "O1": {
+            "scientificName": "Imagination",
+            "displayName": "Imagination",
+            "direction": "original",
+            "native": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            },
+            "display": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            }
+          },
+          "O2": {
+            "scientificName": "Artistic Interests",
+            "displayName": "Artistic Interests",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "O3": {
+            "scientificName": "Emotionality",
+            "displayName": "Emotional Sensitivity",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "O4": {
+            "scientificName": "Adventurousness",
+            "displayName": "Variety Seeking",
+            "direction": "original",
+            "native": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            },
+            "display": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            }
+          },
+          "O5": {
+            "scientificName": "Intellect",
+            "displayName": "Intellectual Curiosity",
+            "direction": "original",
+            "native": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            },
+            "display": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            }
+          },
+          "O6": {
+            "scientificName": "Liberalism",
+            "displayName": "Liberalism",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "A1": {
+            "scientificName": "Trust",
+            "displayName": "Trust",
+            "direction": "original",
+            "native": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            },
+            "display": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            }
+          },
+          "A2": {
+            "scientificName": "Morality",
+            "displayName": "Fairness",
+            "direction": "original",
+            "native": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            },
+            "display": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            }
+          },
+          "A3": {
+            "scientificName": "Altruism",
+            "displayName": "Helpfulness",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "A4": {
+            "scientificName": "Cooperation",
+            "displayName": "Cooperation",
+            "direction": "original",
+            "native": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            },
+            "display": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            }
+          },
+          "A5": {
+            "scientificName": "Modesty",
+            "displayName": "Modesty",
+            "direction": "original",
+            "native": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            },
+            "display": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            }
+          },
+          "A6": {
+            "scientificName": "Sympathy",
+            "displayName": "Compassion",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "C1": {
+            "scientificName": "Self-Efficacy",
+            "displayName": "Perceived Competence",
+            "direction": "original",
+            "native": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            },
+            "display": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            }
+          },
+          "C2": {
+            "scientificName": "Orderliness",
+            "displayName": "Orderliness",
+            "direction": "original",
+            "native": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            },
+            "display": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            }
+          },
+          "C3": {
+            "scientificName": "Dutifulness",
+            "displayName": "Dependability",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "C4": {
+            "scientificName": "Achievement-Striving",
+            "displayName": "Achievement Striving",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "C5": {
+            "scientificName": "Self-Discipline",
+            "displayName": "Self-Discipline",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "C6": {
+            "scientificName": "Cautiousness",
+            "displayName": "Deliberation",
+            "direction": "original",
+            "native": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            },
+            "display": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            }
+          }
+        },
+        "dimensions": {
+          "N": {
+            "scientificName": "Neuroticism",
+            "displayName": "Emotional Reactivity",
+            "direction": "original",
+            "native": {
+              "rawSum": 52,
+              "itemsUsed": 24,
+              "itemMean": 2.1666666666666665,
+              "pomp": 29.166666666666668
+            },
+            "display": {
+              "rawSum": 52,
+              "itemsUsed": 24,
+              "itemMean": 2.1666666666666665,
+              "pomp": 29.166666666666668
+            }
+          },
+          "E": {
+            "scientificName": "Extraversion",
+            "displayName": "Extraversion",
+            "direction": "original",
+            "native": {
+              "rawSum": 48,
+              "itemsUsed": 24,
+              "itemMean": 2,
+              "pomp": 25
+            },
+            "display": {
+              "rawSum": 48,
+              "itemsUsed": 24,
+              "itemMean": 2,
+              "pomp": 25
+            }
+          },
+          "O": {
+            "scientificName": "Openness to Experience",
+            "displayName": "Openness",
+            "direction": "original",
+            "native": {
+              "rawSum": 72,
+              "itemsUsed": 24,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 72,
+              "itemsUsed": 24,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "A": {
+            "scientificName": "Agreeableness",
+            "displayName": "Agreeableness",
+            "direction": "original",
+            "native": {
+              "rawSum": 92,
+              "itemsUsed": 24,
+              "itemMean": 3.8333333333333335,
+              "pomp": 70.83333333333333
+            },
+            "display": {
+              "rawSum": 92,
+              "itemsUsed": 24,
+              "itemMean": 3.8333333333333335,
+              "pomp": 70.83333333333333
+            }
+          },
+          "C": {
+            "scientificName": "Conscientiousness",
+            "displayName": "Conscientiousness",
+            "direction": "original",
+            "native": {
+              "rawSum": 76,
+              "itemsUsed": 24,
+              "itemMean": 3.1666666666666665,
+              "pomp": 54.166666666666664
+            },
+            "display": {
+              "rawSum": 76,
+              "itemsUsed": 24,
+              "itemMean": 3.1666666666666665,
+              "pomp": 54.166666666666664
+            }
+          }
+        },
+        "overallScore": null,
+        "normReference": null
+      }
+    },
+    {
+      "id": "all-very-accurate",
+      "expectedDomainRawSums": {
+        "N": 92,
+        "E": 96,
+        "O": 72,
+        "A": 52,
+        "C": 68
+      },
+      "result": {
+        "instrumentId": "ipip-neo-120-johnson-2014",
+        "formVersion": "johnson-2014-table1-v1",
+        "scoringVersion": "ipip-neo-120-raw-v1",
+        "presentationVersion": "trajectas-personality-labels-v1",
+        "itemsetSha256": "0a1c55b136a3a6021cfaeb210931b61d19f4e0d5ced7787c6daf3228cfdd50e6",
+        "responseCount": 120,
+        "primaryMetric": "pomp",
+        "facets": {
+          "N1": {
+            "scientificName": "Anxiety",
+            "displayName": "Anxiety",
+            "direction": "original",
+            "native": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            },
+            "display": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            }
+          },
+          "N2": {
+            "scientificName": "Anger",
+            "displayName": "Irritability",
+            "direction": "original",
+            "native": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            },
+            "display": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            }
+          },
+          "N3": {
+            "scientificName": "Depression",
+            "displayName": "Discouragement",
+            "direction": "original",
+            "native": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            },
+            "display": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            }
+          },
+          "N4": {
+            "scientificName": "Self-Consciousness",
+            "displayName": "Social Confidence",
+            "direction": "reversed",
+            "native": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            },
+            "display": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            }
+          },
+          "N5": {
+            "scientificName": "Immoderation",
+            "displayName": "Indulgence",
+            "direction": "original",
+            "native": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            },
+            "display": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            }
+          },
+          "N6": {
+            "scientificName": "Vulnerability",
+            "displayName": "Stress Tolerance",
+            "direction": "reversed",
+            "native": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            },
+            "display": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            }
+          },
+          "E1": {
+            "scientificName": "Friendliness",
+            "displayName": "Friendliness",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "E2": {
+            "scientificName": "Gregariousness",
+            "displayName": "Sociability",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "E3": {
+            "scientificName": "Assertiveness",
+            "displayName": "Assertiveness",
+            "direction": "original",
+            "native": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            },
+            "display": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            }
+          },
+          "E4": {
+            "scientificName": "Activity Level",
+            "displayName": "Activity Level",
+            "direction": "original",
+            "native": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            },
+            "display": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            }
+          },
+          "E5": {
+            "scientificName": "Excitement-Seeking",
+            "displayName": "Excitement-Seeking",
+            "direction": "original",
+            "native": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            },
+            "display": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            }
+          },
+          "E6": {
+            "scientificName": "Cheerfulness",
+            "displayName": "Cheerfulness",
+            "direction": "original",
+            "native": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            },
+            "display": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            }
+          },
+          "O1": {
+            "scientificName": "Imagination",
+            "displayName": "Imagination",
+            "direction": "original",
+            "native": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            },
+            "display": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            }
+          },
+          "O2": {
+            "scientificName": "Artistic Interests",
+            "displayName": "Artistic Interests",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "O3": {
+            "scientificName": "Emotionality",
+            "displayName": "Emotional Sensitivity",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "O4": {
+            "scientificName": "Adventurousness",
+            "displayName": "Variety Seeking",
+            "direction": "original",
+            "native": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            },
+            "display": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            }
+          },
+          "O5": {
+            "scientificName": "Intellect",
+            "displayName": "Intellectual Curiosity",
+            "direction": "original",
+            "native": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            },
+            "display": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            }
+          },
+          "O6": {
+            "scientificName": "Liberalism",
+            "displayName": "Liberalism",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "A1": {
+            "scientificName": "Trust",
+            "displayName": "Trust",
+            "direction": "original",
+            "native": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            },
+            "display": {
+              "rawSum": 16,
+              "itemsUsed": 4,
+              "itemMean": 4,
+              "pomp": 75
+            }
+          },
+          "A2": {
+            "scientificName": "Morality",
+            "displayName": "Fairness",
+            "direction": "original",
+            "native": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            },
+            "display": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            }
+          },
+          "A3": {
+            "scientificName": "Altruism",
+            "displayName": "Helpfulness",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "A4": {
+            "scientificName": "Cooperation",
+            "displayName": "Cooperation",
+            "direction": "original",
+            "native": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            },
+            "display": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            }
+          },
+          "A5": {
+            "scientificName": "Modesty",
+            "displayName": "Modesty",
+            "direction": "original",
+            "native": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            },
+            "display": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            }
+          },
+          "A6": {
+            "scientificName": "Sympathy",
+            "displayName": "Compassion",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "C1": {
+            "scientificName": "Self-Efficacy",
+            "displayName": "Perceived Competence",
+            "direction": "original",
+            "native": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            },
+            "display": {
+              "rawSum": 20,
+              "itemsUsed": 4,
+              "itemMean": 5,
+              "pomp": 100
+            }
+          },
+          "C2": {
+            "scientificName": "Orderliness",
+            "displayName": "Orderliness",
+            "direction": "original",
+            "native": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            },
+            "display": {
+              "rawSum": 8,
+              "itemsUsed": 4,
+              "itemMean": 2,
+              "pomp": 25
+            }
+          },
+          "C3": {
+            "scientificName": "Dutifulness",
+            "displayName": "Dependability",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "C4": {
+            "scientificName": "Achievement-Striving",
+            "displayName": "Achievement Striving",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "C5": {
+            "scientificName": "Self-Discipline",
+            "displayName": "Self-Discipline",
+            "direction": "original",
+            "native": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 12,
+              "itemsUsed": 4,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "C6": {
+            "scientificName": "Cautiousness",
+            "displayName": "Deliberation",
+            "direction": "original",
+            "native": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            },
+            "display": {
+              "rawSum": 4,
+              "itemsUsed": 4,
+              "itemMean": 1,
+              "pomp": 0
+            }
+          }
+        },
+        "dimensions": {
+          "N": {
+            "scientificName": "Neuroticism",
+            "displayName": "Emotional Reactivity",
+            "direction": "original",
+            "native": {
+              "rawSum": 92,
+              "itemsUsed": 24,
+              "itemMean": 3.8333333333333335,
+              "pomp": 70.83333333333333
+            },
+            "display": {
+              "rawSum": 92,
+              "itemsUsed": 24,
+              "itemMean": 3.8333333333333335,
+              "pomp": 70.83333333333333
+            }
+          },
+          "E": {
+            "scientificName": "Extraversion",
+            "displayName": "Extraversion",
+            "direction": "original",
+            "native": {
+              "rawSum": 96,
+              "itemsUsed": 24,
+              "itemMean": 4,
+              "pomp": 75
+            },
+            "display": {
+              "rawSum": 96,
+              "itemsUsed": 24,
+              "itemMean": 4,
+              "pomp": 75
+            }
+          },
+          "O": {
+            "scientificName": "Openness to Experience",
+            "displayName": "Openness",
+            "direction": "original",
+            "native": {
+              "rawSum": 72,
+              "itemsUsed": 24,
+              "itemMean": 3,
+              "pomp": 50
+            },
+            "display": {
+              "rawSum": 72,
+              "itemsUsed": 24,
+              "itemMean": 3,
+              "pomp": 50
+            }
+          },
+          "A": {
+            "scientificName": "Agreeableness",
+            "displayName": "Agreeableness",
+            "direction": "original",
+            "native": {
+              "rawSum": 52,
+              "itemsUsed": 24,
+              "itemMean": 2.1666666666666665,
+              "pomp": 29.166666666666668
+            },
+            "display": {
+              "rawSum": 52,
+              "itemsUsed": 24,
+              "itemMean": 2.1666666666666665,
+              "pomp": 29.166666666666668
+            }
+          },
+          "C": {
+            "scientificName": "Conscientiousness",
+            "displayName": "Conscientiousness",
+            "direction": "original",
+            "native": {
+              "rawSum": 68,
+              "itemsUsed": 24,
+              "itemMean": 2.8333333333333335,
+              "pomp": 45.833333333333336
+            },
+            "display": {
+              "rawSum": 68,
+              "itemsUsed": 24,
+              "itemMean": 2.8333333333333335,
+              "pomp": 45.833333333333336
+            }
+          }
+        },
+        "overallScore": null,
+        "normReference": null
+      }
+    }
+  ]
+}

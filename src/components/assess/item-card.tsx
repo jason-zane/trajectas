@@ -25,7 +25,7 @@ interface ItemCardProps {
 
 /**
  * Single-item card for the assessment runner.
- * Renders the question stem as a serif display moment + response format.
+ * Gives the statement the primary visual weight above its response format.
  * Full-bleed surface; no card container.
  */
 export function ItemCard({
@@ -45,13 +45,8 @@ export function ItemCard({
 
   return (
     <div>
-      {/* Question stem — serif display moment.
-          Reserve a fixed band tall enough for three lines and bottom-align
-          the text within it, so short (1–2 line) and longer (3 line) stems
-          all occupy the same height. That keeps the total item block a
-          constant height, so the answer options below stay anchored in the
-          same place as the participant advances instead of jumping up and
-          down with each question's length. */}
+      {/* Reserve room for longer statements so the answer row stays steady.
+          The band can grow at narrow widths; question text is never clipped. */}
       {responseFormatType === "cognitive" ? (
         // The figural-matrix stem is one short instruction ("Which figure
         // completes the matrix?"), and the stimulus below it is tall. The
@@ -72,13 +67,12 @@ export function ItemCard({
           </p>
         </div>
       ) : (
-        <div className="mb-8 flex min-h-[8.5rem] items-end">
+        <div className="mb-6 flex min-h-32 items-center sm:mb-8 sm:min-h-40">
           <p
-            className="max-w-[620px] text-[33px] font-semibold leading-tight"
+            className="max-w-[720px] text-[32px] font-bold leading-[1.2] sm:text-[42px]"
             style={{
               color: "var(--runner-display)",
-              fontFamily: '"Source Serif 4", Georgia, serif',
-              letterSpacing: "-0.01em",
+              letterSpacing: "-0.025em",
             }}
           >
             {item.stem}
