@@ -44,13 +44,14 @@ export function ReferenceChooser({ references, value, onChange, disabled = false
     <p className="text-sm font-medium">Reporting reference</p>
     <ReferenceFilters references={eligible} filters={filters} onChange={setFilters} disabled={disabled} compact />
     <p role="status" className="text-caption text-muted-foreground tabular-nums">{visible.length} of {groups.length} norm groups</p>
-    <fieldset className="max-h-64 overflow-y-auto rounded-lg border border-border divide-y divide-border">
+    <fieldset className="space-y-3">
       <legend className="sr-only">Choose one reporting reference</legend>
+      {keptVisible.length > 0 && <div className="overflow-hidden rounded-lg border border-border"><p className="px-4 pt-3 text-caption font-medium text-muted-foreground">Selected or pinned reference · outside these filters</p>{keptVisible.map(r => <ReferenceChoice key={r.id} reference={r} {...choiceProps} />)}</div>}
+      <div className="max-h-64 overflow-y-auto rounded-lg border border-border divide-y divide-border">
       {allowScaleOnly && <label className="flex cursor-pointer items-start gap-3 p-3 hover:bg-muted/40">
         <input type="radio" name={name} value="none" checked={value === null} disabled={disabled} onChange={() => onChange(null)} className="mt-1 accent-primary" />
         <span><span className="block text-sm font-medium">Scale scores only</span><span className="text-caption text-muted-foreground">No norm comparison</span></span>
       </label>}
-      {keptVisible.length > 0 && <div><p className="px-4 pt-3 text-caption font-medium text-muted-foreground">Selected or pinned reference · outside these filters</p>{keptVisible.map(r => <ReferenceChoice key={r.id} reference={r} {...choiceProps} />)}</div>}
       {visible.map(group => {
         const primary = group.versions.find(r => r.id === value) ?? group.versions[0]
         const others = group.versions.filter(r => r.id !== primary.id)
@@ -60,6 +61,7 @@ export function ReferenceChooser({ references, value, onChange, disabled = false
         </div>
       })}
       {!visible.length && <EmptyState size="sm" title="No matching norm groups" description="Change the search or reset the filters to see more groups." className="border-0" />}
+      </div>
     </fieldset>
     {!references.some(r => r.status === 'active') && <p className="text-sm text-muted-foreground">No approved references are available for this assessment. Draft references remain in review.</p>}
     {value && !selected && <p role="alert" className="text-sm text-destructive">The selected reference is no longer available. Choose a compatible reference before generating a new report.</p>}
