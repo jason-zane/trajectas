@@ -7,7 +7,7 @@ export const REFERENCE_STATUS_LABELS = { draft: 'Draft', review: 'In review', ac
 
 const countryNames: Record<string, string> = {
   USA: 'United States', UK: 'United Kingdom', Afghanist: 'Afghanistan',
-  'New Zeala': 'New Zealand', 'South Afr': 'South Africa', Netherlan: 'Netherlands', Philippin: 'Philippines',
+  'New Zeala': 'New Zealand', 'South Afr': 'South Africa', 'South Kor': 'South Korea', Netherlan: 'Netherlands', Philippin: 'Philippines',
 }
 const countryAliases: Record<string, string> = {
   'United States': 'US USA America', 'United Kingdom': 'UK Britain',

@@ -40,6 +40,9 @@ describe('norm group catalog', () => {
     expect(matchesReferenceFilters(referenceOption(), { ...EMPTY_REFERENCE_FILTERS, search: 'US' })).toBe(false)
     const nz = referenceOption({ name: 'NZ cohort', countryLabels: ['New Zeala'] })
     expect(matchesReferenceFilters(nz, { ...EMPTY_REFERENCE_FILTERS, search: 'New Zealand' })).toBe(true)
+    const korea = referenceOption({ name: 'Korean cohort', countryLabels: ['South Kor'] })
+    expect(referenceFilterOptions([korea]).geography).toEqual([{ value: 'South Korea', label: 'South Korea' }])
+    expect(matchesReferenceFilters(korea, { ...EMPTY_REFERENCE_FILTERS, search: 'South Korea' })).toBe(true)
   })
 
   it('combines exact geography, age and weighting filters without treating age-weighted groups as country samples', () => {
