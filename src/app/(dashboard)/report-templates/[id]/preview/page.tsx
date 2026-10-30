@@ -46,15 +46,16 @@ export default async function PreviewPage({ params, searchParams }: Props) {
     previewEntities,
     template.name,
     scheme,
+    template.customReportSlug,
   )
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-16">
+    <div className={`${template.customReportSlug ? 'max-w-4xl' : 'max-w-3xl'} mx-auto space-y-6 pb-16`}>
       <PageHeader
         eyebrow="Report templates"
         title={template.name}
         description={
-          selectedAssessment
+          selectedAssessment && !template.customReportSlug
             ? `Preview — sample data for ${selectedAssessment.title}`
             : 'Preview'
         }

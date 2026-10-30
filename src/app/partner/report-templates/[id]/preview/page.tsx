@@ -4,8 +4,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getReportTemplate } from "@/app/actions/reports";
 import { ReportRenderer } from "@/components/reports/report-renderer";
-import { DEFAULT_REPORT_THEME } from "@/lib/reports/presentation";
-import { generateSampleData } from "@/lib/reports/sample-data";
+import { buildTemplatePreviewBlocks } from '@/lib/reports/preview'
 
 export default async function PartnerReportTemplatePreviewPage({
   params,
@@ -19,9 +18,9 @@ export default async function PartnerReportTemplatePreviewPage({
 
   if (!template) notFound();
 
-  const sampleBlocks = generateSampleData(
+  const sampleBlocks = buildTemplatePreviewBlocks(
     template.blocks as Record<string, unknown>[],
-    DEFAULT_REPORT_THEME,
+    [], template.name, undefined, template.customReportSlug,
   );
 
   return (
