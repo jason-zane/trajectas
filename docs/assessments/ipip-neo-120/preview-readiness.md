@@ -90,13 +90,23 @@ The dedicated branch's build guard rejects missing/unsafe mapping or settings
 without printing values. It also refuses Production for this dedicated target.
 Ordinary local/CI builds and unrelated deployments are unaffected.
 
-The first attempt to set these branch-scoped values was **rejected by automatic
-approval review** because specific sensitive signing values and database
-configuration required explicit destination approval. No alternative route was
-used. The separate attempt to apply the compatible reference expansion to hosted
-Dev was also rejected because exact live DDL and target approval were required.
-No hosted schema/configuration writes were executed. Obtain approval for the
-identified SQL/target and scoped Preview settings before retrying either action.
+The initial configuration and DDL attempts were rejected by automatic approval
+review and were left blocked. Jason subsequently explicitly approved the Dev
+rollout in the consolidation chat on 30 October. The approved migrations are now
+recorded in Dev as `20261030022823` (reference expansion), `20261030022842`
+(standard delivery), and `20261030025312` (edition contract). All five aliases
+were moved to the edition-aware app before the contract; Dev had zero sessions
+and reports at that point. The 41 source references are drafts and only the two
+synthetic references are active. The standard template is active, assigned as the
+assessment default and retains `auto_release=false`.
+
+Protected Preview report triggers and Chromium print requests use Vercel's
+automation system variable. Requests attach it only to the configured HTTPS
+admin `vercel.app` origin, and strip inherited credentials from other browser
+requests. Application report authorization and signed print tokens still apply.
+The dedicated build refuses missing automation access. Modern Supabase public
+and server keys are verified directly against Dev during the build; the inherited
+server key stays private inside Vercel.
 
 ## Reviewed SQL identity
 
@@ -127,7 +137,8 @@ recorded with the integration PR. Strict adapter/orientation, presentation write
 access, stale-editor protection and Preview environment guards are automated.
 Both prepared private import/setup SQL files passed a rollback-only local transaction
 (41 source drafts, two active synthetic choices and standard-template activation).
-Hosted acceptance and a database/object restore rehearsal remain unrun.
+Hosted acceptance results are retained with the integration handover and PR for
+the final deployed commit. A database/object restore rehearsal remains unrun.
 
 `tests/e2e/seeded/personality-report-journey.spec.ts` covers the complete path. The browser test creates
 a campaign and configures its assessment/reference/report through the UI, enrols

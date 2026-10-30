@@ -27,6 +27,7 @@ export function assertPersonalityPreviewEnvironment(env: PreviewEnvironment) {
     } catch { fail(`a verified development ${key}`) }
   }
   for (const key of ['TRAJECTAS_CONTEXT_SECRET','REPORT_ACCESS_TOKEN_SECRET','REPORT_PDF_TOKEN_SECRET','INTERNAL_API_KEY','CRON_SECRET']) if ((env[key]?.length ?? 0) < 32) fail(`dedicated ${key}`)
+  if (!env.VERCEL_AUTOMATION_BYPASS_SECRET) fail('Vercel automation access for report generation and printing')
   const hosts = ['PUBLIC_APP_URL','ADMIN_APP_URL','ASSESS_APP_URL','PARTNER_APP_URL','CLIENT_APP_URL'].map(key => {
     try { const url = new URL(env[key] ?? ''); if (url.protocol !== 'https:' || !url.hostname.endsWith('.vercel.app')) fail(`an isolated ${key}`); return url.host }
     catch { return fail(`an isolated ${key}`) }

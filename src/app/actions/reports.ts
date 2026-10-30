@@ -39,6 +39,7 @@ import { isSchemeValid } from '@/lib/reports/band-scheme-validation'
 import { resolveTemplateBandScheme } from '@/lib/reports/resolve-template-band-scheme'
 import { sendHtmlEmail } from '@/lib/email/provider'
 import { buildSurfaceUrl, requireAppUrl } from '@/lib/hosts'
+import { previewDeploymentHeaders } from '@/lib/security/preview-deployment-access'
 import {
   mapReportTemplateRow,
   mapReportSnapshotRow,
@@ -1421,9 +1422,11 @@ export async function retrySnapshot(id: string): Promise<void> {
   // Kick the runner
   await fetch(`${requireAppUrl('admin')}/api/reports/generate`, {
     method: 'POST',
+    redirect: 'error',
     headers: {
       'Content-Type': 'application/json',
       'x-internal-key': process.env.INTERNAL_API_KEY ?? '',
+      ...previewDeploymentHeaders(`${requireAppUrl('admin')}/api/reports/generate`),
     },
     body: JSON.stringify({ snapshotId: id }),
   })
@@ -1450,9 +1453,11 @@ export async function regenerateSnapshot(id: string): Promise<void> {
   // Kick the runner
   await fetch(`${requireAppUrl('admin')}/api/reports/generate`, {
     method: 'POST',
+    redirect: 'error',
     headers: {
       'Content-Type': 'application/json',
       'x-internal-key': process.env.INTERNAL_API_KEY ?? '',
+      ...previewDeploymentHeaders(`${requireAppUrl('admin')}/api/reports/generate`),
     },
     body: JSON.stringify({ snapshotId: id }),
   })

@@ -7,6 +7,7 @@ import { selectIpipReportTemplateIds } from '@/lib/reports/personality-template-
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActionError } from '@/lib/security/action-errors'
 import { requireAppUrl } from '@/lib/hosts'
+import { previewDeploymentHeaders } from '@/lib/security/preview-deployment-access'
 import { reportError } from '@/lib/observability/report-error'
 import { scoreSession } from '@/lib/scoring/dispatch'
 import { PARTICIPANT_COMPLETABLE_STATUSES } from '@/lib/assess/participant-status'
@@ -632,9 +633,11 @@ async function triggerReportGeneration(
     const appUrl = requireAppUrl('admin')
     const response = await fetch(`${appUrl}/api/reports/generate`, {
       method: 'POST',
+      redirect: 'error',
       headers: {
         'Content-Type': 'application/json',
         'x-internal-key': apiKey,
+        ...previewDeploymentHeaders(`${appUrl}/api/reports/generate`),
       },
       body: JSON.stringify({ sessionId }),
       // Trigger failure is non-fatal (the sweep cron is the safety net), so
