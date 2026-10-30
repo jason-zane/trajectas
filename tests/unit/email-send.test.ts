@@ -123,6 +123,7 @@ describe('sendEmail', () => {
     // subject should have {{brandName}} substituted
     expect(sendCall.subject).toBe('Sign in to Acme Corp')
     expect(sendCall.to).toBe('user@example.com')
+    expect(sendCall.purpose).toBe('staff_auth')
     expect(sendCall.html).toBe('<html>Final</html>')
     expect(sendCall.text).toBe('Final text')
   })

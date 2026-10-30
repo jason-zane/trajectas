@@ -82,9 +82,15 @@ Required target marker: `TRAJECTAS_PERSONALITY_PREVIEW_TARGET=bgrvqvtlhmfmvcytnc
 Browser/server database mapping must both identify Dev. The existing owner-added
 Preview development server key is inherited without reading/copying its value.
 Use dedicated signing material and separate surface hosts, leave cookie domains
-unset, disable deployed auth bypass, and disable Stripe/AI/outbound app mail and
-external integrations for this synthetic test. Supabase's own Dev OTP mail is
-independent of the app's outbound-mail provider.
+unset, disable deployed auth bypass, and disable Stripe/AI and external
+integrations for this synthetic test. Staff OTPs use Supabase code generation
+and the app's Resend sender. Keep the existing Preview sender inherited without
+reading/copying its key. The dedicated Preview mail policy permits only the
+single-recipient staff OTP template and blocks campaign/report/other mail before
+calling the provider. The build refuses a missing mail key. An earlier blank
+override prevented staff codes; it was removed after the owner reported the
+failure, and the mistaken assumption about independent Supabase delivery was
+corrected.
 
 The dedicated branch's build guard rejects missing/unsafe mapping or settings
 without printing values. It also refuses Production for this dedicated target.

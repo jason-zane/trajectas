@@ -34,7 +34,8 @@ export function assertPersonalityPreviewEnvironment(env: PreviewEnvironment) {
   })
   if (new Set(hosts).size !== 5) fail('five separate Preview surface hosts')
   if (env.COOKIE_DOMAIN || env.NEXT_PUBLIC_COOKIE_DOMAIN || env.TRAJECTAS_ALLOW_DEV_BYPASS) fail('isolated session cookies and deployed authentication')
-  for (const key of ['STRIPE_SECRET_KEY','STRIPE_WEBHOOK_SECRET','OpenRouter_API_KEY','OPENROUTER_MANAGEMENT_KEY','RESEND_API_KEY']) if (env[key]) fail(`disabled ${key} during synthetic acceptance`)
+  if (!env.RESEND_API_KEY) fail('staff sign-in mail delivery through the existing Preview sender')
+  for (const key of ['STRIPE_SECRET_KEY','STRIPE_WEBHOOK_SECRET','OpenRouter_API_KEY','OPENROUTER_MANAGEMENT_KEY']) if (env[key]) fail(`disabled ${key} during synthetic acceptance`)
   if (env.INTERNAL_INTEGRATIONS_API_ENABLED !== 'false') fail('disabled external integrations')
 }
 
