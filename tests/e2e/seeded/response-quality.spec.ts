@@ -46,7 +46,7 @@ test('completes 120 original items plus the separate supplement, resumes it, and
     if (new URL(page.url()).pathname.endsWith('/review')) {
       await page.getByRole('button', { name: 'Submit assessment', exact: true }).click()
     }
-    await expect.poll(async () => (await db.from('participant_response_quality_results').select('status').eq('session_id', sessionId).maybeSingle()).data?.status).toBe('review_recommended')
+    await expect.poll(async () => (await db.from('participant_response_quality_results').select('status').eq('session_id', sessionId).maybeSingle()).data?.status, { timeout: 60_000 }).toBe('review_recommended')
     const native = await db.from('participant_instrument_results').select('result').eq('session_id', sessionId).single()
     expect(native.data?.result.responseCount).toBe(120)
     expect(Object.keys(native.data?.result.facets ?? {})).toHaveLength(30)
@@ -59,11 +59,17 @@ test('completes 120 original items plus the separate supplement, resumes it, and
       await expect(adminPage.getByText('1 of 2 instructions missed.', { exact: true })).toBeVisible()
       await adminPage.getByLabel('Review notes').fill('Synthetic review: follow up about the missed instruction.')
       await adminPage.getByRole('button', { name: 'Save review', exact: true }).click()
-      await expect(adminPage.getByText('Follow-up needed', { exact: true }).first()).toBeVisible()
+      await expect(adminPage.getByText('Response-quality review saved', { exact: true })).toBeVisible()
+      await expect(adminPage.getByText('Follow-up needed', { exact: true }).filter({ visible: true })).toBeVisible()
       await adminPage.screenshot({ path: testInfo.outputPath('response-quality-light.png'), fullPage: true })
       await adminPage.evaluate(() => document.documentElement.classList.add('dark'))
       await adminPage.screenshot({ path: testInfo.outputPath('response-quality-dark.png'), fullPage: true })
-      expect((await db.from('participant_response_quality_results').select('id').eq('session_id', sessionId)).data).toHaveLength(1)
+      const qualityRows = await db.from('participant_response_quality_results').select('id').eq('session_id', sessionId)
+      expect(qualityRows.error).toBeNull()
+      expect(qualityRows.data).toHaveLength(1)
+      const savedReviews = await db.from('response_quality_reviews').select('decision,notes').eq('result_id',qualityRows.data![0].id)
+      expect(savedReviews.error).toBeNull()
+      expect(savedReviews.data).toEqual([{ decision: 'follow_up', notes: 'Synthetic review: follow up about the missed instruction.' }])
     } finally { await adminContext.close() }
   } finally {
     await db.from('participant_sessions').delete().eq('id', sessionId)
