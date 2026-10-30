@@ -131,7 +131,8 @@ Hosted acceptance and a database/object restore rehearsal remain unrun.
 
 `tests/e2e/seeded/personality-report-journey.spec.ts` covers the complete path. The browser test creates
 a campaign and configures its assessment/reference/report through the UI, enrols
-a synthetic participant, answers all 120 original questions plus eight separate
+a synthetic participant, starts a new session through the welcome link, answers
+all 120 original questions plus eight separate
 supplementary statements, resumes, completes, downloads a nine-page standard PDF,
 then creates/downloads a different-norm edition while proving the first snapshot
 and native scores unchanged. Its privileged fixture/auth helpers refuse hosted

@@ -17,7 +17,8 @@ test('creates a campaign, completes a fresh profile, downloads standard PDFs and
   test.setTimeout(300_000)
   const db = createSeededServiceClient()
   const tag = `personality-journey-${randomUUID().slice(0, 8)}`
-  const clientId = randomUUID(), templateId = randomUUID(), sessionId = randomUUID(), participantId = randomUUID()
+  const clientId = randomUUID(), templateId = randomUUID(), participantId = randomUUID()
+  let sessionId = ''
   const email = `${tag}@example.test`, actorPath = resolve(process.cwd(), 'tests/e2e/seeded/.auth', `${tag}.json`)
   let campaignId = '', actorId = ''
   const insert = async (table: string, row: Record<string, unknown>) => { const result = await db.from(table).insert(row); if (result.error) throw new Error(`${table}: ${result.error.message}`) }
@@ -74,15 +75,19 @@ test('creates a campaign, completes a fresh profile, downloads standard PDFs and
     await expect(page.getByText('Template added', { exact: true })).toBeVisible()
     // Only enrolment is a fixture; the fresh form, every answer and submission use the UI.
     const token = `synthetic-personality-${randomUUID()}`
-    await insert('campaign_participants', { id: participantId, campaign_id: campaignId, email: `${tag}-participant@example.test`, first_name: 'Synthetic', last_name: 'Personality', access_token: token, status: 'in_progress' })
+    await insert('campaign_participants', { id: participantId, campaign_id: campaignId, email: `${tag}-participant@example.test`, first_name: 'Synthetic', last_name: 'Personality', access_token: token, status: 'invited' })
     await page.goto(`/campaigns/${campaignId}/overview`)
     await page.getByRole('button', { name: 'Activate', exact: true }).click()
     await expect(page.getByRole('dialog').getByText(`SYNTHETIC A ${tag}`, { exact: false })).toBeVisible()
     await page.getByRole('button', { name: 'Activate campaign', exact: true }).click()
     await expect(page.getByText('Campaign activated', { exact: true })).toBeVisible()
-    await insert('participant_sessions', { id: sessionId, campaign_id: campaignId, campaign_participant_id: participantId, client_id: clientId, assessment_id: ids.assessmentId, status: 'in_progress', is_internal: true })
     const respondent = await participant.newPage()
-    await respondent.goto(`/assess/${token}/section/0`)
+    await respondent.goto(`/assess/${token}`)
+    await respondent.getByRole('link', { name: /^Begin assessment$/i }).click()
+    await expect(respondent.getByText(manifest.items[0].stem, { exact: true })).toBeVisible()
+    const started = check(await db.from('participant_sessions').select('id,client_id').eq('campaign_participant_id',participantId).eq('assessment_id',ids.assessmentId).single()).data!
+    sessionId = started.id
+    expect(started.client_id).toBe(clientId)
     const anchors = ['Very Inaccurate','Moderately Inaccurate','Neither Inaccurate nor Accurate','Moderately Accurate','Very Accurate']
     for (const [i,item] of manifest.items.entries()) {
       await expect(respondent.getByText(item.stem, { exact: true })).toBeVisible()
