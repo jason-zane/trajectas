@@ -1,4 +1,6 @@
 import 'server-only'
+import { isPersonalityReferenceReport } from '@/lib/reports/personality-reference-templates'
+import { randomUUID } from 'node:crypto'
 import { IPIP_DATABASE } from '@/lib/instrument/ipip-neo-120/database-form'
 import { selectIpipReportTemplateIds } from '@/lib/reports/personality-template-selection'
 
@@ -137,6 +139,7 @@ async function ensureReportSnapshotsForSession(input: {
   // Final pass: keep only active, non-deleted templates so a stale link doesn't
   // produce an unrunnable snapshot.
   let desiredTemplateIds: string[] = []
+  const referenceTemplateIds = new Set<string>()
   if (desiredIds.size > 0) {
     const { data: liveTemplates, error: liveTemplatesError } = await db
       .from('report_templates')
@@ -150,6 +153,7 @@ async function ensureReportSnapshotsForSession(input: {
       return { error: 'Unable to load this campaign report configuration' }
     }
     if (isIpip) {
+      for (const row of (liveTemplates ?? []) as unknown as { id: string; custom_report_slug?: string | null }[]) if (isPersonalityReferenceReport(row.custom_report_slug)) referenceTemplateIds.add(row.id)
       const { CUSTOM_REPORTS } = await import('@/lib/reports/custom')
       desiredTemplateIds = selectIpipReportTemplateIds(
         (liveTemplates ?? []) as unknown as { id: string; custom_report_slug?: string | null }[], CUSTOM_REPORTS,
@@ -173,6 +177,7 @@ async function ensureReportSnapshotsForSession(input: {
     .from('report_snapshots')
     .select('id, template_id, status')
     .eq('participant_session_id', input.sessionId)
+    .eq('edition_number', 1)
 
   if (existingError) {
     logActionError('submitSession.reportSnapshots.fetch', existingError)
@@ -184,6 +189,12 @@ async function ensureReportSnapshotsForSession(input: {
     existingByTemplate.set(row.template_id, row)
   }
 
+  let campaignReferenceId: string | null = null
+  if (isIpip && referenceTemplateIds.size) {
+    const { data: linked, error: referenceError } = await db.from('campaign_assessments').select('reference_version_id').eq('campaign_id', input.campaignId).eq('assessment_id', assessmentId).is('deleted_at', null).maybeSingle()
+    if (referenceError) return { error: 'Unable to load the campaign reference' }
+    campaignReferenceId = linked?.reference_version_id ?? null
+  }
   let hasPendingSnapshotWork = false
   let firstSnapshotStatus: ReportSnapshotStatus | null = null
 
@@ -191,15 +202,17 @@ async function ensureReportSnapshotsForSession(input: {
     const existing = existingByTemplate.get(templateId)
 
     if (!existing) {
-      const { error: insertError } = await db
-        .from('report_snapshots')
-        .upsert({
+      const result = referenceTemplateIds.has(templateId)
+        ? await db.rpc('enqueue_reference_report', { p_session_id: input.sessionId, p_template_id: templateId, p_reference_id: campaignReferenceId, p_request_id: randomUUID(), p_automatic: true })
+        : await db.from('report_snapshots').upsert({
           campaign_id: input.campaignId,
           participant_session_id: input.sessionId,
+          edition_number: 1,
           template_id: templateId,
           narrative_mode: 'derived',
           status: 'pending',
-        }, { onConflict: 'participant_session_id,template_id', ignoreDuplicates: true })
+        }, { onConflict: 'participant_session_id,template_id,edition_number', ignoreDuplicates: true })
+      const insertError = result.error
 
       if (insertError) {
         logActionError('submitSession.reportSnapshots.insert', insertError)

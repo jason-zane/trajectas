@@ -1237,7 +1237,7 @@ export async function getParticipantReportSnapshot(
   if (snapshotId) {
     query = query.eq('id', snapshotId)
   } else {
-    query = query.limit(1)
+    query = query.eq('participant_selected', true).limit(1)
   }
 
   const { data, error } = await query.maybeSingle()

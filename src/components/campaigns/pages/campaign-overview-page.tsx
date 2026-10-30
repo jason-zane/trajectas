@@ -1,3 +1,4 @@
+import { getCampaignReferenceSettings } from '@/lib/dal/norm-references';
 import { Suspense } from "react";
 import {
   Users,
@@ -216,8 +217,7 @@ export async function CampaignOverviewPageComponent({
   campaignId,
   includeStatsSuspense = false,
 }: CampaignOverviewPageProps) {
-  // Fetch header only in the shared component to render actions immediately
-  const campaign = await getCampaignById(campaignId);
+  const [campaign, referenceSettings] = await Promise.all([getCampaignById(campaignId), getCampaignReferenceSettings(campaignId)]);
   if (!campaign) notFound();
 
   return (
@@ -226,6 +226,7 @@ export async function CampaignOverviewPageComponent({
       <CampaignStatusActions
         campaignId={campaign.id}
         campaignTitle={campaign.title}
+        references={referenceSettings.assessments.map(a => ({ assessment: a.title, reference: a.references.find(r => r.id === a.referenceVersionId)?.name ?? (a.referenceVersionId ? 'Selected reference unavailable' : 'Scale scores only') }))}
         status={campaign.status}
         assessmentCount={campaign.assessments.length}
         pendingInviteCount={

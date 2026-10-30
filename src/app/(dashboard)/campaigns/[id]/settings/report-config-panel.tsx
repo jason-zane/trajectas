@@ -116,7 +116,7 @@ export function ReportConfigPanel({ campaignId, assignedTemplates: initial, allT
           <div className="flex-1">
             <Select value={selectedTemplateId} onValueChange={(v) => { if (v) setSelectedTemplateId(v) }}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Choose a template…" />
+                <SelectValue placeholder="Choose a template…">{available.find(t => t.id === selectedTemplateId)?.name}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {available.map((t) => (
@@ -125,7 +125,7 @@ export function ReportConfigPanel({ campaignId, assignedTemplates: initial, allT
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleAdd} disabled={isPending || !selectedTemplateId} size="sm">
+          <Button aria-label="Add report template" onClick={handleAdd} disabled={isPending || !selectedTemplateId} size="sm">
             <Plus className="size-4" />
             Add
           </Button>

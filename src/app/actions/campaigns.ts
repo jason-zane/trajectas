@@ -1,5 +1,7 @@
 'use server'
 
+import { getAssessmentReferenceDefault } from '@/lib/dal/norm-references'
+
 import { PUBLIC_BUILDS_SYSTEM_SCOPE } from '@/lib/public-builds/constants'
 import { requireWorkspaceFeature, isWorkspaceFeatureEnabled } from '@/lib/features/access'
 
@@ -373,7 +375,7 @@ export async function duplicateCampaignForReuse(sourceCampaignId: string) {
         .single(),
       db
         .from('campaign_assessments')
-        .select('id, assessment_id, display_order, is_required, intro_override')
+        .select('id, assessment_id, display_order, is_required, intro_override, reference_version_id')
         .eq('campaign_id', sourceCampaignId)
         .is('deleted_at', null)
         .order('display_order', { ascending: true }),
@@ -455,6 +457,7 @@ export async function duplicateCampaignForReuse(sourceCampaignId: string) {
             display_order: assessment.display_order,
             is_required: assessment.is_required ?? true,
             intro_override: assessment.intro_override ?? null,
+            reference_version_id: assessment.reference_version_id ?? null,
           })),
         )
         .select('id, assessment_id, display_order')
@@ -836,6 +839,9 @@ export async function activateCampaign(id: string) {
     return { error: 'Campaign must have at least one assessment before activation.' }
   }
 
+  const { error: referenceReadinessError } = await db.rpc('validate_campaign_references', { p_campaign_id: id })
+  if (referenceReadinessError) return { error: referenceReadinessError.message }
+
   // Every linked assessment must be active — a draft attached before this
   // guard existed (or unpublished since) must not go live with the campaign.
   const { data: linkedStatuses, error: linkedStatusesError } = await db
@@ -1214,6 +1220,7 @@ export async function addAssessmentToCampaign(
     .insert({
       campaign_id: campaignId,
       assessment_id: assessmentId,
+      reference_version_id: await getAssessmentReferenceDefault(assessmentId, access.clientId),
       display_order: nextOrder,
     })
 

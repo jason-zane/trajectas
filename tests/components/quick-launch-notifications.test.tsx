@@ -4,16 +4,18 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const calls = vi.hoisted(() => ({ create: vi.fn(), settings: vi.fn(), activate: vi.fn(), remove: vi.fn(), error: vi.fn(), push: vi.fn() }))
+const calls = vi.hoisted(() => ({ create: vi.fn(), settings: vi.fn(), activate: vi.fn(), remove: vi.fn(), error: vi.fn(), push: vi.fn(), reference: vi.fn() }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: calls.push, refresh: vi.fn() }) }))
 vi.mock('sonner', () => ({ toast: { error: calls.error, success: vi.fn() } }))
 vi.mock('@/app/actions/campaigns', () => ({
   createCampaign: calls.create, updateCampaignConsultantSettings: calls.settings,
   activateCampaign: calls.activate, deleteCampaign: calls.remove,
+  getCampaignAssessmentId: async () => 'campaign-assessment',
   addAssessmentToCampaign: async () => ({ success: true }),
   createAccessLink: async () => ({ token: 'access-token' }),
   duplicateCampaignForReuse: vi.fn(), bulkInviteParticipants: vi.fn(), inviteParticipant: vi.fn(), sendParticipantInviteEmails: vi.fn(),
 }))
+vi.mock('@/app/actions/norm-references', () => ({ getCampaignSetupReferenceChoices: async () => ({ references: [], defaultId: null }), setCampaignAssessmentReference: calls.reference }))
 vi.mock('@/app/actions/factor-selection', () => ({ getFactorsForAssessment: async () => [], saveFactorSelection: vi.fn() }))
 vi.mock('@/app/actions/item-selection-rules', () => ({ getItemSelectionRulesForEstimate: async () => [] }))
 vi.mock('@/app/actions/raters', () => ({ addRater: vi.fn(), markApprovedRatersInvited: vi.fn() }))
@@ -47,6 +49,8 @@ async function reachNotifications() {
   await user.click(screen.getByRole('button', { name: 'Next' }))
   await user.click(screen.getByRole('button', { name: /Leadership/ }))
   await user.click(screen.getByRole('button', { name: 'Next' }))
+  expect(screen.getByRole('radio', { name: /Scale scores only/ })).toBeChecked()
+  await user.click(screen.getByRole('button', { name: 'Next' }))
   return user
 }
 
@@ -61,6 +65,8 @@ describe('quick launch completion notifications', () => {
     await user.click(screen.getByRole('button', { name: 'Next' }))
     await user.click(screen.getByRole('button', { name: 'Launch' }))
     await waitFor(() => expect(calls.activate).toHaveBeenCalledOnce())
+    expect(calls.reference).toHaveBeenCalledWith({ campaignId: 'campaign', campaignAssessmentId: 'campaign-assessment', referenceId: null })
+    expect(calls.reference.mock.invocationCallOrder[0]).toBeLessThan(calls.activate.mock.invocationCallOrder[0])
     expect(calls.settings).toHaveBeenCalledWith('campaign', expect.objectContaining({ emails: ['consultant@example.com'], enabled: true }))
   })
   it('requires a recipient when completion notifications are enabled', async () => {

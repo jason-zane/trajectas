@@ -1,3 +1,5 @@
+import { ReferenceStatusNotice } from '@/components/reports/reference-status-notice'
+import { requireReportSnapshotReadAccess, canManageCampaign } from '@/lib/auth/authorization'
 import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from 'next/navigation'
@@ -16,8 +18,14 @@ export default async function ClientReportViewerPage({ params }: Props) {
 
   const { snapshotId } = await params
   const snapshot = await getReportSnapshot(snapshotId)
-  if (!snapshot || !snapshot.releasedAt) {
-    notFound()
+  if (!snapshot) notFound()
+  if (!snapshot.releasedAt) {
+    // Preserve released-only behaviour for legacy reports. Existing authorization
+    // explicitly allows manager draft preview; scope this extension to a new
+    // manager-requested edition and recheck the exact campaign's manage gate.
+    if (snapshot.generationIntent !== 'manager_requested' || snapshot.status !== 'ready') notFound()
+    const access = await requireReportSnapshotReadAccess(snapshotId)
+    if (!canManageCampaign(access.scope, access.partnerId, access.clientId)) notFound()
   }
 
   const blocks = (snapshot.renderedData ?? []) as ResolvedBlockData[]
@@ -32,6 +40,7 @@ export default async function ClientReportViewerPage({ params }: Props) {
           variant="outline"
         />
       </div>
+      <ReferenceStatusNotice snapshot={snapshot} />
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <Suspense>
           <ReportRenderer blocks={blocks} />

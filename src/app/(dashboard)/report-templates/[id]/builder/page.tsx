@@ -5,6 +5,8 @@ import { getReportTemplate, getTemplateUsage, getAllCampaigns, getReportPrompts 
 import { parseBlocks } from '@/lib/reports/registry'
 import { BlockBuilderClient } from './block-builder-client'
 import type { TemplateSettings } from './block-builder-client'
+import { PersonalityTemplateSummary } from '@/components/reports/custom/personality-standard/template-summary'
+import { PERSONALITY_REPORT_SLUG } from '@/lib/reports/custom/personality-standard/data'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -21,6 +23,9 @@ export default async function BlockBuilderPage({ params }: Props) {
     getReportPrompts(),
   ])
   if (!template) notFound()
+  if (template.customReportSlug === PERSONALITY_REPORT_SLUG) {
+    return <PersonalityTemplateSummary id={template.id} name={template.name} initialConfig={template.presentationConfig} updatedAt={template.updated_at ?? template.created_at} />
+  }
 
   const blocks = parseBlocks(template.blocks)
 

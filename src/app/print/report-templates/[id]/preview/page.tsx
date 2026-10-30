@@ -46,6 +46,7 @@ export default async function PrintPreviewPage({ params, searchParams }: Props) 
     previewEntities,
     template.name,
     scheme,
+    template.customReportSlug, template.presentationConfig,
   )
 
   return (

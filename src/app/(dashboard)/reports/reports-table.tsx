@@ -15,6 +15,7 @@ import { formatRelativeDate, formatDateTime } from "@/lib/formatting";
 type ReportTableRow = ReportSnapshotListItem & {
   participantLabel: string;
   generatedAtValue: string;
+  referenceLabel: string;
 };
 
 const STATUS_META: Record<
@@ -70,6 +71,11 @@ const columns: ColumnDef<ReportTableRow>[] = [
     ),
   },
   {
+    accessorKey: "referenceLabel",
+    header: "Reference / edition",
+    cell: ({ row }) => <div className="max-w-xs"><p className="text-sm">{row.original.referenceInterpretation?.reference.name ?? "Scale scores only"}</p><p className="text-caption text-muted-foreground">Edition {row.original.editionNumber ?? 1}{row.original.referenceInterpretation?.reference.version ? ` · ${row.original.referenceInterpretation.reference.version}` : ""}</p></div>,
+  },
+  {
     accessorKey: "status",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Status" />
@@ -122,13 +128,14 @@ export function ReportsTable({
     ...snapshot,
     participantLabel: snapshot.participantName || `${snapshot.id.slice(0, 8)}…`,
     generatedAtValue: snapshot.generatedAt ?? snapshot.created_at,
+    referenceLabel: snapshot.referenceInterpretation?.reference.name ?? "Scale scores only",
   }));
 
   return (
     <DataTable
       columns={columns}
       data={rows}
-      searchableColumns={["participantLabel", "participantEmail"]}
+      searchableColumns={["participantLabel", "participantEmail", "referenceLabel"]}
       searchPlaceholder="Search reports"
       filterableColumns={[
         {

@@ -18,6 +18,7 @@ export function CampaignStatusActions({
   campaignTitle,
   status,
   assessmentCount,
+  references = [],
   pendingInviteCount,
   opensAt,
   closesAt,
@@ -26,6 +27,7 @@ export function CampaignStatusActions({
   campaignTitle: string;
   status: CampaignStatus;
   assessmentCount: number;
+  references?: Array<{ assessment: string; reference: string }>;
   pendingInviteCount: number;
   opensAt?: string;
   closesAt?: string;
@@ -114,6 +116,7 @@ export function CampaignStatusActions({
               </dt>
               <dd className="font-medium text-foreground">{assessmentCount}</dd>
             </div>
+            {references.length > 0 && <div className="space-y-1 sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-muted-foreground">Reporting references</dt><dd className="space-y-1">{references.map((r, i) => <p key={i}><span className="font-medium">{r.assessment}:</span> {r.reference}</p>)}</dd></div>}
             <div className="space-y-1">
               <dt className="text-xs uppercase tracking-wide text-muted-foreground">
                 Pending invites

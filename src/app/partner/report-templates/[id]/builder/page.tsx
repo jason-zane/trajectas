@@ -10,6 +10,8 @@ import {
 import { parseBlocks } from "@/lib/reports/registry";
 import { BlockBuilderClient } from "@/app/(dashboard)/report-templates/[id]/builder/block-builder-client";
 import type { TemplateSettings } from "@/app/(dashboard)/report-templates/[id]/builder/block-builder-client";
+import { PersonalityTemplateSummary } from '@/components/reports/custom/personality-standard/template-summary'
+import { PERSONALITY_REPORT_SLUG } from '@/lib/reports/custom/personality-standard/data'
 
 export default async function PartnerReportTemplateBuilderPage({
   params,
@@ -27,6 +29,9 @@ export default async function PartnerReportTemplateBuilderPage({
   ]);
 
   if (!template) notFound();
+  if (template.customReportSlug === PERSONALITY_REPORT_SLUG) {
+    return <PersonalityTemplateSummary id={template.id} name={template.name} initialConfig={template.presentationConfig} updatedAt={template.updated_at ?? template.created_at} basePath="/partner/report-templates" />
+  }
 
   const templateSettings: TemplateSettings = {
     description: template.description,

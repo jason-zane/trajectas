@@ -1,3 +1,4 @@
+import { ReferenceStatusNotice } from '@/components/reports/reference-status-notice'
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Download } from "lucide-react";
@@ -79,6 +80,7 @@ export default async function ReportByTokenPage({
           </Button>
         </a>
       </div>
+      <ReferenceStatusNotice snapshot={snapshot} />
       <div className="space-y-8">
         <Suspense>
           <ReportRenderer blocks={blocks} />

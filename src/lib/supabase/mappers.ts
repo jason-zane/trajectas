@@ -884,6 +884,7 @@ export function mapReportTemplateRow(row: any): ReportTemplate {
     pageHeaderLogo: row.page_header_logo ?? 'none',
     blocks: Array.isArray(row.blocks) ? row.blocks : [],
     customReportSlug: row.custom_report_slug ?? undefined,
+    ...(row.presentation_config ? { presentationConfig: row.presentation_config } : {}),
     isActive: row.is_active,
     isDefault: row.is_default ?? false,
     deletedAt: row.deleted_at ?? undefined,
@@ -895,6 +896,12 @@ export function mapReportTemplateRow(row: any): ReportTemplate {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mapReportSnapshotRow(row: any): ReportSnapshot {
   return {
+    editionNumber: row.edition_number ?? 1,
+    referenceVersionId: row.reference_version_id ?? null,
+    generationIntent: row.generation_intent ?? 'completion_default',
+    generationManifest: row.generation_manifest ?? undefined,
+    referenceInterpretation: row.reference_interpretation ?? null,
+    participantSelected: row.participant_selected ?? true,
     id: row.id,
     templateId: row.template_id,
     participantSessionId: row.participant_session_id,

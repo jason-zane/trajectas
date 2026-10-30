@@ -265,6 +265,8 @@ export async function cloneReportTemplate(id: string): Promise<ReportTemplate> {
       page_header_logo: source.pageHeaderLogo ?? 'none',
       partner_id: partnerId,
       blocks: source.blocks,
+      custom_report_slug: source.customReportSlug ?? null,
+      presentation_config: source.presentationConfig ?? {},
     })
     .select('*')
     .single()
@@ -962,6 +964,7 @@ export async function getCampaignSessionReportRows(
         'id, template_id, status, generated_at, sent_to_participant_at, error_message, report_templates(name)'
       )
       .eq('participant_session_id', sessionId)
+      .eq('edition_number', 1)
       .order('created_at', { ascending: false }),
     db
       .from('participant_sessions')
@@ -1385,6 +1388,16 @@ async function markSnapshotSentToParticipant(
       auditError,
     )
   }
+}
+
+/** Explicit release, using the existing exact-snapshot manage and confidentiality gates. */
+export async function releaseSnapshot(id: string): Promise<void> {
+  await requireWorkspaceFeature('reportGeneration')
+  postgresUuid().parse(id)
+  await requireReportSnapshotManageAccess(id)
+  const { data, error } = await createAdminClient().from('report_snapshots').select('status').eq('id', id).single()
+  if (error || !data || !['ready', 'released'].includes(data.status)) throw new Error('Only a completed report can be released')
+  await markSnapshotReleased(id)
 }
 
 export async function retrySnapshot(id: string): Promise<void> {

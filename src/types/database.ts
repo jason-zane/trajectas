@@ -2267,6 +2267,7 @@ export interface ReportTemplate {
   autoRelease: boolean
   pageHeaderLogo: 'primary' | 'secondary' | 'none'
   blocks: Record<string, unknown>[]  // BlockConfig[] — typed in src/lib/reports/types.ts
+  presentationConfig?: Record<string, unknown>
   customReportSlug?: string  // When set, runner dispatches to a registered custom report instead of resolving blocks
   isActive: boolean
   isDefault: boolean
@@ -2291,6 +2292,12 @@ export interface CampaignReportTemplate {
  * A point-in-time rendered report for one participant session.
  */
 export interface ReportSnapshot {
+  editionNumber?: number
+  referenceVersionId?: string | null
+  generationIntent?: 'completion_default' | 'manager_requested'
+  generationManifest?: { schemaVersion: string; nativeResult?: import('@/lib/scoring/ipip-neo-120').IpipNeo120Result; template?: Record<string, unknown>; referenceVersionId?: string | null; automatic?: boolean }
+  referenceInterpretation?: import('@/lib/norms/types').ReferenceInterpretation | null
+  participantSelected?: boolean
   id: string
   templateId: string
   participantSessionId: string
