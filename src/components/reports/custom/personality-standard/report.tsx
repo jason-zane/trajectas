@@ -93,20 +93,22 @@ function Information({ data }: { data: PersonalityReportData }) {
       </section>
       <section><h2>Dimensions and traits</h2><p>Dimensions describe broad areas of personality. Each dimension contains six traits. The descriptions at either end of each chart show how that trait can be expressed.</p></section>
       <section><h2>Score direction</h2><p>Moving to the right indicates more of the trait named in the report. For Emotional Reactivity, this means greater sensitivity to difficult emotions. For Social Confidence and Stress Tolerance, it means greater confidence and composure.</p></section>
-    </main><aside className="assessment-details"><dl>
-      <div><dt>Report format</dt><dd>Results report</dd></div><div><dt>Assessment</dt><dd className="assessment-name">TRAJECTAS<br />PERSONALITY PROFILE</dd></div>
-      <div><dt>Format</dt><dd>120-item self-report questionnaire</dd></div><div><dt>Profile</dt><dd>Five dimensions<br />30 traits</dd></div>
-      <div><dt>Primary results</dt><dd>Percentile ranks</dd></div><div><dt>Comparison group</dt><dd>{data.reference.label}</dd></div>
-      <div><dt>Reference version</dt><dd>{data.reference.version}</dd></div>
-      <div><dt>Report edition</dt><dd>{data.editionNumber ?? 1}</dd></div>
-      {data.reference.ageBoundsInclusive && <div><dt>Reference ages</dt><dd>{data.reference.ageBoundsInclusive.join("–")}</dd></div>}
-      {data.reference.weighting && <div><dt>Weighting</dt><dd>{referenceWeightingLabel(data.reference.weighting)}</dd></div>}
-    </dl><section><h2>Assessment basis</h2><p>Based on the IPIP-NEO-120 (Johnson, 2014), a public-domain personality inventory.</p></section></aside></div>
     <section className="reference"><h2>Reference</h2><p>Johnson, J. A. (2014). Measuring thirty facets of the Five Factor Model with a 120-item public domain inventory: Development of the IPIP-NEO-120. <i>Journal of Research in Personality, 51</i>, 78-89.</p><p>doi.org/10.1016/j.jrp.2014.05.003 <span>·</span> ipip.ori.org</p>
       {data.reference.attribution && <p>{data.reference.attribution}</p>}
       {data.reference.sourceUrl && <p>{data.reference.sourceUrl}</p>}
       {data.reference.intendedUse && <p>{data.reference.intendedUse}</p>}
       <p className="design-credit">Report design and presentation by Trajectas.</p></section>
+    </main><aside className="assessment-details"><dl>
+      <div><dt>Report format</dt><dd>Results report</dd></div><div><dt>Assessment</dt><dd className="assessment-name">TRAJECTAS<br />PERSONALITY PROFILE</dd></div>
+      <div><dt>Format</dt><dd>120-item self-report questionnaire</dd></div><div><dt>Profile</dt><dd>Five dimensions<br />30 traits</dd></div>
+      <div><dt>Primary results</dt><dd>Percentile ranks</dd></div><div><dt>Comparison group</dt><dd>{data.reference.label}</dd></div>
+      <div><dt>Reference version</dt><dd>{data.reference.version}</dd></div>
+      {data.reference.rawN != null && <div><dt>Reference sample</dt><dd>{data.reference.rawN.toLocaleString('en-AU')} responses{data.reference.effectiveN != null && Math.round(data.reference.effectiveN) !== data.reference.rawN && <><br />Effective N {Math.round(data.reference.effectiveN).toLocaleString('en-AU')}</>}</dd></div>}
+      <div><dt>Report edition</dt><dd>{data.editionNumber ?? 1}</dd></div>
+      {data.reference.ageBoundsInclusive && <div><dt>Reference ages</dt><dd>{data.reference.ageBoundsInclusive.join("–")}</dd></div>}
+      {data.reference.weighting && <div><dt>Weighting</dt><dd>{referenceWeightingLabel(data.reference.weighting)}</dd></div>}
+    </dl><section><h2>Assessment basis</h2><p>Based on the IPIP-NEO-120 (Johnson, 2014), a public-domain personality inventory.</p></section></aside></div>
+
   </Page>
 }
 

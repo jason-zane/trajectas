@@ -20,8 +20,9 @@ const selection = z.object({ assessmentId: uuid, referenceId: uuid.nullable() })
 export async function refreshNormReference(input: unknown) {
   const parsed = z.object({ priorId: uuid, id: uuid, version: z.string().trim().min(1).max(100), artifact: z.string().max(200_000),
     sourceUrl: z.url().refine(value => value.startsWith('https://')), attribution: z.string().trim().min(10).max(1500), collectionPeriod: z.string().trim().min(4).max(100), notes: z.string().trim().min(20).max(3000) }).parse(input)
+  const scope = await requireAdminScope()
   const id = await createNormReferenceVersion(parsed)
-  await logAuditEvent({ eventType: 'reference.version.created', targetTable: 'norm_reference_versions', targetId: id, metadata: { priorId: parsed.priorId, version: parsed.version } })
+  await logAuditEvent({ actorProfileId: scope.actor?.id, eventType: 'reference.version.created', targetTable: 'norm_reference_versions', targetId: id, metadata: { priorId: parsed.priorId, version: parsed.version } })
   revalidatePath('/psychometrics/norms')
   return { id }
 }

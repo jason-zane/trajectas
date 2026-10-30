@@ -16,7 +16,7 @@ export default async function QualitySupplementPage({ params }: { params: Promis
   const session = sessions.find(s => s.id === sessionId)
   if (!session || session.status !== 'in_progress') redirect(`/assess/${token}`)
   const result = await getQualitySupplement(token, sessionId)
-  if ('error' in result) return <BrandedMessage eyebrow="Assessment" title="Unable to load the final statements" description={result.error} />
+  if ('error' in result) return <BrandedMessage runner eyebrow="Assessment" title="Unable to load the final statements" description={result.error} />
   if (!result.module) redirect(`/assess/${token}/section/0`)
   if (result.module.version === INTEGRATED_QUALITY_MODULE_VERSION) redirect(`/assess/${token}/section/0`)
   const [brand, experience] = await Promise.all([getCachedEffectiveBrand(campaign.clientId, campaign.id), getCachedEffectiveExperience(campaign.id)])

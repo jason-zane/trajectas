@@ -208,6 +208,7 @@ function renderBrandedAssessError(message: string, token: string) {
   return (
     <div className="flex min-h-dvh items-center justify-center">
       <BrandedMessage
+        runner
         eyebrow={classified.eyebrow}
         title={classified.title}
         description={classified.description}

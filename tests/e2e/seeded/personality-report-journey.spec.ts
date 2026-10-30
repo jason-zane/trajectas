@@ -28,13 +28,13 @@ test('creates a campaign, completes a fresh profile, downloads standard PDFs and
   await insert('report_templates', { id: templateId, name: `SYNTHETIC Standard ${tag}`, custom_report_slug: 'trajectas-personality-standard-v1', is_active: true, auto_release: false })
   async function reference(suffix: string, skew: boolean) {
     const id = randomUUID(), scaleCodes = ['N','E','O','A','C'].flatMap(d => [d, ...[1,2,3,4,5,6].map(n => d+n)])
-    const artifact = JSON.stringify({ id: `${tag}-${suffix}`, rawN: 1700, kishEffectiveN: 1700, ageBoundsInclusive: [18,64], countryLabels: null, weighting: 'pooled', nativeScoreMass: Object.fromEntries(scaleCodes.map(code => {
+    const artifact = JSON.stringify({ id: `${tag}-${suffix}`, rawN: 1700, kishEffectiveN: skew ? 850 : 1700, ageBoundsInclusive: skew ? [25,64] : [18,64], countryLabels: null, weighting: skew ? 'equal-country-and-us-management-age' : 'pooled', nativeScoreMass: Object.fromEntries(scaleCodes.map(code => {
       const size = code.length === 1 ? 97 : 17
       const mass = Array.from({ length: size }, () => skew ? 0 : 1/size)
       if (skew) { mass[0] = .1; mass[(size-1)/2] = .6; mass[size-1] = .3 }
       return [code,mass]
     })) })
-    await insert('norm_reference_versions', { id, group_key: `${tag}:${suffix}`, name: `SYNTHETIC ${suffix} ${tag}`, version: 'synthetic-v1', instrument_id: IPIP_ID, form_version: IPIP_FORM_VERSION, scoring_version: IPIP_SCORING_VERSION, itemset_sha256: IPIP_ITEMSET_SHA256, method_version: 'weighted-empirical-midrank-v1', family: 'general-adult', scope_client_id: clientId, artifact_text: artifact, artifact_sha256: createHash('sha256').update(artifact).digest('hex'), provenance: { population: 'Synthetic software acceptance only' }, status: 'active', review_evidence: { datasetReuse: 'approved', formEquivalence: 'approved', methodology: 'approved', stability: 'approved', intendedUse: 'approved', evidence: 'SYNTHETIC software acceptance fixture only; no source norms approved', reviewedBy: 'synthetic-fixture', reviewedAt: new Date().toISOString() } })
+    await insert('norm_reference_versions', { id, group_key: `${tag}:${suffix}`, name: `SYNTHETIC ${suffix} ${tag}`, version: 'synthetic-v1', instrument_id: IPIP_ID, form_version: IPIP_FORM_VERSION, scoring_version: IPIP_SCORING_VERSION, itemset_sha256: IPIP_ITEMSET_SHA256, method_version: 'weighted-empirical-midrank-v1', family: 'general-adult', scope_client_id: clientId, artifact_text: artifact, artifact_sha256: createHash('sha256').update(artifact).digest('hex'), provenance: { population: 'Synthetic software acceptance only', attribution: 'SYNTHETIC software fixture, modelling space for a full author and year citation, research deposit, licence, complete-case cohort preparation, empirical percentile distributions and group weighting details.', sourceUrl: 'https://example.test/synthetic-reference', intendedUse: 'Synthetic software acceptance only. Historical sample descriptions and workforce validity are not claimed. A refreshed source version and separate review would be needed for a different intended use.' }, status: 'active', review_evidence: { datasetReuse: 'approved', formEquivalence: 'approved', methodology: 'approved', stability: 'approved', intendedUse: 'approved', evidence: 'SYNTHETIC software acceptance fixture only; no source norms approved', reviewedBy: 'synthetic-fixture', reviewedAt: new Date().toISOString() } })
     await insert('assessment_norm_references', { assessment_id: ids.assessmentId, reference_version_id: id })
     return id
   }
@@ -125,6 +125,19 @@ test('creates a campaign, completes a fresh profile, downloads standard PDFs and
     const textA = (await extractText(new Uint8Array(bytesA), { mergePages: true })).text.replace(/\s+/g, ' ')
     expect(textA.replace(/\s+/g, '')).toContain(`SYNTHETICA${tag}`)
     expect(textA).toContain('synthetic-v1')
+    expect(textA).toContain('doi.org/10.1016/j.jrp.2014.05.003')
+    expect(textA).toContain('SYNTHETIC software fixture')
+    expect(textA).toContain('example.test/synthetic-reference')
+    const informationFits = await page.locator('.report-page[data-page="9"]').evaluate(article => {
+      const bounds = article.getBoundingClientRect()
+      return ['.reference', '.assessment-details', '.page-footer'].every(selector => {
+        const element = article.querySelector(selector)
+        if (!element) return false
+        const box = element.getBoundingClientRect()
+        return box.top >= bounds.top && box.bottom <= bounds.bottom
+      })
+    })
+    expect(informationFits).toBe(true)
     expect(textA.split('Imagination').length - 1).toBeGreaterThanOrEqual(2)
     await page.goto(`/campaigns/${campaignId}/sessions/${sessionId}`)
     await page.getByRole('button', { name: 'Create report', exact: true }).click()
@@ -148,6 +161,17 @@ test('creates a campaign, completes a fresh profile, downloads standard PDFs and
     expect((await PDFDocument.load(bytesB)).getPageCount()).toBe(9)
     expect((await extractText(new Uint8Array(bytesB), { mergePages: true })).text.replace(/\s+/g, '')).toContain(`SYNTHETICB${tag}`)
     expect(pdfB.suggestedFilename()).not.toBe(pdfA.suggestedFilename())
+    const lastPageFits = await page.locator('.report-page[data-page="9"]').evaluate(article => {
+      const bounds = article.getBoundingClientRect()
+      return ['.reference', '.assessment-details', '.page-footer'].every(selector => {
+        const box = article.querySelector(selector)?.getBoundingClientRect()
+        return box && box.top >= bounds.top && box.bottom <= bounds.bottom
+      })
+    })
+    expect(lastPageFits).toBe(true)
+    const textB = (await extractText(new Uint8Array(bytesB), { mergePages: true })).text.replace(/\s+/g, ' ')
+    expect(textB).toContain('Effective N 850')
+    expect(textB).toContain('doi.org/10.1016/j.jrp.2014.05.003')
     await page.screenshot({ path: testInfo.outputPath('standard-reference-b.png'), fullPage: true })
   } finally {
     await participant.close(); await admin.close(); await rm(actorPath, { force: true })

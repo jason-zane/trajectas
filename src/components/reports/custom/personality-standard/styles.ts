@@ -224,4 +224,16 @@ export const PERSONALITY_REPORT_CSS = `
   .tpp-report .page-header, .tpp-report .strip-heading { display: flex !important; }
   .tpp-report .assessment-details { display: block !important; }
 }
+
+/* Keep source attribution alongside the reading guide. Compact technical
+   metadata leaves room for long population/version labels on the A4 page. */
+.tpp-report .information .assessment-details{padding:18px 20px}
+.tpp-report .information .assessment-details dl>div+div{margin-top:12px}
+.tpp-report .information .assessment-details dt{line-height:11px;margin-bottom:4px}
+.tpp-report .information .assessment-details dd{font-size:11px;line-height:16px;overflow-wrap:anywhere}
+.tpp-report .information .assessment-details section{margin-top:18px;padding-top:14px}
+.tpp-report .information .assessment-details h2{font-size:11px;line-height:16px}
+.tpp-report .information .assessment-details p{font-size:9px;line-height:14px;margin-top:6px}
+.tpp-report .information .reading-guide .reference h2{font-size:10px;line-height:16px}
+.tpp-report .information .reading-guide .reference p{font-size:8.5px;line-height:13px;margin-top:7px}
 `

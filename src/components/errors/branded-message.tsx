@@ -7,6 +7,7 @@ interface BrandedMessageProps {
   description?: ReactNode;
   actions?: ReactNode;
   footer?: ReactNode;
+  runner?: boolean;
 }
 
 export function BrandedMessage({
@@ -15,6 +16,7 @@ export function BrandedMessage({
   description,
   actions,
   footer,
+  runner = false,
 }: BrandedMessageProps) {
   return (
     <div className="mx-auto flex max-w-lg flex-col items-start px-6 py-20">
@@ -24,11 +26,11 @@ export function BrandedMessage({
       <p className="mt-6 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
         {eyebrow}
       </p>
-      <h1 className="mt-2 font-sans text-[clamp(1.75rem,3vw,2.25rem)] font-extrabold leading-[1.1] tracking-[-0.02em] text-foreground">
+      <h1 className="mt-2 font-sans text-[clamp(1.75rem,3vw,2.25rem)] font-extrabold leading-[1.1] tracking-[-0.02em] text-foreground" style={runner ? { color: 'var(--runner-display)' } : undefined}>
         {title}
       </h1>
       {description && (
-        <div className="mt-3 text-[1rem] leading-relaxed text-muted-foreground">
+        <div className="mt-3 text-[1rem] leading-relaxed text-muted-foreground" style={runner ? { color: 'var(--runner-text-muted)' } : undefined}>
           {description}
         </div>
       )}

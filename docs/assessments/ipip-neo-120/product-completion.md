@@ -20,6 +20,10 @@ for that initial merge and is locked during item transitions, preventing a
 rapid answer from being accepted against a statement that is still changing.
 Checks require confirmed native saves and their own revision-checked save before
 advancing. Retry, stale-tab rejection and completion ownership remain enforced.
+Concurrent first-entry requests fetch the winning session afresh, with explicit
+campaign/participant scope and a request-memoization opt-out. They cannot reuse
+the earlier empty lookup after another request wins the unique insert. Runner
+error messages also use the runner’s contrast tokens.
 
 The review panel groups each of five indicators with its status and evidence,
 discloses provisional methodology, uses shared form controls, and keeps an
@@ -30,6 +34,9 @@ The A4 screen frame scales the fixed report to available width and measures its
 actual height. All audience/template preview surfaces fit the report width.
 Print routes bypass the frame; saved report payloads and original PDFs retain
 their meaning. New real-source payloads include source attribution and intended use.
+The information page places citations below the reading guide and uses compact
+reference metadata, including raw/effective sample size. PDF tests verify source
+text and that citations, metadata and footer all remain inside the A4 page.
 The app content flex item can shrink beside the sidebar, keeping wide norm
 tables inside their own horizontal scroll area on desktop and phone screens.
 
