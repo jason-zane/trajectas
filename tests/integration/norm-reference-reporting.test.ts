@@ -86,6 +86,16 @@ describe.skipIf(!canRun)('versioned reference reporting infrastructure', () => {
     expect((await anon.from('norm_reference_versions').select('id')).error?.code).toBe('42501')
     expect((await anon.rpc('enqueue_reference_report', { p_session_id: ids.session, p_template_id: ids.template, p_reference_id: ids.uniform, p_request_id: randomUUID() })).error).not.toBeNull()
   })
+  it('loads actual assessment titles for catalog filters through the assignment relation', async () => {
+    const result = check(await db.from('assessment_norm_references')
+      .select('reference_version_id,is_default,assessments!inner(id,title)')
+      .in('reference_version_id', [ids.uniform, ids.skew]).is('assessments.deleted_at', null))
+    expect(result.data).toHaveLength(2)
+    for (const row of result.data!) {
+      const assessment = Array.isArray(row.assessments) ? row.assessments[0] : row.assessments
+      expect(assessment).toMatchObject({ id: IPIP_DATABASE.assessmentId, title: 'Trajectas Personality Profile' })
+    }
+  })
   it('cannot activate an unreviewed version or edit a source distribution in place', async () => {
     expect((await db.from('norm_reference_versions').update({ status: 'active' }).eq('id', ids.draft)).error?.code).toBe('23514')
     expect((await db.from('norm_reference_versions').update({ name: 'Changed meaning' }).eq('id', ids.uniform)).error).not.toBeNull()

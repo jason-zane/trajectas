@@ -6,6 +6,7 @@ export type ReferenceOption = {
   countryLabels: string[] | null; weighting: string; isDefault: boolean
   methodVersion?: string; provenance?: { collectionPeriod?: string; population?: string; sourceUrl?: string; attribution?: string; previousVersionId?: string; intendedUse?: string }
   scopeClientId: string | null; reviewEvidence: Record<string, string>
+  assessments?: { id: string; title: string; isDefault: boolean }[]
 }
 export type ReferenceInterpretation = {
   schemaVersion: 'reference-interpretation-v1'

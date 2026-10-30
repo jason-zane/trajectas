@@ -1,13 +1,13 @@
 import type { ReferenceOption } from '@/lib/norms/types'
 import { referenceWeightingLabel } from '@/lib/norms/types'
+import { referenceCountryName } from '@/lib/norms/catalog'
 
 export function ReferenceDetails({ reference: r }: { reference: ReferenceOption }) {
-  const countries: Record<string, string> = { USA: 'United States', UK: 'United Kingdom', 'New Zeala': 'New Zealand', 'South Afr': 'South Africa', Netherlan: 'Netherlands', Philippin: 'Philippines' }
   return <div className="space-y-3 text-sm">
     <dl className="grid gap-2 text-muted-foreground">
       <div><dt className="inline font-medium">Version: </dt><dd className="inline break-words">{r.version}</dd></div>
       <div><dt className="inline font-medium">Ages: </dt><dd className="inline">{r.ageBoundsInclusive.join('–')}</dd></div>
-      <div><dt className="inline font-medium">Countries: </dt><dd className="inline">{r.countryLabels?.map(country => countries[country] ?? country).join(', ') ?? 'All recorded countries'}</dd></div>
+      <div><dt className="inline font-medium">Countries: </dt><dd className="inline">{r.countryLabels?.map(referenceCountryName).join(', ') ?? 'All recorded countries'}</dd></div>
       <div><dt className="inline font-medium">Weighting: </dt><dd className="inline">{referenceWeightingLabel(r.weighting)}</dd></div>
       <div><dt className="inline font-medium">Collection period: </dt><dd className="inline">{r.provenance?.collectionPeriod ?? 'Not recorded'}</dd></div>
       <div><dt className="inline font-medium">Population: </dt><dd className="inline">{r.provenance?.population ?? 'Review the source population before use'}</dd></div>
