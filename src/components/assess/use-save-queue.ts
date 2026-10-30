@@ -134,6 +134,7 @@ export function useSaveQueue(config: QueueConfig) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [saveError, setSaveError] = useState(false);
   const [localResponses, setLocalResponses] = useState<LocalResponses | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
   // Count of answers the server has definitively refused (see postBatch).
   // Surfaced so the runner can tell the participant an answer was not
   // counted, instead of either hanging on it or staying silent.
@@ -178,6 +179,7 @@ export function useSaveQueue(config: QueueConfig) {
   // ---------------------------------------------------------------------------
   useEffect(() => {
     let cancelled = false;
+    setIsHydrated(false);
     void (async () => {
       try {
         const map = await getResponsesForSession(config.sessionId);
@@ -190,13 +192,14 @@ export function useSaveQueue(config: QueueConfig) {
           obj[entry.itemId] = { value: entry.value, data: entry.data ?? {} };
         }
         setLocalResponses(obj);
+        setIsHydrated(true);
         // If hydration shows pending rows, kick a flush.
         const pending = await countPending(config.sessionId);
         if (pending > 0 && !cancelled) scheduleFlushSoon();
       } catch {
         // A later write will surface storage failure. Never assume an empty
         // failed read proves that an accepted answer has been persisted.
-        if (!cancelled) setLocalResponses((prev) => prev ?? {});
+        if (!cancelled) { setLocalResponses((prev) => prev ?? {}); setIsHydrated(true); }
       }
     })();
     return () => {
@@ -573,5 +576,6 @@ export function useSaveQueue(config: QueueConfig) {
     lostSaves,
     /** IDB-hydrated map of responses for this session. Null until hydration completes. */
     localResponses,
+    isHydrated,
   };
 }

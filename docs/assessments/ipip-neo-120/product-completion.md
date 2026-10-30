@@ -15,6 +15,9 @@ All 120 source definitions and native scoring keys remain unchanged.
 
 Native answers retain the IndexedDB retry queue. Hydration now moves a resumed
 runner past answers that were still local when the server rendered the page.
+Initial hydration is a distinct state from later optimistic saves. Input waits
+for that initial merge and is locked during item transitions, preventing a
+rapid answer from being accepted against a statement that is still changing.
 Checks require confirmed native saves and their own revision-checked save before
 advancing. Retry, stale-tab rejection and completion ownership remain enforced.
 
@@ -27,6 +30,8 @@ The A4 screen frame scales the fixed report to available width and measures its
 actual height. All audience/template preview surfaces fit the report width.
 Print routes bypass the frame; saved report payloads and original PDFs retain
 their meaning. New real-source payloads include source attribution and intended use.
+The app content flex item can shrink beside the sidebar, keeping wide norm
+tables inside their own horizontal scroll area on desktop and phone screens.
 
 ## Norm groups and refresh
 

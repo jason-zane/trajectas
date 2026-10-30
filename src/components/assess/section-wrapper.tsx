@@ -130,6 +130,7 @@ export function SectionWrapper({
     saveError,
     lostSaves,
     localResponses,
+    isHydrated,
   } = useSaveQueue({
     token,
     sessionId,
@@ -192,7 +193,7 @@ export function SectionWrapper({
   // even ones still pending flush from a previous session.
   const hydratedLocalRef = useRef(false);
   useEffect(() => {
-    if (!localResponses || hydratedLocalRef.current) return;
+    if (!isHydrated || !localResponses || hydratedLocalRef.current) return;
     if (Object.keys(localResponses).length === 0) {
       hydratedLocalRef.current = true;
       return;
@@ -210,7 +211,7 @@ export function SectionWrapper({
         return firstUnanswered >= 0 ? firstUnanswered : current;
       });
     }
-  }, [localResponses, responses, section.items, isPractice]);
+  }, [isHydrated, localResponses, responses, section.items, isPractice]);
 
   const [isAnimating, setIsAnimating] = useState(false);
   const [isBoundaryPending, setIsBoundaryPending] = useState(false);
@@ -543,6 +544,7 @@ export function SectionWrapper({
     value: number,
     data?: Record<string, unknown>,
   ) {
+    if (!isHydrated || navLockRef.current || boundaryLockRef.current || qualityLock.current) return;
     if (itemId.startsWith('supplemental:')) { void handleQualityResponse(itemId, value); return; }
     // 1. Optimistic local update (instant — selection highlights immediately).
     setResponses((prev) => ({
@@ -678,7 +680,7 @@ export function SectionWrapper({
           {canGoBack && (
             <button
               onClick={goToPreviousItem}
-              disabled={isBoundaryPending || qualitySaving || Boolean(qualityError)}
+              disabled={!isHydrated || isAnimating || isBoundaryPending || qualitySaving || Boolean(qualityError)}
               className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors"
               style={{
                 color: "var(--runner-text-muted)",
@@ -747,7 +749,7 @@ export function SectionWrapper({
               isAnimating ? "opacity-0" : "opacity-100"
             }`}
           >
-            <fieldset disabled={qualitySaving || isBoundaryPending} aria-busy={qualitySaving}>
+            <fieldset disabled={!isHydrated || isAnimating || qualitySaving || isBoundaryPending} aria-busy={!isHydrated || qualitySaving}>
             <legend className="sr-only">Your response</legend>
             <ItemCard
               item={currentItem}
@@ -827,7 +829,7 @@ export function SectionWrapper({
             className="text-xs font-normal"
             style={{ color: "var(--runner-text-faint)" }}
           >
-            {qualitySaving || saveStatus === "saving"
+            {!isHydrated ? 'Loading saved answers…' : qualitySaving || saveStatus === "saving"
               ? (runnerContent?.saveStatusSaving ?? "Saving…")
               : saveStatus === "saved"
                 ? (runnerContent?.saveStatusSaved ?? "Saved a moment ago")
