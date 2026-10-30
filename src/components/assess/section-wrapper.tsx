@@ -731,13 +731,9 @@ export function SectionWrapper({
         </div>
       )}
 
-      {/* Main content area. The column is wide enough for a 6–7 point answer
-          scale to breathe; the question stem keeps its own narrower reading
-          measure (max-w-[620px] in ItemCard), so the serif question stays a
-          tight column while the options span the fuller width. */}
+      {/* The statement has a narrower reading measure than the answer row. */}
       <main className="flex flex-1 flex-col items-center justify-center px-6 py-8 sm:px-10 sm:py-12 lg:px-[120px]">
         <div className="w-full max-w-[800px]">
-          {showProgress && <p className="mb-5 text-caption tabular-nums" style={{ color: 'var(--runner-text-meta)' }}>Statement {localItemIndex + 1} of {section.items.length}</p>}
           {section.id === PERSONALITY_PROFILE_SECTION_ID && (
             <p className="mb-6 max-w-prose text-sm leading-relaxed" style={{ color: 'var(--runner-text-muted)' }}>
               {integratedModule ? PERSONALITY_FIRST_PERSON_PROMPT : PERSONALITY_PROFILE_PROMPT}

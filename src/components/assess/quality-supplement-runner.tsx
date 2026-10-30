@@ -42,7 +42,6 @@ export function QualitySupplementRunner({ token, sessionId, module, nextUrl, bra
     <ProgressBar currentIndex={120 + Object.keys(answers).length} totalItems={120 + module.questions.length} />
     <header className="px-6 py-6 sm:px-10 lg:px-[120px]"><BrandLogo name={brandName} logoUrl={brandLogoUrl} height={28} runner /></header>
     <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-6 py-10">
-      <p className="text-overline text-muted-foreground">Final statements · {index + 1} of {module.questions.length}</p>
       <p className="text-sm text-muted-foreground">Please read each statement and select your response. These supplementary statements help us review response quality and do not contribute to your personality scores.</p>
       {error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}
       <fieldset disabled={saving} aria-busy={saving}>
