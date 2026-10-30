@@ -2,7 +2,7 @@
 
 import { BrandLogo, BrandFooter } from "@/components/brand/brand-logo";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
@@ -26,6 +26,10 @@ import { formatAutoAdvances, formatNeedsContinue } from "./advance-policy";
 import type { SectionForRunner } from "@/app/actions/assess";
 import type { RunnerContent } from "@/lib/experience/types";
 import { PERSONALITY_PROFILE_PROMPT, PERSONALITY_PROFILE_SECTION_ID } from '@/lib/instrument/ipip-neo-120/catalogue';
+import { INTEGRATED_QUALITY_ANCHORS, type QualityModuleForRunner } from '@/lib/instrument/ipip-neo-120/response-quality';
+import { interleaveSupplementalItems, supplementalItemId, type SupplementalQuestion } from '@/lib/assess/supplemental-sequence';
+import { saveQualitySupplementAnswer } from '@/app/actions/response-quality';
+import { PERSONALITY_FIRST_PERSON_PROMPT } from '@/lib/instrument/ipip-neo-120/administration';
 
 interface SectionWrapperProps {
   token: string;
@@ -36,6 +40,7 @@ interface SectionWrapperProps {
   totalSections: number;
   /** Separately stored quality supplement, outside the frozen personality form. */
   supplementItemCount?: number;
+  integratedModule?: QualityModuleForRunner;
   /** All sections' items flattened for global progress tracking. */
   allSections: SectionForRunner[];
   existingResponses: Record<
@@ -86,10 +91,11 @@ export function SectionWrapper({
   token,
   sessionId,
   sessionProof,
-  section,
+  section: nativeSection,
   sectionIndex,
   totalSections,
   supplementItemCount = 0,
+  integratedModule,
   allSections,
   existingResponses,
   assessmentName,
@@ -103,6 +109,16 @@ export function SectionWrapper({
   showProgress = true,
 }: SectionWrapperProps) {
   const router = useRouter();
+  const section = useMemo(() => integratedModule ? {
+    ...nativeSection,
+    items: interleaveSupplementalItems(nativeSection.items, integratedModule.questions as SupplementalQuestion[], INTEGRATED_QUALITY_ANCHORS),
+  } : nativeSection, [nativeSection, integratedModule]);
+  const initialResponses = { ...existingResponses, ...Object.fromEntries(Object.entries(integratedModule?.answers ?? {}).map(([id, value]) => [supplementalItemId(id), { value, data: {} }])) };
+  const qualityRevision = useRef(integratedModule?.revision ?? 0);
+  const qualityLock = useRef(false);
+  const [qualitySaving, setQualitySaving] = useState(false);
+  const [qualityError, setQualityError] = useState<string | null>(null);
+  const [failedQualityValue, setFailedQualityValue] = useState<number | null>(null);
   void privacyUrl;
   void termsUrl;
 
@@ -139,26 +155,28 @@ export function SectionWrapper({
   }, [lostSaves]);
 
   // Total item count across all sections — denominator for the progress bar.
-  const totalItems = countAllItems(allSections) + supplementItemCount;
+  const totalItems = countAllItems(allSections) + supplementItemCount + (integratedModule?.questions.length ?? 0);
 
   // Find the first unanswered item in this section as the start point,
   // or resume from where we left off
+  const resumeFromLastRef = useRef(false);
   const [localItemIndex, setLocalItemIndex] = useState(() => {
     // Check URL params for resume=last (back from next section)
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       if (params.get("resume") === "last") {
+        resumeFromLastRef.current = true;
         // Clean up URL
         window.history.replaceState({}, "", window.location.pathname);
         return section.items.length - 1;
       }
     }
     const firstUnanswered = section.items.findIndex(
-      (item) => !existingResponses[item.id]
+      (item) => !initialResponses[item.id]
     );
     return firstUnanswered >= 0 ? firstUnanswered : 0;
   });
-  const [responses, setResponses] = useState(existingResponses);
+  const [responses, setResponses] = useState(initialResponses);
 
   // Practice-mode answer checking (LR-6 / #336). A 'practice'-role section
   // never auto-advances and never shows ItemCard's own Continue button —
@@ -181,7 +199,18 @@ export function SectionWrapper({
     }
     hydratedLocalRef.current = true;
     setResponses((prev) => ({ ...prev, ...localResponses }));
-  }, [localResponses]);
+    // A reload may reach the server before the pending local batch does.
+    // Once local answers arrive, resume at the first actual gap instead of
+    // leaving the participant on a statement already answered in this browser.
+    if (!resumeFromLastRef.current && !isPractice) {
+      const merged = { ...responses, ...localResponses };
+      setLocalItemIndex(current => {
+        if (!localResponses[section.items[current]?.id]) return current;
+        const firstUnanswered = section.items.findIndex(item => !merged[item.id]);
+        return firstUnanswered >= 0 ? firstUnanswered : current;
+      });
+    }
+  }, [localResponses, responses, section.items, isPractice]);
 
   const [isAnimating, setIsAnimating] = useState(false);
   const [isBoundaryPending, setIsBoundaryPending] = useState(false);
@@ -295,7 +324,7 @@ export function SectionWrapper({
     (acc, s) =>
       acc + s.items.filter((it) => responses[it.id] !== undefined).length,
     0,
-  );
+  ) + (integratedModule?.questions.filter(q => responses[supplementalItemId(q.id)] !== undefined).length ?? 0);
 
   const pushAcrossBoundary = useCallback(
     async (href: string, progressItemIndex: number) => {
@@ -490,11 +519,31 @@ export function SectionWrapper({
     }
   }, [localItemIndex, sectionIndex, token, navigateToItem, pushAcrossBoundary]);
 
+  async function handleQualityResponse(itemId: string, value: number) {
+    if (qualityLock.current || isBoundaryPending) return;
+    qualityLock.current = true;
+    setQualitySaving(true); setQualityError(null); setFailedQualityValue(null);
+    try {
+      let nativeSaved = await flushSaves();
+      if (!nativeSaved) { retryFailedSaves(); nativeSaved = await flushSaves(); }
+      if (!nativeSaved) throw new Error('Earlier answers are still waiting to save. Keep this page open and retry.');
+      const result = await saveQualitySupplementAnswer({ token, sessionId, questionId: itemId.slice('supplemental:'.length), value, revision: qualityRevision.current });
+      if ('error' in result) throw new Error(result.error);
+      qualityRevision.current = result.saved.revision;
+      setResponses(prev => ({ ...prev, ...Object.fromEntries(Object.entries(result.saved.answers).map(([id, answer]) => [supplementalItemId(id), { value: answer, data: {} }])) }));
+      if (!isFinalItemInAssessment) goToNextItem();
+    } catch (error) {
+      setQualityError(error instanceof Error ? error.message : 'Your answer could not be saved. Please retry.');
+      setFailedQualityValue(value);
+    } finally { qualityLock.current = false; setQualitySaving(false); }
+  }
+
   function handleResponse(
     itemId: string,
     value: number,
     data?: Record<string, unknown>,
   ) {
+    if (itemId.startsWith('supplemental:')) { void handleQualityResponse(itemId, value); return; }
     // 1. Optimistic local update (instant — selection highlights immediately).
     setResponses((prev) => ({
       ...prev,
@@ -594,7 +643,7 @@ export function SectionWrapper({
           {/* Section overline + completion % tag */}
           <div className="flex items-center gap-3">
             <p
-              className="text-[10px] font-semibold uppercase tracking-[0.12em]"
+              className="hidden max-w-52 text-caption font-medium sm:block"
               style={{ color: "var(--runner-overline)" }}
             >
               {assessmentName}
@@ -608,10 +657,10 @@ export function SectionWrapper({
               </span>
             )}
             <p
-              className="text-[10px] font-semibold uppercase tracking-[0.12em]"
+              className="whitespace-nowrap text-caption tabular-nums"
               style={{ color: "var(--runner-text-meta)" }}
             >
-              {pct}% COMPLETE
+              {pct}% complete
             </p>
           </div>
 
@@ -629,7 +678,7 @@ export function SectionWrapper({
           {canGoBack && (
             <button
               onClick={goToPreviousItem}
-              disabled={isBoundaryPending}
+              disabled={isBoundaryPending || qualitySaving || Boolean(qualityError)}
               className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors"
               style={{
                 color: "var(--runner-text-muted)",
@@ -684,11 +733,12 @@ export function SectionWrapper({
           scale to breathe; the question stem keeps its own narrower reading
           measure (max-w-[620px] in ItemCard), so the serif question stays a
           tight column while the options span the fuller width. */}
-      <main className="flex flex-1 flex-col items-center justify-center px-6 py-12 sm:px-10 lg:px-[120px]">
+      <main className="flex flex-1 flex-col items-center justify-center px-6 py-8 sm:px-10 sm:py-12 lg:px-[120px]">
         <div className="w-full max-w-[800px]">
+          {showProgress && <p className="mb-5 text-caption tabular-nums" style={{ color: 'var(--runner-text-meta)' }}>Statement {localItemIndex + 1} of {section.items.length}</p>}
           {section.id === PERSONALITY_PROFILE_SECTION_ID && (
-            <p className="mb-4 text-sm" style={{ color: 'var(--runner-text-muted)' }}>
-              {PERSONALITY_PROFILE_PROMPT}
+            <p className="mb-6 max-w-prose text-sm leading-relaxed" style={{ color: 'var(--runner-text-muted)' }}>
+              {integratedModule ? PERSONALITY_FIRST_PERSON_PROMPT : PERSONALITY_PROFILE_PROMPT}
             </p>
           )}
           {/* Item card with crossfade animation */}
@@ -697,6 +747,8 @@ export function SectionWrapper({
               isAnimating ? "opacity-0" : "opacity-100"
             }`}
           >
+            <fieldset disabled={qualitySaving || isBoundaryPending} aria-busy={qualitySaving}>
+            <legend className="sr-only">Your response</legend>
             <ItemCard
               item={currentItem}
               responseFormatType={responseFormatType}
@@ -710,6 +762,15 @@ export function SectionWrapper({
               continueButtonLabel={manualAdvanceLabel}
               continueButtonDisabled={isBoundaryPending}
             />
+            </fieldset>
+            {qualityError && <div className="mt-5 space-y-3 text-sm" role="alert" style={{ color: 'var(--runner-text)' }}>
+              <p>{qualityError}</p>
+              <div className="flex gap-4">
+                <button className="underline underline-offset-4" onClick={() => failedQualityValue !== null && void handleQualityResponse(currentItem.id, failedQualityValue)}>Retry saving</button>
+                <button className="underline underline-offset-4" onClick={() => window.location.reload()}>Reload saved answers</button>
+              </div>
+            </div>}
+            {responseFormatType === 'likert' && !qualityError && <p className="mt-5 text-caption" style={{ color: 'var(--runner-text-muted)' }}>{qualitySaving ? 'Saving your answer…' : 'Select one response to continue. You can use Back to change an earlier answer.'}</p>}
 
             {/* Practice-mode controls (LR-6 / #336) — replace ItemCard's own
                 Continue button (suppressed above via showContinue) with an
@@ -766,7 +827,7 @@ export function SectionWrapper({
             className="text-xs font-normal"
             style={{ color: "var(--runner-text-faint)" }}
           >
-            {saveStatus === "saving"
+            {qualitySaving || saveStatus === "saving"
               ? (runnerContent?.saveStatusSaving ?? "Saving…")
               : saveStatus === "saved"
                 ? (runnerContent?.saveStatusSaved ?? "Saved a moment ago")

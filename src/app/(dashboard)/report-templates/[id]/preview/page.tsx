@@ -1,3 +1,4 @@
+import { ReportPreviewSurface } from '@/components/reports/report-preview-surface'
 import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
 import { notFound } from 'next/navigation'
@@ -70,11 +71,11 @@ export default async function PreviewPage({ params, searchParams }: Props) {
         </div>
       </PageHeader>
 
-      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+      <ReportPreviewSurface blocks={sampleBlocks}>
         <Suspense>
           <ReportRenderer blocks={sampleBlocks} />
         </Suspense>
-      </div>
+      </ReportPreviewSurface>
     </div>
   )
 }

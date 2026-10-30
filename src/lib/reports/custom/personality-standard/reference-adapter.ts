@@ -43,6 +43,9 @@ export function buildReferencedPersonalityReport(ctx: ReportContext) {
   return { ...result, editionNumber: ctx.snapshot.editionNumber ?? 1,
     reference: { ...result.reference, label: ref.name, ageBoundsInclusive: ref.ageBoundsInclusive,
       weighting: ref.weighting, population: ref.provenance.population, artifactSha256: ref.artifactSha256,
-      rawN: ref.rawN, effectiveN: ref.effectiveN },
+      rawN: ref.rawN, effectiveN: ref.effectiveN,
+      attribution: typeof ref.provenance.attribution === 'string' ? ref.provenance.attribution : undefined,
+      sourceUrl: typeof ref.provenance.sourceUrl === 'string' ? ref.provenance.sourceUrl : undefined,
+      intendedUse: typeof ref.provenance.intendedUse === 'string' ? ref.provenance.intendedUse : undefined },
   }
 }

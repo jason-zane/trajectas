@@ -1,5 +1,5 @@
 import 'server-only'
-import { QUALITY_MODULE_VERSION, QUALITY_POLICY_VERSION, QUALITY_QUESTIONS, type QualityIndicator, type ResponseQualityResult } from '@/lib/instrument/ipip-neo-120/response-quality'
+import { QUALITY_MODULE_VERSION, INTEGRATED_QUALITY_MODULE_VERSION, QUALITY_POLICY_VERSION, QUALITY_QUESTIONS, type QualityIndicator, type ResponseQualityResult } from '@/lib/instrument/ipip-neo-120/response-quality'
 
 export interface QualityCoreResponse { value: number; timeMs: number | null }
 /** Pilot review rules, not a validated lie scale or a diagnostic classification.
@@ -8,7 +8,7 @@ export interface QualityCoreResponse { value: number; timeMs: number | null }
  */
 export function analyseResponseQuality(core: readonly QualityCoreResponse[], module: { version: string; answers: Record<string, number> } | null): ResponseQualityResult {
   if (core.length !== 120 || core.some(r => !Number.isInteger(r.value) || r.value < 1 || r.value > 5)) throw new Error('Response quality requires the complete native IPIP responses')
-  if (module && module.version !== QUALITY_MODULE_VERSION) throw new Error('Unsupported response-quality module')
+  if (module && module.version !== QUALITY_MODULE_VERSION && module.version !== INTEGRATED_QUALITY_MODULE_VERSION) throw new Error('Unsupported response-quality module')
   const answers = module?.answers ?? {}
   const indicator = (id: QualityIndicator['id'], label: string, ids: string[], flagged: (values: number[]) => number, threshold: number, description: string): QualityIndicator => {
     const values = ids.map(key => answers[key])
@@ -23,13 +23,13 @@ export function analyseResponseQuality(core: readonly QualityCoreResponse[], mod
   const fastCount = timings.filter(value => value < 1000).length
   const enoughTiming = timings.length >= 100
   const indicators: QualityIndicator[] = [
-    indicator('attention', 'Instruction checks', ['attention_agree', 'attention_disagree'], values => Number(values[0] !== 4) + Number(values[1] !== 1), 1, 'instructions missed.'),
+    indicator('attention', 'Instruction checks', ['attention_agree', 'attention_disagree'], values => Number(values[0] !== (module?.version === INTEGRATED_QUALITY_MODULE_VERSION ? 5 : 4)) + Number(values[1] !== 1), 1, 'instructions missed.'),
     indicator('infrequency', 'Implausible endorsements', ['infrequency_sleep', 'infrequency_languages'], values => values.filter(v => v >= 4).length, 1, 'implausible statements endorsed.'),
     indicator('presentation', 'Idealised self-description', QUALITY_QUESTIONS.filter(q => q.id.startsWith('presentation_')).map(q => q.id), values => values.filter(v => v === 5).length, 4, 'absolute positive statements strongly endorsed. This is not evidence of dishonesty.'),
     { id: 'repetition', label: 'Repeated answers', status: longestRun >= 20 ? 'flagged' : 'clear', observed: longestRun, denominator: 120, detail: `Longest consecutive run of the same answer: ${longestRun} items. The pilot review threshold is 20.` },
     { id: 'timing', label: 'Response timing', status: !enoughTiming ? 'unavailable' : fastCount / timings.length > 0.5 ? 'flagged' : 'clear', observed: enoughTiming ? fastCount : null, denominator: timings.length,
       detail: enoughTiming ? `${fastCount} of ${timings.length} recorded responses were under one second. Timing is device-reported and may include revisits.` : `Usable timing available for ${timings.length} of 120 items; at least 100 are required for this check.` },
   ]
-  return { policyVersion: QUALITY_POLICY_VERSION, moduleVersion: module ? QUALITY_MODULE_VERSION : null, provisional: true, indicators,
+  return { policyVersion: QUALITY_POLICY_VERSION, moduleVersion: module?.version as ResponseQualityResult['moduleVersion'] ?? null, provisional: true, indicators,
     status: indicators.some(i => i.status === 'flagged') ? 'review_recommended' : indicators.some(i => i.status === 'unavailable') ? 'insufficient_information' : 'no_concerns_detected' }
 }

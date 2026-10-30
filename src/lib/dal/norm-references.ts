@@ -3,6 +3,8 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolveAuthorizedScope, requireAssessmentAccess, requireCampaignAccess, resolveTenantClientFilter, requireAdminScope, canManageCampaign } from '@/lib/auth/authorization'
 import type { ReferenceOption, ReferenceStatus } from '@/lib/norms/types'
+import { parseReferenceRefresh } from '@/lib/norms/refresh'
+import { createHash } from 'node:crypto'
 
 function matchesSupportedForm(row: Record<string, unknown>, form: { instrument_id: string; definition: Record<string, unknown> } | null | undefined) {
   return Boolean(form && form.instrument_id === 'ipip-neo-120-johnson-2014' && row.instrument_id === form.instrument_id && row.form_version === form.definition.formVersion && row.itemset_sha256 === form.definition.itemsetSha256 && row.scoring_version === 'ipip-neo-120-raw-v1' && row.method_version === 'weighted-empirical-midrank-v1')
@@ -18,6 +20,29 @@ function mapReference(row: Record<string, unknown>, isDefault = false): Referenc
     methodVersion: String(row.method_version), provenance: row.provenance as ReferenceOption['provenance'],
     isDefault, scopeClientId: row.scope_client_id as string | null, reviewEvidence: (row.review_evidence ?? {}) as Record<string, string>,
   }
+}
+
+/** Platform maintenance only. A refresh cannot mutate the published population,
+ * scoring contract, approvals, defaults or any delivered interpretation. */
+export async function createNormReferenceVersion(input: { priorId: string; id: string; version: string; artifact: string; sourceUrl: string; attribution: string; collectionPeriod: string; notes: string }) {
+  const scope = await requireAdminScope()
+  if (!scope.actor?.id || resolveTenantClientFilter(scope) !== null) throw new Error('Reference maintenance requires the platform workspace')
+  const db = createAdminClient()
+  const prior = await db.from('norm_reference_versions').select('*').eq('id', input.priorId).single()
+  if (prior.error || !prior.data) throw new Error('Reference not found')
+  const data = parseReferenceRefresh(input.artifact)
+  const old = JSON.parse(prior.data.artifact_text)
+  if (data.id !== old.id || data.weighting !== old.weighting || JSON.stringify(data.ageBoundsInclusive) !== JSON.stringify(old.ageBoundsInclusive)
+    || JSON.stringify(data.countryLabels) !== JSON.stringify(old.countryLabels)) throw new Error('A refresh must retain the group definition, age range, country selection and weighting. Create a separate population for a changed definition.')
+  const artifact = JSON.stringify(data)
+  const hash = createHash('sha256').update(artifact).digest('hex')
+  const { data: id, error } = await db.rpc('create_norm_reference_version', {
+    p_prior_id: input.priorId, p_id: input.id, p_version: input.version, p_artifact: artifact, p_hash: hash,
+    p_provenance: { population: prior.data.provenance.population, collectionPeriod: input.collectionPeriod, previousVersionId: input.priorId, sourceUrl: input.sourceUrl, attribution: input.attribution,
+      refreshNotes: input.notes, reuseStatus: 'pending-review', preparedBy: scope.actor.id, preparedAt: new Date().toISOString() },
+  })
+  if (error || !id) throw new Error(error?.message ?? 'Unable to create the reference version')
+  return String(id)
 }
 
 /** Workspace-scoped metadata only; source distributions never flow to UI props. */

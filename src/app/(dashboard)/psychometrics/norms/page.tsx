@@ -7,9 +7,10 @@ import { listNormReferences } from '@/lib/dal/norm-references'
 export default async function NormsPage() {
   const [references, existingGroups] = await Promise.all([listNormReferences(undefined, true), getNormGroups()])
   return <div className="max-w-7xl space-y-6">
-    <PageHeader eyebrow="Psychometrics" title="Reference groups" description="Review assessment-specific reference populations, weighting and versioned scoring methods." />
+    <PageHeader eyebrow="Psychometrics" title="Norm groups" description="Manage assessment-specific populations, source evidence and immutable reference versions." />
     <Alert variant="info"><AlertTitle>References require explicit review</AlertTitle><AlertDescription>New source data starts in draft. Dataset reuse, form equivalence, methodology, stability and intended use must be reviewed before a version becomes available in campaigns. Sample size does not confer approval.</AlertDescription></Alert>
     <NormReferenceTable references={references} />
+    <p className="max-w-prose text-sm leading-relaxed text-muted-foreground">To refresh a population, choose New version and upload its updated aggregate distribution. Review and activate the new version, then choose it for new campaigns or report editions. Existing campaigns, scores and reports retain their original version.</p>
     <section className="space-y-3">
       <h2 className="text-xl font-semibold">Existing calibration groups</h2>
       <p className="max-w-prose text-sm text-muted-foreground">These groups support existing assessments and reports. Their recorded sample sizes describe the available data; approval for a new assessment requires a compatible, reviewed reference version above.</p>

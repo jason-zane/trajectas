@@ -5,7 +5,7 @@ import { readResponseQualityModule, persistSessionResponseQuality } from '@/lib/
 import { scoreIpipNeo120Session } from '@/lib/dal/ipip-neo-120'
 import { IPIP_DATABASE } from '@/lib/instrument/ipip-neo-120/database-form'
 import { IPIP_ITEMS } from '@/lib/instrument/ipip-neo-120/definition'
-import { QUALITY_QUESTIONS } from '@/lib/instrument/ipip-neo-120/response-quality'
+import { INTEGRATED_QUALITY_QUESTIONS as QUALITY_QUESTIONS, INTEGRATED_QUALITY_MODULE_VERSION } from '@/lib/instrument/ipip-neo-120/response-quality'
 
 describe.skipIf(!canRun)('response quality: disposable CI only', () => {
   it('freezes a separate supplement, handles retries/stale tabs, preserves native scoring and stores immutable review evidence', async () => {
@@ -17,11 +17,12 @@ describe.skipIf(!canRun)('response quality: disposable CI only', () => {
     expect('error' in forms).toBe(false)
     const supplement = await readResponseQualityModule(db, sessionId)
     expect(supplement?.questions).toEqual(QUALITY_QUESTIONS)
+    expect(supplement?.version).toBe(INTEGRATED_QUALITY_MODULE_VERSION)
     expect(supplement?.answers).toEqual({})
     const save = (key: string, value: number, revision: number) => db.rpc('save_response_quality_answer', { p_session_id: sessionId, p_question_id: key, p_value: value, p_expected_revision: revision })
-    const first = await save('attention_agree', 4, 0)
+    const first = await save('attention_agree', 5, 0)
     expect(first.error).toBeNull()
-    expect((await save('attention_agree', 4, 0)).data).toEqual(first.data)
+    expect((await save('attention_agree', 5, 0)).data).toEqual(first.data)
     expect((await save('attention_agree', 3, 0)).error?.code).toBe('PT409')
     expect((await save('unknown', 3, 1)).error?.code).toBe('23514')
     expect((await save('attention_agree', 6, 1)).error?.code).toBe('23514')

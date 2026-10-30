@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { ADMIN_STORAGE_STATE, createSeededServiceClient } from './auth'
+import { firstPersonPersonalityStem } from '../../../src/lib/instrument/ipip-neo-120/administration'
 import manifest from '../../../src/lib/instrument/ipip-neo-120/source/manifest.json'
 import ids from '../../../src/lib/instrument/ipip-neo-120/database-ids.json'
-import { QUALITY_QUESTIONS, QUALITY_ANCHORS } from '../../../src/lib/instrument/ipip-neo-120/response-quality'
+import { INTEGRATED_QUALITY_QUESTIONS as QUALITY_QUESTIONS } from '../../../src/lib/instrument/ipip-neo-120/response-quality'
 
-test('completes 120 original items plus the separate supplement, resumes it, and records an assessor review', async ({ page, browser }, testInfo) => {
+test('completes the integrated 128-statement questionnaire, resumes it, and records an assessor review', async ({ page, browser }, testInfo) => {
   test.setTimeout(180_000)
   const db = createSeededServiceClient()
   const campaignId = randomUUID(), participantId = randomUUID(), sessionId = randomUUID()
@@ -20,24 +21,33 @@ test('completes 120 original items plus the separate supplement, resumes it, and
   await insert('participant_sessions', { id: sessionId, campaign_id: campaignId, campaign_participant_id: participantId, client_id: '10000000-0000-0000-0000-000000000101', assessment_id: ids.assessmentId, status: 'in_progress', is_internal: true })
   try {
     await page.goto(`/assess/${token}/section/0`)
+    await expect(page.getByText('I worry about things.', { exact: true })).toBeVisible()
+    await page.screenshot({ path: testInfo.outputPath('integrated-runner-desktop.png'), fullPage: true })
     const labels = ['Very Inaccurate', 'Moderately Inaccurate', 'Neither Inaccurate nor Accurate', 'Moderately Accurate', 'Very Accurate']
-    for (const [index, item] of manifest.items.entries()) {
-      await expect(page.getByText(item.stem, { exact: true })).toBeVisible()
-      await page.getByRole('button', { name: labels[index % 5], exact: true }).click()
-    }
-    await expect(page).toHaveURL(new RegExp(`/quality/${sessionId}$`))
-    await page.setViewportSize({ width: 390, height: 844 })
     const values = [3, 2, 1, 2, 2, 1, 2, 1] // Deliberately miss one instruction.
-    for (const [index, question] of QUALITY_QUESTIONS.entries()) {
+    for (const [index, item] of manifest.items.entries()) {
+      await expect(page.getByText(firstPersonPersonalityStem(item.stem), { exact: true })).toBeVisible()
+      await page.getByRole('button', { name: labels[index % 5], exact: true }).click()
+      const qIndex = QUALITY_QUESTIONS.findIndex(q => q.afterItem === index + 1)
+      if (qIndex < 0) continue
+      const question = QUALITY_QUESTIONS[qIndex]
       await expect(page.getByText(question.stem, { exact: true }).last()).toBeVisible()
-      await page.getByRole('button', { name: QUALITY_ANCHORS[values[index] - 1], exact: true }).click()
-      await expect(page.getByRole('status')).toHaveText('Saved')
+      await expect(page).toHaveURL(new RegExp(`/section/0$`))
+      if (qIndex === 1) {
+        await page.setViewportSize({ width: 390, height: 844 })
+        await page.screenshot({ path: testInfo.outputPath('integrated-runner-mobile.png'), fullPage: true })
+      }
+      await page.getByRole('button', { name: labels[values[qIndex] - 1], exact: true }).click()
+      await expect(page.getByText(firstPersonPersonalityStem(manifest.items[index + 1].stem), { exact: true })).toBeVisible()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-      if (index === 1) {
+      if (qIndex === 1) {
+        // The shared Back control revisits the check; reload then resumes the
+        // same integrated sequence with confirmed native and quality answers.
+        await page.getByRole('button', { name: 'Back', exact: true }).click()
+        await expect(page.getByText(question.stem, { exact: true })).toBeVisible()
+        await page.getByRole('button', { name: labels[values[qIndex] - 1], exact: true }).click()
+        await expect(page.getByText(firstPersonPersonalityStem(manifest.items[index + 1].stem), { exact: true })).toBeVisible()
         await page.reload()
-        // Resume skips the two saved statements and opens question 3.
-      } else {
-        await page.getByRole('button', { name: index === 7 ? 'Continue to finish' : 'Continue', exact: true }).click()
       }
     }
     // Review is configurable. With it disabled, CompletePage submits through
@@ -60,7 +70,8 @@ test('completes 120 original items plus the separate supplement, resumes it, and
       await adminPage.getByLabel('Review notes').fill('Synthetic review: follow up about the missed instruction.')
       await adminPage.getByRole('button', { name: 'Save review', exact: true }).click()
       await expect(adminPage.getByText('Response-quality review saved', { exact: true })).toBeVisible()
-      await expect(adminPage.getByText('Follow-up needed', { exact: true }).filter({ visible: true })).toBeVisible()
+      await expect(adminPage.getByRole('heading', { name: 'Assessor reviews' })).toBeVisible()
+      await expect(adminPage.getByText('Synthetic review: follow up about the missed instruction.', { exact: true })).toBeVisible()
       await adminPage.screenshot({ path: testInfo.outputPath('response-quality-light.png'), fullPage: true })
       await adminPage.evaluate(() => document.documentElement.classList.add('dark'))
       await adminPage.screenshot({ path: testInfo.outputPath('response-quality-dark.png'), fullPage: true })

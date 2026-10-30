@@ -72,12 +72,11 @@ export function ItemCard({
           </p>
         </div>
       ) : (
-        <div className="mb-8 flex min-h-[8.5rem] items-end">
+        <div className="mb-7 flex min-h-24 items-center sm:min-h-28">
           <p
-            className="max-w-[620px] text-[33px] font-semibold leading-tight"
+            className="max-w-[680px] text-2xl font-semibold leading-snug sm:text-3xl"
             style={{
               color: "var(--runner-display)",
-              fontFamily: '"Source Serif 4", Georgia, serif',
               letterSpacing: "-0.01em",
             }}
           >

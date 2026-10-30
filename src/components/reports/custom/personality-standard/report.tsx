@@ -102,7 +102,11 @@ function Information({ data }: { data: PersonalityReportData }) {
       {data.reference.ageBoundsInclusive && <div><dt>Reference ages</dt><dd>{data.reference.ageBoundsInclusive.join("–")}</dd></div>}
       {data.reference.weighting && <div><dt>Weighting</dt><dd>{referenceWeightingLabel(data.reference.weighting)}</dd></div>}
     </dl><section><h2>Assessment basis</h2><p>Based on the IPIP-NEO-120 (Johnson, 2014), a public-domain personality inventory.</p></section></aside></div>
-    <section className="reference"><h2>Reference</h2><p>Johnson, J. A. (2014). Measuring thirty facets of the Five Factor Model with a 120-item public domain inventory: Development of the IPIP-NEO-120. <i>Journal of Research in Personality, 51</i>, 78-89.</p><p>doi.org/10.1016/j.jrp.2014.05.003 <span>·</span> ipip.ori.org</p><p className="design-credit">Report design and presentation by Trajectas.</p></section>
+    <section className="reference"><h2>Reference</h2><p>Johnson, J. A. (2014). Measuring thirty facets of the Five Factor Model with a 120-item public domain inventory: Development of the IPIP-NEO-120. <i>Journal of Research in Personality, 51</i>, 78-89.</p><p>doi.org/10.1016/j.jrp.2014.05.003 <span>·</span> ipip.ori.org</p>
+      {data.reference.attribution && <p>{data.reference.attribution}</p>}
+      {data.reference.sourceUrl && <p>{data.reference.sourceUrl}</p>}
+      {data.reference.intendedUse && <p>{data.reference.intendedUse}</p>}
+      <p className="design-credit">Report design and presentation by Trajectas.</p></section>
   </Page>
 }
 

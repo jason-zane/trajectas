@@ -217,14 +217,14 @@ export function generateRunnerTokens(config: BrandConfig): RunnerTokens {
     // Text
     t['--runner-display'] = a.paper
     t['--runner-text'] = a.paper
-    t['--runner-text-muted'] = rgba(a.paper, 0.6)
-    t['--runner-text-faint'] = rgba(a.paper, 0.45)
-    t['--runner-text-meta'] = rgba(a.paper, 0.35)
-    t['--runner-placeholder'] = rgba(a.paper, 0.35)
+    t['--runner-text-muted'] = rgba(a.paper, 0.8)
+    t['--runner-text-faint'] = rgba(a.paper, 0.7)
+    t['--runner-text-meta'] = rgba(a.paper, 0.7)
+    t['--runner-placeholder'] = rgba(a.paper, 0.7)
 
     // Lines & ghosts
     t['--runner-hairline'] = rgba(a.paper, 0.14)
-    t['--runner-ghost-border'] = rgba(a.paper, 0.16)
+    t['--runner-ghost-border'] = rgba(a.paper, 0.4)
     t['--runner-ghost-fill'] = rgba(a.paper, 0.02)
     t['--runner-ghost-fill-hover'] = rgba(a.paper, 0.05)
     t['--runner-ghost-border-hover'] = rgba(a.paper, 0.4)
@@ -260,9 +260,9 @@ export function generateRunnerTokens(config: BrandConfig): RunnerTokens {
     t['--runner-display'] = a.ink
     t['--runner-text'] = oklchToHex({ l: 0.21, c: 0.008, h: paperHue })
     t['--runner-text-muted'] = oklchToHex({ l: 0.49, c: 0.008, h: paperHue })
-    t['--runner-text-faint'] = oklchToHex({ l: 0.65, c: 0.015, h: paperHue })
-    t['--runner-text-meta'] = oklchToHex({ l: 0.65, c: 0.015, h: paperHue })
-    t['--runner-placeholder'] = oklchToHex({ l: 0.74, c: 0.02, h: paperHue })
+    t['--runner-text-faint'] = oklchToHex({ l: 0.49, c: 0.008, h: paperHue })
+    t['--runner-text-meta'] = oklchToHex({ l: 0.49, c: 0.008, h: paperHue })
+    t['--runner-placeholder'] = oklchToHex({ l: 0.49, c: 0.008, h: paperHue })
 
     // Lines & cards (answers are white cards on paper in light mode)
     const hairline = oklchToHex({ l: 0.885, c: 0.022, h: paperHue })

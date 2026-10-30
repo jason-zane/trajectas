@@ -5,9 +5,10 @@ import { resolve } from 'node:path'
 import { PDFDocument } from 'pdf-lib'
 import { extractText } from 'unpdf'
 import { createSeededServiceClient, mintStorageState } from './auth'
+import { firstPersonPersonalityStem } from '../../../src/lib/instrument/ipip-neo-120/administration'
 import manifest from '../../../src/lib/instrument/ipip-neo-120/source/manifest.json'
 import ids from '../../../src/lib/instrument/ipip-neo-120/database-ids.json'
-import { QUALITY_QUESTIONS, QUALITY_ANCHORS } from '../../../src/lib/instrument/ipip-neo-120/response-quality'
+import { INTEGRATED_QUALITY_QUESTIONS as QUALITY_QUESTIONS } from '../../../src/lib/instrument/ipip-neo-120/response-quality'
 const { instrumentId: IPIP_ID, formVersion: IPIP_FORM_VERSION, scoringVersion: IPIP_SCORING_VERSION, itemsetSha256: IPIP_ITEMSET_SHA256 } = manifest
 
 test.use({ actionTimeout: 30_000 })
@@ -84,24 +85,22 @@ test('creates a campaign, completes a fresh profile, downloads standard PDFs and
     const respondent = await participant.newPage()
     await respondent.goto(`/assess/${token}`)
     await respondent.getByRole('link', { name: /^Begin assessment$/i }).click()
-    await expect(respondent.getByText(manifest.items[0].stem, { exact: true })).toBeVisible()
+    await expect(respondent.getByText(firstPersonPersonalityStem(manifest.items[0].stem), { exact: true })).toBeVisible()
     const started = check(await db.from('participant_sessions').select('id,client_id').eq('campaign_participant_id',participantId).eq('assessment_id',ids.assessmentId).single()).data!
     sessionId = started.id
     expect(started.client_id).toBe(clientId)
     const anchors = ['Very Inaccurate','Moderately Inaccurate','Neither Inaccurate nor Accurate','Moderately Accurate','Very Accurate']
+    const quality = [5,1,1,1,2,2,2,1]
     for (const [i,item] of manifest.items.entries()) {
-      await expect(respondent.getByText(item.stem, { exact: true })).toBeVisible()
+      await expect(respondent.getByText(firstPersonPersonalityStem(item.stem), { exact: true })).toBeVisible()
       await respondent.getByRole('button', { name: anchors[i%5], exact: true }).click()
-    }
-    await expect(respondent).toHaveURL(new RegExp(`/quality/${sessionId}$`))
-    await respondent.setViewportSize({ width: 390, height: 844 })
-    const quality = [4,1,1,1,2,2,2,2]
-    for (const [i,q] of QUALITY_QUESTIONS.entries()) {
+      const qIndex = QUALITY_QUESTIONS.findIndex(q => q.afterItem === i + 1)
+      if (qIndex < 0) continue
+      const q = QUALITY_QUESTIONS[qIndex]
       await expect(respondent.getByText(q.stem, { exact: true }).last()).toBeVisible()
-      await respondent.getByRole('button', { name: QUALITY_ANCHORS[quality[i]-1], exact: true }).click()
-      await expect(respondent.getByRole('status')).toHaveText('Saved')
-      if (i===1) await respondent.reload()
-      else await respondent.getByRole('button', { name: i===7?'Continue to finish':'Continue', exact: true }).click()
+      await respondent.getByRole('button', { name: anchors[quality[qIndex]-1], exact: true }).click()
+      await expect(respondent.getByText(firstPersonPersonalityStem(manifest.items[i+1].stem), { exact: true })).toBeVisible()
+      if (qIndex === 1) { await respondent.setViewportSize({ width: 390, height: 844 }); await respondent.reload() }
     }
     await expect(respondent).toHaveURL(new RegExp(`/assess/${token}/(?:review|complete)$`))
     if (new URL(respondent.url()).pathname.endsWith('/review')) await respondent.getByRole('button', { name: 'Submit assessment', exact: true }).click()

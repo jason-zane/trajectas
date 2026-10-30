@@ -1,3 +1,4 @@
+import { ReportPreviewSurface } from '@/components/reports/report-preview-surface'
 import { ReferenceStatusNotice } from '@/components/reports/reference-status-notice'
 import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
@@ -106,15 +107,12 @@ export default async function ReportViewerPage({ params, searchParams }: Props) 
         </div>
       </PageHeader>
 
-      {/* A4 reports render at a fixed 794px width. Outer container fits that
-          on desktop; overflow-x-auto lets narrower viewports scroll rather
-          than clip the right edge (the visible-on-PDF / cut-off-on-web bug). */}
       <ReferenceStatusNotice snapshot={snapshot} />
-      <div className="rounded-xl border border-border bg-card shadow-sm overflow-x-auto">
+      <ReportPreviewSurface blocks={blocks}>
         <Suspense>
           <ReportRenderer blocks={blocks} />
         </Suspense>
-      </div>
+      </ReportPreviewSurface>
     </div>
   )
 }

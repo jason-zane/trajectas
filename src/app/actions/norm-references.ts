@@ -10,13 +10,21 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireWorkspaceFeature, isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { requireAdminScope, requireClientAccess, requireAssessmentAccess, requireCampaignManage, requireSessionAccess, requireReportSnapshotAccess, assertIndividualResultsAccess, canManageCampaign, resolveTenantClientFilter } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
-import { listNormReferences, getCampaignReferenceSettings } from '@/lib/dal/norm-references'
+import { listNormReferences, getCampaignReferenceSettings, createNormReferenceVersion } from '@/lib/dal/norm-references'
 import { processSnapshot } from '@/lib/reports/runner'
 import { IPIP_DATABASE } from '@/lib/instrument/ipip-neo-120/database-form'
 import { isAggregateOnly } from '@/lib/reports/confidentiality'
 
 const uuid = z.string().uuid()
 const selection = z.object({ assessmentId: uuid, referenceId: uuid.nullable() })
+export async function refreshNormReference(input: unknown) {
+  const parsed = z.object({ priorId: uuid, id: uuid, version: z.string().trim().min(1).max(100), artifact: z.string().max(200_000),
+    sourceUrl: z.url().refine(value => value.startsWith('https://')), attribution: z.string().trim().min(10).max(1500), collectionPeriod: z.string().trim().min(4).max(100), notes: z.string().trim().min(20).max(3000) }).parse(input)
+  const id = await createNormReferenceVersion(parsed)
+  await logAuditEvent({ eventType: 'reference.version.created', targetTable: 'norm_reference_versions', targetId: id, metadata: { priorId: parsed.priorId, version: parsed.version } })
+  revalidatePath('/psychometrics/norms')
+  return { id }
+}
 function refreshCampaign(id: string) {
   for (const prefix of ['', '/partner', '/client']) revalidatePath(`${prefix}/campaigns/${id}`, 'layout')
 }

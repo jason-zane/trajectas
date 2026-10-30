@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { analyseResponseQuality } from '@/lib/scoring/response-quality'
-import { QUALITY_MODULE_VERSION, QUALITY_QUESTIONS } from '@/lib/instrument/ipip-neo-120/response-quality'
+import { QUALITY_MODULE_VERSION, QUALITY_QUESTIONS, INTEGRATED_QUALITY_MODULE_VERSION, INTEGRATED_QUALITY_QUESTIONS } from '@/lib/instrument/ipip-neo-120/response-quality'
 import { readFileSync } from 'node:fs'
 
 const core = () => Array.from({ length: 120 }, (_, i) => ({ value: i % 5 + 1, timeMs: 3000 as number | null }))
@@ -69,5 +69,13 @@ describe('pilot response-quality policy', () => {
     const sql = readFileSync('supabase/migrations/20261029233035_ipip_response_quality.sql', 'utf8')
     const snapshot = sql.match(/\$questions\$([\s\S]+?)\$questions\$/)![1]
     expect(JSON.parse(snapshot)).toEqual(QUALITY_QUESTIONS)
+  })
+  it('freezes the integrated protocol separately and scores its accuracy instruction without reinterpreting v1', () => {
+    const sql = readFileSync('supabase/migrations/20261030110000_integrated_response_quality.sql', 'utf8')
+    expect(JSON.parse(sql.match(/\$questions\$([\s\S]+?)\$questions\$/)![1])).toEqual(INTEGRATED_QUALITY_QUESTIONS)
+    const answers = { ...supplement().answers, attention_agree: 5 }
+    expect(analyseResponseQuality(core(), { version: INTEGRATED_QUALITY_MODULE_VERSION, answers })).toMatchObject({ moduleVersion: INTEGRATED_QUALITY_MODULE_VERSION, status: 'no_concerns_detected' })
+    expect(analyseResponseQuality(core(), { version: QUALITY_MODULE_VERSION, answers }).indicators[0].status).toBe('flagged')
+    expect(analyseResponseQuality(core(), supplement()).indicators[0].status).toBe('clear')
   })
 })

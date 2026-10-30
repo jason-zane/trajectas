@@ -1,3 +1,4 @@
+import { ReportPreviewSurface } from '@/components/reports/report-preview-surface'
 import { ReferenceStatusNotice } from '@/components/reports/reference-status-notice'
 import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
 import { WorkspaceFeatureUnavailable } from '@/components/workspace-feature-unavailable'
@@ -43,11 +44,11 @@ export default async function PartnerReportViewerPage({ params }: Props) {
         />
       </div>
       <ReferenceStatusNotice snapshot={snapshot} />
-      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+      <ReportPreviewSurface blocks={blocks}>
         <Suspense>
           <ReportRenderer blocks={blocks} />
         </Suspense>
-      </div>
+      </ReportPreviewSurface>
     </div>
   )
 }

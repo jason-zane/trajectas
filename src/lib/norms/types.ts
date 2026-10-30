@@ -4,7 +4,7 @@ export type ReferenceOption = {
   formVersion: string; scoringVersion: string; family: string; status: ReferenceStatus
   rawN: number; effectiveN: number; ageBoundsInclusive: [number, number]
   countryLabels: string[] | null; weighting: string; isDefault: boolean
-  methodVersion?: string; provenance?: { collectionPeriod?: string; population?: string }
+  methodVersion?: string; provenance?: { collectionPeriod?: string; population?: string; sourceUrl?: string; attribution?: string; previousVersionId?: string; intendedUse?: string }
   scopeClientId: string | null; reviewEvidence: Record<string, string>
 }
 export type ReferenceInterpretation = {

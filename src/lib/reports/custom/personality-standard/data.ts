@@ -15,7 +15,7 @@ export interface PersonalityReportData {
   version: 1
   participantName: string
   assessedAt: string
-  reference: { id: string; version: string; method: string; label: string; ageBoundsInclusive?: [number, number]; weighting?: string; population?: string; artifactSha256?: string; rawN?: number; effectiveN?: number }
+  reference: { id: string; version: string; method: string; label: string; ageBoundsInclusive?: [number, number]; weighting?: string; population?: string; artifactSha256?: string; rawN?: number; effectiveN?: number; attribution?: string; sourceUrl?: string; intendedUse?: string }
   editionNumber?: number
   coverHeadline?: string
   dimensions: PersonalityDimension[]

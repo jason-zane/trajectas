@@ -1,3 +1,4 @@
+import { ReportPreviewSurface } from '@/components/reports/report-preview-surface'
 import { ReferenceStatusNotice } from '@/components/reports/reference-status-notice'
 import { requireReportSnapshotReadAccess, canManageCampaign } from '@/lib/auth/authorization'
 import { isWorkspaceFeatureEnabled } from '@/lib/features/access'
@@ -41,11 +42,11 @@ export default async function ClientReportViewerPage({ params }: Props) {
         />
       </div>
       <ReferenceStatusNotice snapshot={snapshot} />
-      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+      <ReportPreviewSurface blocks={blocks}>
         <Suspense>
           <ReportRenderer blocks={blocks} />
         </Suspense>
-      </div>
+      </ReportPreviewSurface>
     </div>
   )
 }

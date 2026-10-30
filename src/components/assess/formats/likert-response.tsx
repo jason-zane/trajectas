@@ -34,21 +34,21 @@ export function LikertResponse({
   const gridCols = GRID_COLS[options.length] ?? "md:grid-cols-5";
 
   return (
-    <div className={`grid grid-cols-1 gap-2 md:gap-3 ${gridCols}`}>
-      {options.map((option) => {
+    <div className={`grid grid-cols-1 gap-2 md:gap-3 ${gridCols}`} role="group" aria-label="Response options">
+      {options.map((option, index) => {
         const isSelected = selectedValue === option.value;
         return (
           <button
             key={option.id}
             onClick={() => onSelect(option.value)}
             className="
-              flex items-center justify-center text-center text-balance
-              leading-[1.15] transition-all duration-150 ease-out
+              flex items-center gap-3 text-left md:flex-col md:justify-center md:text-center text-balance
+              leading-snug transition-colors duration-150 ease-out motion-reduce:transition-none
               focus-visible:outline-none focus-visible:ring-2
               focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--runner-page)]
               px-3 py-3 md:px-3 md:py-3
-              min-h-[46px] md:min-h-[68px] text-sm font-medium
-              active:scale-95
+              min-h-[52px] md:min-h-[104px] text-sm font-medium
+              disabled:cursor-wait
             "
             style={{
               borderRadius: "10px",
@@ -84,7 +84,8 @@ export function LikertResponse({
             }}
             aria-pressed={isSelected}
           >
-            {option.label}
+            <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full border border-current text-xs tabular-nums">{isSelected ? '✓' : index + 1}</span>
+            <span>{option.label}</span>
           </button>
         );
       })}

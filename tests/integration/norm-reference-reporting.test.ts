@@ -91,6 +91,20 @@ describe.skipIf(!canRun)('versioned reference reporting infrastructure', () => {
     expect((await db.from('norm_reference_versions').update({ name: 'Changed meaning' }).eq('id', ids.uniform)).error).not.toBeNull()
     expect((await db.from('norm_reference_versions').update({ artifact_text: '{}' }).eq('id', ids.uniform)).error).not.toBeNull()
   })
+  it('creates an idempotent draft refresh with no inherited approval or changed campaign defaults', async () => {
+    const prior = check(await db.from('norm_reference_versions').select('*').eq('id', ids.uniform).single()).data!
+    const id = randomUUID(), provenance = { ...prior.provenance, previousVersionId: ids.uniform, sourceUrl: 'https://example.test/source', attribution: 'Synthetic software test data', refreshNotes: 'Synthetic aggregate refresh for database acceptance.', preparedBy: 'synthetic-reviewer', preparedAt: new Date().toISOString() }
+    const request = { p_prior_id: ids.uniform, p_id: id, p_version: 'synthetic-test-v2', p_artifact: prior.artifact_text, p_hash: prior.artifact_sha256, p_provenance: provenance }
+    expect(check(await db.rpc('create_norm_reference_version', request)).data).toBe(id)
+    expect(check(await db.rpc('create_norm_reference_version', request)).data).toBe(id)
+    expect((await db.rpc('create_norm_reference_version', { ...request, p_version: 'different' })).error).not.toBeNull()
+    const refreshed = check(await db.from('norm_reference_versions').select('status,review_evidence').eq('id', id).single()).data!
+    expect(refreshed).toEqual({ status: 'draft', review_evidence: {} })
+    expect(check(await db.from('assessment_norm_references').select('is_default').eq('reference_version_id', id).single()).data?.is_default).toBe(false)
+    expect(check(await db.from('campaign_assessments').select('reference_version_id').eq('id', ids.ca).single()).data?.reference_version_id).toBe(ids.uniform)
+    expect((await enqueue(id)).error).not.toBeNull()
+    expect(check(await db.from('norm_reference_versions').select('artifact_sha256,status').eq('id', ids.uniform).single()).data).toMatchObject({ artifact_sha256: prior.artifact_sha256, status: 'active' })
+  })
   it('produces separate frozen 35-scale interpretations from one saved result', async () => {
     firstReport = String(check(await enqueue(ids.uniform)).data)
     secondReport = String(check(await enqueue(ids.skew, randomUUID(), false, firstReport)).data)
