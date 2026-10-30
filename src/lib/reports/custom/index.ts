@@ -23,6 +23,7 @@ import type { ComponentType } from 'react'
 import type { ReportContext } from '../report-context'
 import type { ReportTheme } from '../presentation'
 import { fiveBrainsReport } from './5brains'
+import { personalityStandardReport } from './personality-standard'
 
 /**
  * Subset of ReportContext that flows through to the rendering component.
@@ -42,6 +43,8 @@ export interface CustomReportRenderContext {
 export interface CustomReport<TData = unknown> {
   /** Stable identifier — stored verbatim in report_templates.custom_report_slug. */
   slug: string
+  /** Explicit compatibility with a standardized assessment. */
+  supportedInstrumentIds?: readonly string[]
   /** Human-readable label for the admin UI. */
   label: string
   /** Optional description for the admin UI. */
@@ -49,6 +52,8 @@ export interface CustomReport<TData = unknown> {
 
   /** Build the typed payload from the shared context. Runs server-side. */
   buildData: (ctx: ReportContext) => Promise<TData> | TData
+  /** Synthetic authoring preview, isolated from the live builder. */
+  buildPreviewData?: () => TData
 
   /** Renders the payload. Receives the payload + a light render context. */
   Component: ComponentType<{ data: TData; ctx: CustomReportRenderContext }>
@@ -63,6 +68,7 @@ export interface CustomReport<TData = unknown> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const CUSTOM_REPORTS: Record<string, CustomReport<any>> = {
   [fiveBrainsReport.slug]: fiveBrainsReport,
+  [personalityStandardReport.slug]: personalityStandardReport,
 }
 
 export function getCustomReport(slug: string): CustomReport | undefined {

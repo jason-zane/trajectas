@@ -203,6 +203,14 @@ const PERCENTILE_EXEMPT = new Set([
   join(ROOT, "src", "lib", "reports", "cognitive-claims.ts"),
   join(ROOT, "src", "lib", "reports", "competency-claims.ts"),
   join(ROOT, "src", "components", "reports", "blocks", "cognitive-profile.tsx"),
+  // The IPIP standard report reads its own versioned instrument envelope,
+  // never participant_scores. Its pure adapter requires the exact instrument,
+  // explicit norm provenance, 35 normed ranks and display orientation; POMP-only
+  // inputs fail closed (personality-standard-report.test.ts). The component
+  // renders that narrowed payload and explanatory copy. All raw-column guards
+  // above remain active for BOTH files; this exempts only the ambiguous word.
+  join(ROOT, "src", "lib", "reports", "custom", "personality-standard", "data.ts"),
+  join(ROOT, "src", "components", "reports", "custom", "personality-standard", "report.tsx"),
 ]);
 
 const RAW_COLUMN_PATTERNS: Array<{ regex: RegExp; rationale: string }> = [

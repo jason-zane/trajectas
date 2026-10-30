@@ -1,0 +1,392 @@
+[
+  {
+    "code": "O",
+    "name": "Openness",
+    "originalName": "Openness",
+    "definition": "Interest in new ideas, imagination and unfamiliar experiences.",
+    "lower": "More drawn to familiar methods, concrete ideas and established routines.",
+    "higher": "More drawn to imagination, exploration and unfamiliar perspectives.",
+    "lowAnchor": "Familiar approaches",
+    "highAnchor": "Novel possibilities",
+    "facets": [
+      {
+        "code": "O1",
+        "name": "Imagination",
+        "originalName": "Imagination",
+        "definition": "Use of fantasy, daydreaming and mental imagery.",
+        "lower": "Prefer concrete, immediate matters.",
+        "higher": "Enjoy imagining possibilities and alternatives.",
+        "lowAnchor": "Practical focus",
+        "highAnchor": "Imaginative",
+        "reversed": false
+      },
+      {
+        "code": "O2",
+        "name": "Artistic Interests",
+        "originalName": "Artistic Interests",
+        "definition": "Interest in art, beauty and aesthetic experiences.",
+        "lower": "Less absorbed by aesthetic experiences.",
+        "higher": "More moved by art and beauty.",
+        "lowAnchor": "Less art-focused",
+        "highAnchor": "Aesthetically drawn",
+        "reversed": false
+      },
+      {
+        "code": "O3",
+        "name": "Emotional Sensitivity",
+        "originalName": "Emotionality",
+        "definition": "Attention to feelings and emotional experiences.",
+        "lower": "Give feelings less attention.",
+        "higher": "Notice and explore feelings more closely.",
+        "lowAnchor": "Less feeling-focused",
+        "highAnchor": "Emotionally aware",
+        "reversed": false
+      },
+      {
+        "code": "O4",
+        "name": "Variety Seeking",
+        "originalName": "Adventurousness",
+        "definition": "Preference for variety and unfamiliar experiences.",
+        "lower": "Prefer familiar routines and places.",
+        "higher": "Seek variety and unfamiliar experiences.",
+        "lowAnchor": "Routine-seeking",
+        "highAnchor": "Variety-seeking",
+        "reversed": false
+      },
+      {
+        "code": "O5",
+        "name": "Intellectual Curiosity",
+        "originalName": "Intellect",
+        "definition": "Interest in abstract ideas and complex questions.",
+        "lower": "Prefer practical, straightforward ideas.",
+        "higher": "Enjoy complex or abstract questions.",
+        "lowAnchor": "Concrete interests",
+        "highAnchor": "Abstract interests",
+        "reversed": false
+      },
+      {
+        "code": "O6",
+        "name": "Liberalism",
+        "originalName": "Liberalism",
+        "definition": "Preference for liberal social and political views.",
+        "lower": "Prefer conservative social and political views.",
+        "higher": "Prefer liberal social and political views.",
+        "lowAnchor": "More conservative",
+        "highAnchor": "More liberal",
+        "reversed": false
+      }
+    ]
+  },
+  {
+    "code": "C",
+    "name": "Conscientiousness",
+    "originalName": "Conscientiousness",
+    "definition": "Organisation, responsibility and persistence when working towards goals.",
+    "lower": "More spontaneous and flexible about plans, routines and commitments.",
+    "higher": "More deliberate, structured and persistent in pursuing commitments.",
+    "lowAnchor": "Flexible & spontaneous",
+    "highAnchor": "Planned & persistent",
+    "facets": [
+      {
+        "code": "C1",
+        "name": "Perceived Competence",
+        "originalName": "Self-Efficacy",
+        "definition": "Confidence in handling tasks and meeting demands.",
+        "lower": "Less certain about managing demands.",
+        "higher": "More confident in personal effectiveness.",
+        "lowAnchor": "Less self-assured",
+        "highAnchor": "More self-assured",
+        "reversed": false
+      },
+      {
+        "code": "C2",
+        "name": "Orderliness",
+        "originalName": "Orderliness",
+        "definition": "Preference for organisation, structure and tidiness.",
+        "lower": "Comfortable with a looser structure.",
+        "higher": "Prefer clear systems and orderly routines.",
+        "lowAnchor": "Loosely organised",
+        "highAnchor": "Structured",
+        "reversed": false
+      },
+      {
+        "code": "C3",
+        "name": "Dependability",
+        "originalName": "Dutifulness",
+        "definition": "Sense of obligation and commitment.",
+        "lower": "Treat obligations more flexibly.",
+        "higher": "Feel strongly bound by commitments.",
+        "lowAnchor": "Flexible obligations",
+        "highAnchor": "Strong sense of duty",
+        "reversed": false
+      },
+      {
+        "code": "C4",
+        "name": "Achievement Striving",
+        "originalName": "Achievement Striving",
+        "definition": "Drive to pursue goals and demanding standards.",
+        "lower": "More content with a manageable pace.",
+        "higher": "Work hard towards ambitious goals.",
+        "lowAnchor": "More easy-going",
+        "highAnchor": "Achievement-driven",
+        "reversed": false
+      },
+      {
+        "code": "C5",
+        "name": "Self-Discipline",
+        "originalName": "Self-Discipline",
+        "definition": "Persistence with tasks despite boredom or distraction.",
+        "lower": "More easily put off unappealing tasks.",
+        "higher": "Keep going despite boredom or distraction.",
+        "lowAnchor": "Easily sidetracked",
+        "highAnchor": "Persistent",
+        "reversed": false
+      },
+      {
+        "code": "C6",
+        "name": "Deliberation",
+        "originalName": "Cautiousness",
+        "definition": "Deliberation before decisions and action.",
+        "lower": "Decide and act more spontaneously.",
+        "higher": "Weigh consequences before deciding.",
+        "lowAnchor": "Spontaneous",
+        "highAnchor": "Deliberate",
+        "reversed": false
+      }
+    ]
+  },
+  {
+    "code": "E",
+    "name": "Extraversion",
+    "originalName": "Extraversion",
+    "definition": "Social engagement, self-expression and preference for stimulation.",
+    "lower": "More reserved, comfortable with solitude and drawn to a quieter pace.",
+    "higher": "More outgoing, expressive and energised by social activity.",
+    "lowAnchor": "Reserved",
+    "highAnchor": "Outgoing",
+    "facets": [
+      {
+        "code": "E1",
+        "name": "Friendliness",
+        "originalName": "Friendliness",
+        "definition": "Openness in expressing warmth and approaching others.",
+        "lower": "Take longer to warm to people.",
+        "higher": "Readily show warmth and approach others.",
+        "lowAnchor": "Reserved warmth",
+        "highAnchor": "Open warmth",
+        "reversed": false
+      },
+      {
+        "code": "E2",
+        "name": "Sociability",
+        "originalName": "Gregariousness",
+        "definition": "Preference for company and social gatherings.",
+        "lower": "Prefer solitude or smaller gatherings.",
+        "higher": "Enjoy frequent company and larger groups.",
+        "lowAnchor": "Small groups",
+        "highAnchor": "Larger groups",
+        "reversed": false
+      },
+      {
+        "code": "E3",
+        "name": "Assertiveness",
+        "originalName": "Assertiveness",
+        "definition": "Readiness to speak up, influence and lead.",
+        "lower": "Let others lead more often.",
+        "higher": "Readily speak up and take charge.",
+        "lowAnchor": "Lets others lead",
+        "highAnchor": "Takes the lead",
+        "reversed": false
+      },
+      {
+        "code": "E4",
+        "name": "Activity Level",
+        "originalName": "Activity Level",
+        "definition": "Preferred pace and amount of activity.",
+        "lower": "Prefer a more leisurely pace.",
+        "higher": "Like to stay busy and active.",
+        "lowAnchor": "Leisurely pace",
+        "highAnchor": "Busy pace",
+        "reversed": false
+      },
+      {
+        "code": "E5",
+        "name": "Excitement-Seeking",
+        "originalName": "Excitement-Seeking",
+        "definition": "Appetite for intense and stimulating experiences.",
+        "lower": "Prefer calmer, less intense settings.",
+        "higher": "Seek excitement and strong stimulation.",
+        "lowAnchor": "Calmer settings",
+        "highAnchor": "Seeks stimulation",
+        "reversed": false
+      },
+      {
+        "code": "E6",
+        "name": "Cheerfulness",
+        "originalName": "Cheerfulness",
+        "definition": "Experience and expression of positive emotion.",
+        "lower": "Experience positive emotions less often.",
+        "higher": "Experience enjoyment and enthusiasm more often.",
+        "lowAnchor": "Less upbeat",
+        "highAnchor": "More upbeat",
+        "reversed": false
+      }
+    ]
+  },
+  {
+    "code": "A",
+    "name": "Agreeableness",
+    "originalName": "Agreeableness",
+    "definition": "Trust, consideration and cooperation in relationships with others.",
+    "lower": "More questioning, competitive and willing to prioritise personal interests.",
+    "higher": "More trusting, accommodating and attentive to other people's needs.",
+    "lowAnchor": "Frank & questioning",
+    "highAnchor": "Accommodating",
+    "facets": [
+      {
+        "code": "A1",
+        "name": "Trust",
+        "originalName": "Trust",
+        "definition": "Expectation that other people have good intentions.",
+        "lower": "More cautious about others\u2019 motives.",
+        "higher": "More inclined to give others the benefit of doubt.",
+        "lowAnchor": "More sceptical",
+        "highAnchor": "More trusting",
+        "reversed": false
+      },
+      {
+        "code": "A2",
+        "name": "Fairness",
+        "originalName": "Morality",
+        "definition": "Reluctance to pursue personal gain at another person's expense.",
+        "lower": "Readier to pursue gain at others' expense.",
+        "higher": "More reluctant to take advantage of others.",
+        "lowAnchor": "More self-serving",
+        "highAnchor": "Less self-serving",
+        "reversed": false
+      },
+      {
+        "code": "A3",
+        "name": "Helpfulness",
+        "originalName": "Altruism",
+        "definition": "Inclination to help and respond to other people\u2019s needs.",
+        "lower": "Less inclined to become involved in others\u2019 needs.",
+        "higher": "More readily offer help and support.",
+        "lowAnchor": "Own needs first",
+        "highAnchor": "Readily helps",
+        "reversed": false
+      },
+      {
+        "code": "A4",
+        "name": "Cooperation",
+        "originalName": "Cooperation",
+        "definition": "Willingness to compromise when interests conflict.",
+        "lower": "More willing to challenge and compete.",
+        "higher": "Prefer compromise and reducing conflict.",
+        "lowAnchor": "Competitive",
+        "highAnchor": "Accommodating",
+        "reversed": false
+      },
+      {
+        "code": "A5",
+        "name": "Modesty",
+        "originalName": "Modesty",
+        "definition": "Tendency to downplay personal achievements.",
+        "lower": "More comfortable promoting personal strengths.",
+        "higher": "Prefer to downplay personal achievements.",
+        "lowAnchor": "Self-promoting",
+        "highAnchor": "Self-effacing",
+        "reversed": false
+      },
+      {
+        "code": "A6",
+        "name": "Compassion",
+        "originalName": "Sympathy",
+        "definition": "Emotional concern for other people\u2019s difficulties.",
+        "lower": "Give more weight to detached judgement.",
+        "higher": "More readily feel concern for others.",
+        "lowAnchor": "More detached",
+        "highAnchor": "More tender-hearted",
+        "reversed": false
+      }
+    ]
+  },
+  {
+    "code": "N",
+    "name": "Emotional Reactivity",
+    "originalName": "Neuroticism",
+    "definition": "Sensitivity to stress and the experience of difficult emotions.",
+    "lower": "More even emotional responses and less frequent distress under pressure.",
+    "higher": "More frequent or intense difficult emotions and stress reactions.",
+    "lowAnchor": "Less reactive",
+    "highAnchor": "More reactive",
+    "facets": [
+      {
+        "code": "N1",
+        "name": "Anxiety",
+        "originalName": "Anxiety",
+        "definition": "Anticipation of threat and experience of worry.",
+        "lower": "Less prone to worry and tension.",
+        "higher": "More alert to threat and uncertainty.",
+        "lowAnchor": "More relaxed",
+        "highAnchor": "More apprehensive",
+        "reversed": false
+      },
+      {
+        "code": "N2",
+        "name": "Irritability",
+        "originalName": "Anger",
+        "definition": "Readiness to experience irritation and anger.",
+        "lower": "Less easily irritated or angered.",
+        "higher": "More readily frustrated or angered.",
+        "lowAnchor": "Slow to anger",
+        "highAnchor": "Easily irritated",
+        "reversed": false
+      },
+      {
+        "code": "N3",
+        "name": "Discouragement",
+        "originalName": "Depression",
+        "definition": "Tendency to experience sadness and discouragement.",
+        "lower": "Less prone to feeling down.",
+        "higher": "More prone to sadness or discouragement.",
+        "lowAnchor": "Less downhearted",
+        "highAnchor": "More downhearted",
+        "reversed": false
+      },
+      {
+        "code": "N4",
+        "name": "Social Confidence",
+        "originalName": "Self-Consciousness",
+        "definition": "Comfort and self-assurance in social situations.",
+        "lower": "More sensitive to being judged.",
+        "higher": "Less concerned about social scrutiny.",
+        "lowAnchor": "Less socially assured",
+        "highAnchor": "Socially assured",
+        "reversed": true
+      },
+      {
+        "code": "N5",
+        "name": "Indulgence",
+        "originalName": "Immoderation",
+        "definition": "Difficulty resisting urges and temptations.",
+        "lower": "Find it easier to resist temptation.",
+        "higher": "Find strong urges harder to resist.",
+        "lowAnchor": "Resists temptation",
+        "highAnchor": "Yields to temptation",
+        "reversed": false
+      },
+      {
+        "code": "N6",
+        "name": "Stress Tolerance",
+        "originalName": "Vulnerability",
+        "definition": "Capacity to remain composed under pressure.",
+        "lower": "More easily overwhelmed by pressure.",
+        "higher": "More composed when demands build.",
+        "lowAnchor": "Easily overwhelmed",
+        "highAnchor": "Calmer under strain",
+        "reversed": true
+      }
+    ]
+  }
+]
