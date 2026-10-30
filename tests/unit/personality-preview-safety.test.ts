@@ -1,5 +1,5 @@
-import { expect, it } from 'vitest'
-import { assertPersonalityPreviewEnvironment } from '@/lib/next-config/personality-preview-safety'
+import { expect, it, vi } from 'vitest'
+import { assertPersonalityPreviewEnvironment, verifyPersonalityPreviewEnvironment } from '@/lib/next-config/personality-preview-safety'
 const jwt=(role:string,ref='bgrvqvtlhmfmvcytncgw')=>`synthetic.${Buffer.from(JSON.stringify({role,ref})).toString('base64url')}.synthetic`
 function ready():Record<string,string>{return {
  VERCEL:'1',VERCEL_ENV:'preview',VERCEL_GIT_COMMIT_REF:'codex/personality-preview-ready-20261030',TRAJECTAS_PERSONALITY_PREVIEW_TARGET:'bgrvqvtlhmfmvcytncgw',NEXT_PUBLIC_SUPABASE_URL:'https://bgrvqvtlhmfmvcytncgw.supabase.co',NEXT_PUBLIC_SUPABASE_ANON_KEY:jwt('anon'),SUPABASE_SERVICE_ROLE_KEY:jwt('service_role'),
@@ -16,4 +16,51 @@ it.each([
 ])('refuses unsafe dedicated Preview settings without logging values: %j',overrides=>{
  try {assertPersonalityPreviewEnvironment({...ready(),...overrides});throw Error('Expected setup refusal')}
  catch(e){expect((e as Error).message).toMatch(/Personality Preview setup requires/);expect((e as Error).message).not.toContain('synthetic-live-canary');expect((e as Error).message).not.toContain('eyJ')}
+})
+
+const opaquePublic = 'sb_publishable_synthetic-preview-public-material'
+const opaqueServer = 'sb_secret_synthetic-preview-server-material'
+const modern = () => ({ ...ready(), NEXT_PUBLIC_SUPABASE_ANON_KEY: opaquePublic, SUPABASE_SERVICE_ROLE_KEY: opaqueServer })
+it('authenticates modern public/server keys only against Dev and its service-only capability', async () => {
+ const request=vi.fn<typeof fetch>().mockResolvedValueOnce(new Response('{}')).mockResolvedValueOnce(Response.json([{ editions_enabled:false }]))
+ await verifyPersonalityPreviewEnvironment(modern(),request)
+ expect(request).toHaveBeenCalledTimes(2)
+ expect(request.mock.calls[0][0]).toBe('https://bgrvqvtlhmfmvcytncgw.supabase.co/auth/v1/settings')
+ expect(request.mock.calls[1][0]).toBe('https://bgrvqvtlhmfmvcytncgw.supabase.co/rest/v1/norm_reporting_capabilities?select=editions_enabled&singleton=eq.true')
+ for(const [i,key]of [opaquePublic,opaqueServer].entries()) {
+  expect(request.mock.calls[i][1]).toMatchObject({headers:{apikey:key},redirect:'error',cache:'no-store'})
+  expect(request.mock.calls[i][1]?.headers).not.toHaveProperty('Authorization')
+ }
+})
+it('keeps local, ordinary main and legacy-only validation offline', async () => {
+ const request=vi.fn<typeof fetch>()
+ await verifyPersonalityPreviewEnvironment({},request)
+ await verifyPersonalityPreviewEnvironment({VERCEL:'1',VERCEL_ENV:'production',VERCEL_GIT_COMMIT_REF:'main'},request)
+ await verifyPersonalityPreviewEnvironment(ready(),request)
+ expect(request).not.toHaveBeenCalled()
+})
+it.each([401,403,500])('refuses an unverified modern public key (HTTP %i)',async status=>{
+ const request=vi.fn<typeof fetch>().mockResolvedValue(new Response('',{status}))
+ await expect(verifyPersonalityPreviewEnvironment(modern(),request)).rejects.toThrow('verified development NEXT_PUBLIC_SUPABASE_ANON_KEY')
+ expect(request).toHaveBeenCalledTimes(1)
+})
+it.each([401,403,500])('refuses an unverified modern server key (HTTP %i)',async status=>{
+ const request=vi.fn<typeof fetch>().mockResolvedValue(new Response('',{status}))
+ await expect(verifyPersonalityPreviewEnvironment({...ready(),SUPABASE_SERVICE_ROLE_KEY:opaqueServer},request)).rejects.toThrow('verified development SUPABASE_SERVICE_ROLE_KEY')
+})
+it.each([[],[{}],[{editions_enabled:'true'}],[{editions_enabled:true},{editions_enabled:false}]].map(rows=>({rows})))('refuses missing or malformed service-only proof: $rows',async({rows})=>{
+ const request=vi.fn<typeof fetch>().mockResolvedValue(Response.json(rows))
+ await expect(verifyPersonalityPreviewEnvironment({...ready(),SUPABASE_SERVICE_ROLE_KEY:opaqueServer},request)).rejects.toThrow('verified development SUPABASE_SERVICE_ROLE_KEY')
+})
+it('rejects wrong-target modern configuration before sending any credentials',async()=>{
+ const request=vi.fn<typeof fetch>()
+ await expect(verifyPersonalityPreviewEnvironment({...modern(),NEXT_PUBLIC_SUPABASE_URL:'https://other.supabase.co'},request)).rejects.toThrow('verified development database URL')
+ expect(request).not.toHaveBeenCalled()
+})
+it('does not expose a key or raw provider error when remote verification fails',async()=>{
+ const request=vi.fn<typeof fetch>().mockRejectedValue(new Error(opaqueServer))
+ const error=await verifyPersonalityPreviewEnvironment({...ready(),SUPABASE_SERVICE_ROLE_KEY:opaqueServer},request).catch(e=>e as Error)
+ expect(error).toBeInstanceOf(Error)
+ expect((error as Error).message).toContain('verified development SUPABASE_SERVICE_ROLE_KEY')
+ expect((error as Error).message).not.toContain(opaqueServer)
 })
