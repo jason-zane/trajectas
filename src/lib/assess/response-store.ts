@@ -131,7 +131,11 @@ export async function markSynced(
         existing.synced === 0 &&
         existing.idempotencyKey === ack.idempotencyKey
       ) {
-        await db.responses.update([sessionId, ack.itemId], { synced: 1 });
+        // The server owns the acknowledged answer. Keep only the revision
+        // tombstone locally, so subsequent edits cannot reuse an old revision.
+        await db.responses.update([sessionId, ack.itemId], {
+          synced: 1, value: 0, data: {}, responseTimeMs: undefined,
+        });
       }
     }
   });
@@ -141,6 +145,7 @@ export async function markSynced(
 export async function getResponsesForSession(
   sessionId: string,
 ): Promise<Map<string, { value: number; data: Record<string, unknown> }>> {
+  await pruneAcknowledgedResponses();
   const rows = await getResponseDb()
     .responses.where("sessionId")
     .equals(sessionId)
@@ -172,4 +177,26 @@ export async function clearSession(sessionId: string): Promise<void> {
 
 function makeIdempotencyKey(): string {
   return randomId();
+}
+
+export const ACKNOWLEDGED_RESPONSE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Clean up inactive acknowledged sessions on return. Never age-delete an
+ * unsent answer or remove the revision tombstones of a session with pending
+ * writes: delayed ACKs and offline recovery must remain safe across tabs.
+ */
+export async function pruneAcknowledgedResponses(now = Date.now()): Promise<number> {
+  const db = getResponseDb();
+  return db.transaction('rw', db.responses, async () => {
+    const stale = await db.responses.where('updatedAt')
+      .below(now - ACKNOWLEDGED_RESPONSE_RETENTION_MS).toArray();
+    let removed = 0;
+    for (const sessionId of new Set(stale.map(row => row.sessionId))) {
+      const rows = await db.responses.where('sessionId').equals(sessionId).toArray();
+      if (rows.some(row => !row.synced || row.updatedAt >= now - ACKNOWLEDGED_RESPONSE_RETENTION_MS)) continue;
+      removed += await db.responses.where('sessionId').equals(sessionId).delete();
+    }
+    return removed;
+  });
 }

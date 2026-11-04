@@ -70,8 +70,8 @@ export async function POST(request: Request) {
       after(async () => {
         try {
           await processSnapshot(body.snapshotId!)
-        } catch (error) {
-          console.error('[reports] Failed to process snapshot:', error)
+        } catch {
+          console.error("[reports] Failed to process snapshot:")
         }
       })
       return Response.json({ queued: [body.snapshotId] }, { status: 202 })
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     if (body.sessionId) {
       const { data } = await db
         .from('report_snapshots')
-        .select('id')
+        .select('id').is("deleted_at", null)
         .eq('participant_session_id', body.sessionId)
         .eq('status', 'pending')
       const ids = (data ?? []).map((r: { id: string }) => r.id)
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     // Process the oldest pending snapshot in queue
     const { data: next } = await db
       .from('report_snapshots')
-      .select('id')
+      .select('id').is("deleted_at", null)
       .eq('status', 'pending')
       .order('created_at', { ascending: true })
       .limit(1)
@@ -113,8 +113,8 @@ export async function POST(request: Request) {
     after(async () => {
       try {
         await processSnapshot(next.id)
-      } catch (error) {
-        console.error(`[reports] Failed to process snapshot ${next.id}:`, error)
+      } catch {
+        console.error("[reports] Failed to process snapshot")
       }
     })
     return Response.json({ queued: [next.id] }, { status: 202 })

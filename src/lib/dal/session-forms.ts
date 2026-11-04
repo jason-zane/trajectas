@@ -5,10 +5,11 @@ import { logActionError } from '@/lib/security/action-errors'
 import { selectItemsByDifficulty } from '@/lib/item-selection/distribution'
 import { applyItemOrdering } from '@/lib/item-ordering'
 import type { ItemOrdering } from '@/types/database'
+import { captureResearchScoring, type FrozenResearchScoring } from '@/lib/privacy/research-scoring'
 
 type DbClient = SupabaseClient
 
-const ASSEMBLER_VERSION = 'form-assembler@2'
+const ASSEMBLER_VERSION = 'form-assembler@3'
 const ERROR_MESSAGE = 'Unable to load this assessment right now'
 
 class FormPersistenceError extends Error {
@@ -57,6 +58,8 @@ export type SectionFormEntryDTO = {
   /** False for practice/seed items — they are delivered (and required by the
    *  completeness gate) but never enter a scoring aggregate. */
   countsTowardScore: boolean
+  /** Additive metadata for new forms; old frozen forms are never rewritten. */
+  researchScoring?: FrozenResearchScoring
 }
 
 export type SectionFormDTO = {
@@ -82,6 +85,8 @@ type FormItemEmbed = {
   item_version: number | null
   content_hash: string | null
   lifecycle_state: string | null
+  response_formats?: { type: string; config: Record<string, unknown> } | Array<{ type: string; config: Record<string, unknown> }> | null
+  item_options?: Array<{ value: number; score_value: number | null; exclude_from_scoring: boolean }> | null
 } | null
 
 /**
@@ -279,6 +284,7 @@ function entryFor(
   //    required by the completeness gate — doc 02-platform-architecture.md
   //    §5.3) but never count toward a scoring aggregate.
   const sectionCounts = sectionRole !== 'practice' && sectionRole !== 'instructions'
+  const researchScoring = item ? captureResearchScoring(item) : undefined
   return {
     position,
     itemId,
@@ -286,6 +292,7 @@ function entryFor(
     contentHash: item?.content_hash ?? null,
     purpose,
     countsTowardScore: sectionCounts && purpose !== 'practice' && purpose !== 'seed',
+    ...(researchScoring ? { researchScoring } : {}),
   }
 }
 
@@ -467,7 +474,8 @@ async function assembleAndFreezeSectionForms(
         id, item_ordering, section_role,
         assessment_section_items(
           item_id, display_order,
-          items(id, construct_id, purpose, difficulty, reverse_scored, item_version, content_hash, lifecycle_state)
+          items(id, construct_id, purpose, difficulty, reverse_scored, item_version, content_hash, lifecycle_state,
+            response_formats(type,config),item_options(value,score_value,exclude_from_scoring))
         )
       `,
       )

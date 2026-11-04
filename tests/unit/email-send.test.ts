@@ -292,12 +292,11 @@ describe('sendEmail', () => {
 
     // Tier 1 failure: console.warn
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('tmpl-client-1'),
-      expect.any(Error),
+      expect.stringContaining('Render failed'),
     )
 
     // Tier 2 failure: console.error (message contains "Platform" or "platform")
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Platform'), expect.any(Error))
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Platform'))
 
     warnSpy.mockRestore()
     errorSpy.mockRestore()

@@ -2,9 +2,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
+import {isLocalSupabaseUrl} from './_helpers/rls-fixture'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-const isLocalSupabase = url === 'http://127.0.0.1:54321'
+const isLocalSupabase = isLocalSupabaseUrl(url)
 const canRun = process.env.CAPACITY_DB === '1' && isLocalSupabase && !!process.env.SUPABASE_SERVICE_ROLE_KEY
 if (process.env.CAPACITY_DB === '1' && !isLocalSupabase) throw new Error('Local Supabase required')
 

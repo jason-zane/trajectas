@@ -248,6 +248,7 @@ const settingsNav: NavSection[] = [
       { title: "Email Templates", href: "/settings/email-templates", icon: Mail },
       { title: "Content Sources", href: "/settings/content-sources", icon: Tag },
       { title: "Audit log", href: "/settings/audit", icon: Shield },
+      { title: "Privacy and retention", href: "/settings/privacy", icon: Shield },
       { title: "Observability", href: "/settings/observability", icon: Activity },
       { title: "Migrations", href: "/settings/migrations", icon: Layers },
     ],

@@ -87,9 +87,9 @@ export async function processSnapshotsBounded(
         try {
           await processFn(id)
           processed += 1
-        } catch (error) {
+        } catch {
           failed += 1
-          console.error(`[reports] Failed to process snapshot ${id}:`, error)
+          console.error("[reports] Failed to process snapshot")
         }
       }),
     )
@@ -112,11 +112,11 @@ export async function shouldDeferInlineProcessing(
   const db = client ?? createAdminClient()
   const { count, error } = await db
     .from('report_snapshots')
-    .select('id', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true }).is("deleted_at", null)
     .eq('status', 'generating')
 
   if (error) {
-    console.error('[reports] Failed to count generating snapshots:', error)
+    console.error("[reports] Failed to count generating snapshots:")
     return false
   }
 
@@ -142,7 +142,7 @@ export async function sweepReportGeneration(
     .select('id')
 
   if (resetError) {
-    console.error('[reports] Sweep failed to reset stuck snapshots:', resetError)
+    console.error("[reports] Sweep failed to reset stuck snapshots:")
   }
   const resetStuck = (resetRows ?? []).length
 
@@ -151,7 +151,7 @@ export async function sweepReportGeneration(
   const { data: resetPdfCount, error: resetPdfError } = await db.rpc('recover_report_pdf_jobs')
 
   if (resetPdfError) {
-    console.error('[reports] Sweep failed to reset stuck PDF generations:', resetPdfError)
+    console.error("[reports] Sweep failed to reset stuck PDF generations:")
   }
   const resetStuckPdf = Number(resetPdfCount ?? 0)
 
@@ -169,13 +169,13 @@ export async function sweepReportGeneration(
 
     const { data: pendingRows, error: pendingError } = await db
       .from('report_snapshots')
-      .select('id')
+      .select('id').is("deleted_at", null)
       .eq('status', 'pending')
       .order('created_at', { ascending: true })
       .limit(SWEEP_BATCH)
 
     if (pendingError) {
-      console.error('[reports] Sweep failed to list pending snapshots:', pendingError)
+      console.error("[reports] Sweep failed to list pending snapshots:")
       break
     }
 

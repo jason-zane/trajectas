@@ -272,7 +272,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     canViewIndividual
       ? reportDb
           .from('report_snapshots')
-          .select('id, template_id, status, generated_at, released_at, sent_to_participant_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
+          .select('id, template_id, status, generated_at, released_at, sent_to_participant_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)').is("deleted_at", null)
           .eq('participant_session_id', sessionId)
           .order('created_at', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
@@ -510,7 +510,7 @@ export async function getSessionSnapshots(sessionId: string): Promise<SessionDet
 
   const { data, error } = await db
     .from('report_snapshots')
-    .select('id, template_id, status, generated_at, released_at, sent_to_participant_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
+    .select('id, template_id, status, generated_at, released_at, sent_to_participant_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)').is("deleted_at", null)
     .eq('participant_session_id', sessionId)
     .order('created_at', { ascending: false })
 

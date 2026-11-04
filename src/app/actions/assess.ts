@@ -1217,7 +1217,7 @@ export async function getParticipantReportSnapshot(
     .from('report_snapshots')
     .select(
       'id, rendered_data, status, pdf_url, pdf_status, error_message, participant_sessions(campaign_participant_id), campaigns(client_id, partner_id)'
-    )
+    ).is("deleted_at", null)
     .in('participant_session_id', sessionIds)
     .or('audience_type.is.null,audience_type.eq.participant')
     .order('created_at', { ascending: false })

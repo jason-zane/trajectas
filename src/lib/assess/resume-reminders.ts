@@ -208,11 +208,7 @@ async function sendForTier(
       // permanently-undeliverable recipient (hard bounce, dead domain) loop
       // through this cron every few minutes forever. A missed tier-1 is still
       // covered by tier-2.
-      const message = err instanceof Error ? err.message : String(err)
-      console.error(
-        `[cron:assessment-resume-reminders] tier ${tier} send failed for session ${row.id}:`,
-        message,
-      )
+      console.error("[cron:assessment-resume-reminders] tier")
       await reportError(err, {
         source: 'cron.assessment-resume-reminders.send',
         severity: 'error',
@@ -266,10 +262,7 @@ async function claimSession(
 
   const { data, error } = await query.select('id')
   if (error) {
-    console.error(
-      `[cron:assessment-resume-reminders] failed to claim session ${row.id}:`,
-      error.message,
-    )
+    console.error("[cron:assessment-resume-reminders] failed to claim session")
     await reportError(error, {
       source: 'cron.assessment-resume-reminders.claim',
       severity: 'error',

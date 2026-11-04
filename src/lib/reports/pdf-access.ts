@@ -54,7 +54,7 @@ export async function downloadSnapshotPdfBase64(
   const db = createAdminClient()
   const { data, error } = await db
     .from('report_snapshots')
-    .select('pdf_url')
+    .select('pdf_url').is("deleted_at", null)
     .eq('id', snapshotId)
     .maybeSingle()
   if (error || !data?.pdf_url) return null

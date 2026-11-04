@@ -821,7 +821,7 @@ export async function getIntegrationParticipantResultSummary(
       ? { data: null }
       : await db
           .from('report_snapshots')
-          .select('id, released_at')
+          .select('id, released_at').is("deleted_at", null)
           .in('participant_session_id', sessionIds)
           .eq('status', 'released')
           .order('released_at', { ascending: false })
@@ -883,7 +883,7 @@ export async function getIntegrationParticipantReports(
 
   const { data: snapshotRows, error: snapshotError } = await db
     .from('report_snapshots')
-    .select('*')
+    .select('*').is("deleted_at", null)
     .in('participant_session_id', sessionIds)
     .order('created_at', { ascending: false })
     .limit(50)

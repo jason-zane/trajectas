@@ -5,6 +5,7 @@ import { Redis } from "@upstash/redis";
 import { reportError } from "@/lib/observability/report-error";
 import { getAssessSessionProof, verifyAssessSessionProof } from "@/lib/assess/session-proof";
 import { getVerifiedPdfRateLimitIdentity } from "@/lib/reports/pdf-rate-limit-proof";
+import { operationalIdentity, operationalNamespace } from './operational-keys';
 
 type SlidingWindowStore = Map<string, number[]>;
 
@@ -49,14 +50,14 @@ const ratelimitCache = new Map<string, Ratelimit>();
 
 function getRatelimit(limit: number, windowMs: number): Ratelimit | null {
   if (!redis) return null;
-  const key = `${limit}:${windowMs}`;
+  const key = `${operationalNamespace()}:${limit}:${windowMs}`;
   const cached = ratelimitCache.get(key);
   if (cached) return cached;
   const instance = new Ratelimit({
     redis,
     limiter: Ratelimit.slidingWindow(limit, `${windowMs} ms`),
     analytics: false,
-    prefix: "trajectas-rl",
+    prefix: `${operationalNamespace()}:rate-limit`,
   });
   ratelimitCache.set(key, instance);
   return instance;
@@ -349,6 +350,7 @@ export async function checkRequestRateLimit(
   if (!rule) {
     return null;
   }
+  rule.key = operationalIdentity(rule.key);
 
   const ratelimit = getRatelimit(rule.limit, rule.windowMs);
   if (ratelimit) {
@@ -375,7 +377,6 @@ export async function checkRequestRateLimit(
         source: "rate-limit.redis_error",
         severity: "warning",
         context: {
-          rule_key: rule.key,
           fail_closed: rule.failClosed ?? false,
         },
         alert: false,
@@ -383,7 +384,7 @@ export async function checkRequestRateLimit(
         // Swallow reportError failures so instrumentation doesn't break the path
       });
 
-      console.warn("[rate-limit] Upstash error:", error);
+      console.warn("[rate-limit] Upstash operation failed; applying outage policy");
 
       if (rule.failClosed) {
         // For cost-bearing routes, deny on Redis error rather than falling back
@@ -423,6 +424,9 @@ export async function checkKeyedRateLimit(
   windowMs: number,
   failClosed: boolean = false,
 ): Promise<RateLimitResult | null> {
+  const prefix = key.split(':')[0];
+  const keyPrefix = /^[a-z-]{1,32}$/.test(prefix) ? prefix : 'keyed';
+  key = operationalIdentity(key);
   const ratelimit = getRatelimit(limit, windowMs);
 
   if (ratelimit) {
@@ -446,7 +450,7 @@ export async function checkKeyedRateLimit(
         source: "rate-limit.keyed.redis_error",
         severity: "warning",
         context: {
-          key_prefix: key.split(":")[0] ?? "unknown",
+          key_prefix: keyPrefix,
           fail_closed: failClosed,
         },
         alert: false,
@@ -454,7 +458,7 @@ export async function checkKeyedRateLimit(
         // Swallow reportError failures
       });
 
-      console.warn("[rate-limit.keyed] Upstash error:", error);
+      console.warn("[rate-limit.keyed] Upstash operation failed; applying outage policy");
 
       if (failClosed) {
         return {

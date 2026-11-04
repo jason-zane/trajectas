@@ -32,10 +32,10 @@ export async function getReadinessChecks(): Promise<Record<string, Check>> {
         // A small indexed existence query, not a full queue count. Fifteen
         // minutes spans three cron opportunities and the abandoned-job lease.
         const results = await Promise.all([
-          db.from('report_snapshots').select('id').eq('status', 'pending').lt('created_at', cutoff).limit(1).abortSignal(AbortSignal.timeout(3000)),
-          db.from('report_snapshots').select('id').eq('status', 'generating').lt('updated_at', cutoff).limit(1).abortSignal(AbortSignal.timeout(3000)),
-          db.from('report_snapshots').select('id').eq('pdf_status', 'queued').lt('updated_at', cutoff).limit(1).abortSignal(AbortSignal.timeout(3000)),
-          db.from('report_snapshots').select('id').eq('pdf_status', 'generating').lt('pdf_started_at', cutoff).limit(1).abortSignal(AbortSignal.timeout(3000)),
+          db.from('report_snapshots').select('id').is("deleted_at", null).eq('status', 'pending').lt('created_at', cutoff).limit(1).abortSignal(AbortSignal.timeout(3000)),
+          db.from('report_snapshots').select('id').is("deleted_at", null).eq('status', 'generating').lt('updated_at', cutoff).limit(1).abortSignal(AbortSignal.timeout(3000)),
+          db.from('report_snapshots').select('id').is("deleted_at", null).eq('pdf_status', 'queued').lt('updated_at', cutoff).limit(1).abortSignal(AbortSignal.timeout(3000)),
+          db.from('report_snapshots').select('id').is("deleted_at", null).eq('pdf_status', 'generating').lt('pdf_started_at', cutoff).limit(1).abortSignal(AbortSignal.timeout(3000)),
         ])
         checks.reports = results.some(r => r.error || (r.data?.length ?? 0) > 0) ? 'error' : 'ok'
       } catch { checks.reports = 'error' }

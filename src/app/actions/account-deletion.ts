@@ -67,8 +67,8 @@ export async function requestAccountDeletion(): Promise<AccountDeletionResult> {
         actionLabel: 'Cancel deletion',
       },
     })
-  } catch (emailError) {
-    console.error('[account-deletion] confirmation email failed:', emailError)
+  } catch {
+    console.error("[account-deletion] confirmation email failed:")
   }
 
   revalidatePath('/profile')
@@ -110,8 +110,8 @@ export async function cancelAccountDeletion(): Promise<AccountDeletionResult> {
         actionLabel: 'Open profile',
       },
     })
-  } catch (emailError) {
-    console.error('[account-deletion] cancellation email failed:', emailError)
+  } catch {
+    console.error("[account-deletion] cancellation email failed:")
   }
 
   revalidatePath('/profile')

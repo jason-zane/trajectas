@@ -55,7 +55,9 @@ export async function sendHtmlEmail(options: SendHtmlEmailOptions) {
   // logs/observability and any caller's own error handling.
   if (error) {
     const recipientCount = Array.isArray(options.to) ? options.to.length : 1
-    const message = `Resend rejected email to ${recipientCount} recipient(s): ${error.name ?? 'error'} — ${error.message ?? 'unknown error'}`
+    const categories=['validation_error','missing_required_field','rate_limit_exceeded','invalid_access','invalid_parameter','restricted_api_key','internal_server_error']
+    const category=categories.includes(error.name)?error.name:'provider_error'
+    const message = `Resend rejected email to ${recipientCount} recipient(s): ${category}`
     console.error(`[email] ${message}`)
     throw new Error(message)
   }

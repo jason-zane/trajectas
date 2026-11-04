@@ -89,7 +89,7 @@ export async function getSnapshotPdfState(snapshotId: string) {
   const db = createAdminClient()
   const { data, error } = await db
     .from('report_snapshots')
-    .select('id, status, pdf_url, pdf_status, pdf_error_message, pdf_attempt_count')
+    .select('id, status, pdf_url, pdf_status, pdf_error_message, pdf_attempt_count').is("deleted_at", null)
     .eq('id', snapshotId)
     .maybeSingle<SnapshotPdfRow>()
 
@@ -279,8 +279,19 @@ export async function generateAndStoreReportPdf(
       .eq('pdf_claim_token', claimToken)
       .select('id')
 
-    if (updateError) throw updateError
-    if (!completedRows?.length) throw new Error('PDF claim expired before completion')
+    if (updateError || !completedRows?.length) {
+      // A deletion/archive can invalidate a live renderer. Its unique claim
+      // path is not a delivered artifact and must not become an orphan.
+      const cleanup = await storage.storage.from(REPORTS_BUCKET).remove([storagePath])
+      if (cleanup.error) {
+        await reportError(new Error('Unclaimed PDF cleanup failed'), {
+          source: 'reports.pdf.cleanup', severity: 'error', alert: true,
+          context: { snapshotId, phase: 'claim-lost' },
+        })
+      }
+      if (updateError) throw updateError
+      throw new Error('PDF claim expired before completion')
+    }
 
     if (!options.suppressConsultantNotification) {
       try {
@@ -298,7 +309,7 @@ export async function generateAndStoreReportPdf(
     try {
       const { data: snapshotRow } = await storage
         .from('report_snapshots')
-        .select('participant_session_id')
+        .select('participant_session_id').is("deleted_at", null)
         .eq('id', snapshotId)
         .maybeSingle()
       const sessionId = snapshotRow?.participant_session_id
@@ -329,8 +340,7 @@ export async function generateAndStoreReportPdf(
       storagePath,
     }
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'PDF generation failed'
+    const message = 'PDF generation failed; review operational diagnostics.'
 
     const failure = claimToken ? await db.rpc('fail_report_pdf_generation', {
       p_snapshot_id: snapshotId, p_claim_token: claimToken, p_error: message,

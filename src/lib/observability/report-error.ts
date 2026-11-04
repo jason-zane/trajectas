@@ -4,7 +4,7 @@ import { isProxy } from 'node:util/types'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendOpsAlert } from './ops-alert'
-import { redactDiagnosticContext, redactDiagnosticText } from './redact'
+import { diagnosticContextProjection } from './redact'
 
 export type ErrorSeverity = 'warning' | 'error' | 'fatal'
 
@@ -44,18 +44,12 @@ function normalizeReportedError(error: unknown): {
   errorDetails?: Record<string, string>
 } {
   // Even property descriptors on a Proxy can execute caller-controlled traps.
-  if (isProxy(error)) return { message: '[object Object]', stack: null }
-  if (error instanceof Error) {
-    return {
-      message: redactDiagnosticText(error.message),
-      stack: error.stack ? redactDiagnosticText(error.stack) : null,
-    }
-  }
+  if (isProxy(error)) return { message: 'Operation failed', stack: null }
   if (error !== null && typeof error === 'object') {
     const ownString = (key: string): string | undefined => {
       const descriptor = Object.getOwnPropertyDescriptor(error, key)
       return descriptor && 'value' in descriptor && typeof descriptor.value === 'string'
-        ? redactDiagnosticText(descriptor.value)
+        ? descriptor.value
         : undefined
     }
     // Database details/hints can include complete rows or credential values.
@@ -63,13 +57,14 @@ function normalizeReportedError(error: unknown): {
     const code = ownString('code')
     const errorDetails = code && /^(?:[A-Z0-9]{5}|PGRST[0-9]{3})$/.test(code) ? { code } : undefined
     return {
-      message: ownString('message') ?? '[object Object]',
+      // SQL/SDK messages and Error stacks can contain names, answers and full
+      // rows. Keep a fixed classification and code rather than regex guesses.
+      message: code==='57014' ? 'Database statement timed out or was cancelled' : errorDetails ? 'Database operation failed' : 'Operation failed',
       stack: null,
       ...(errorDetails ? { errorDetails } : {}),
     }
   }
-  // Preserve primitive error messages without invoking custom object coercion.
-  return { message: redactDiagnosticText(typeof error === 'function' ? '[function]' : String(error)), stack: null }
+  return { message: 'Operation failed', stack: null }
 }
 
 /**
@@ -87,15 +82,16 @@ export async function reportError(
 ): Promise<void> {
   const severity = opts.severity ?? 'error'
   const { message, stack, errorDetails } = normalizeReportedError(error)
-  const fingerprint = makeFingerprint(opts.source, message)
-  const context = redactDiagnosticContext({
-    ...opts.context,
+  const source = /^[a-zA-Z][a-zA-Z0-9_.-]{0,119}$/.test(opts.source) ? opts.source : 'unclassified'
+  const fingerprint = makeFingerprint(source, message) + (errorDetails?.code ? ':'+errorDetails.code : '')
+  const context = {
+    ...(isProxy(opts.context) ? {} : diagnosticContextProjection(opts.context)),
     ...(errorDetails ? { errorDetails } : {}),
-  }) as Record<string, unknown>
+  }
 
   // 1. Structured log — always, first, so it survives a DB/email outage.
   //    Bearer links must never enter logs, persisted events, or alert emails.
-  console.error(`[${opts.source}]`, { message, stack }, context)
+  console.error(`[${source}]`, { message, stack }, context)
 
   // 2. Ops alert (best-effort, throttled inside sendOpsAlert). `alerted`
   //    reflects whether an alert was ACTUALLY dispatched (not just requested) —
@@ -103,7 +99,7 @@ export async function reportError(
   const shouldAlert = opts.alert ?? severity === 'fatal'
   const alerted = shouldAlert
     ? await sendOpsAlert({
-        subject: `${severity}: ${opts.source}`,
+        subject: `${severity}: ${source}`,
         body: [
           message,
           stack ?? '',
@@ -121,7 +117,7 @@ export async function reportError(
     const db = createAdminClient()
     const { error: insertError } = await db.from('error_events').insert({
       severity,
-      source: opts.source,
+      source,
       message,
       stack,
       fingerprint,

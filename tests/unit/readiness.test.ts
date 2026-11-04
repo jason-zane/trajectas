@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const { ping, probe, chain } = vi.hoisted(() => {
   const probe = vi.fn()
   const chain: Record<string, unknown> = {}
-  for (const method of ['from', 'select', 'eq', 'lt', 'limit']) chain[method] = vi.fn(() => chain)
+  for (const method of ['from', 'select', 'eq', 'is', 'lt', 'limit']) chain[method] = vi.fn(() => chain)
   chain.abortSignal = probe
   return { ping: vi.fn(), probe, chain }
 })

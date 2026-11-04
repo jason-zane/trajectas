@@ -293,7 +293,7 @@ describe.skipIf(!canRun)("getOrCreateSectionForms — frozen per-session forms",
         .eq("section_id", ids.section)
         .single();
       expect(row!.entry_count).toBe(3);
-      expect(row!.assembler_version).toBe("form-assembler@2");
+      expect(row!.assembler_version).toBe("form-assembler@3");
     } finally {
       await cleanupSession(session);
     }

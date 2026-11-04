@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { PublicTelemetry } from '@/components/public-telemetry';
+import {getPublishedWebsitePrivacy} from '@/lib/dal/public-privacy';
+import {PublishedPrivacyProvider} from './components/privacy-link';
 import localFont from "next/font/local";
 import {
   MARKETING_KEYWORDS,
@@ -127,17 +130,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default function MarketingLayout({
+export default async function MarketingLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const privacy=await getPublishedWebsitePrivacy();
   return (
     <div
       data-surface="marketing"
       className={`${marketingDisplayLatinExt.variable} ${marketingDisplay.variable} ${marketingMonoLatinExt.variable} ${marketingMono.variable}`}
     >
-      {children}
+      <PublishedPrivacyProvider available={Boolean(privacy)}>{children}</PublishedPrivacyProvider>
+      <PublicTelemetry />
     </div>
   );
 }

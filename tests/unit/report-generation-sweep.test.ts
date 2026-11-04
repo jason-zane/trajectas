@@ -49,7 +49,7 @@ function makeSweepDb(opts: {
       }
       return chain
     }
-    for (const m of ['select', 'update', 'eq', 'lt', 'order', 'limit']) {
+    for (const m of ['select', 'update', 'eq', 'is', 'lt', 'order', 'limit']) {
       chain[m] = (...args: unknown[]) => record(m, args)
     }
     chain.then = (

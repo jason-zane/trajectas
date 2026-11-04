@@ -19,6 +19,7 @@ export const MARKETING_ROUTES = [
   { path: "/how-it-works", sitemap: { changeFrequency: "monthly", priority: 0.8 } },
   { path: "/for-teams", sitemap: { changeFrequency: "monthly", priority: 0.8 } },
   { path: "/contact", sitemap: { changeFrequency: "monthly", priority: 0.7 } },
+  { path: "/privacy", sitemap: null },
   { path: "/capability-model", sitemap: { changeFrequency: "weekly", priority: 0.8 } },
   { path: "/role-builder", sitemap: { changeFrequency: "monthly", priority: 0.9 } },
   // The verified, invitation-gated Role Builder workflow.

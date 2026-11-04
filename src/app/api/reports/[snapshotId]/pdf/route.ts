@@ -85,7 +85,7 @@ async function validateReportTokenAccess(
   const db = createAdminClient()
   const { data: validSnapshot } = await db
     .from('report_snapshots')
-    .select('id, participant_sessions!inner(campaign_participant_id)')
+    .select('id, participant_sessions!inner(campaign_participant_id)').is("deleted_at", null)
     .eq('id', snapshotId)
     .eq('status', 'released')
     .maybeSingle()
@@ -146,7 +146,7 @@ export async function GET(
     // Verify this snapshot belongs to the participant's session and is released
     const { data: validSnapshot, error: snapshotError } = await db
       .from('report_snapshots')
-      .select('id, audience_type, participant_sessions!inner(campaign_participant_id)')
+      .select('id, audience_type, participant_sessions!inner(campaign_participant_id)').is("deleted_at", null)
       .eq('id', snapshotId)
       .eq('status', 'released')
       .maybeSingle()
@@ -299,8 +299,8 @@ export async function POST(
           await generateAndStoreReportPdf(snapshotId, {
             forceRefresh: body.forceRefresh,
           })
-        } catch (error) {
-          console.error(`[reports] PDF generation failed for ${snapshotId}:`, error)
+        } catch {
+          console.error("[reports] PDF generation failed for")
         }
       })
     }

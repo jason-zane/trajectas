@@ -15,7 +15,8 @@ export const SECURITY_HEADERS = [
   },
   {
     key: "Referrer-Policy",
-    value: "strict-origin-when-cross-origin",
+    // Same-origin requests must not receive participant bearer paths either.
+    value: "strict-origin",
   },
   {
     key: "X-Content-Type-Options",

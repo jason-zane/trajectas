@@ -51,7 +51,7 @@ export async function notifyConsultantsForSnapshot(snapshotId: string): Promise<
     .from('report_snapshots')
     .select(
       'id, status, campaign_id, participant_session_id, consultant_notified_at, report_templates(name)',
-    )
+    ).is("deleted_at", null)
     .eq('id', snapshotId)
     .maybeSingle()
 
@@ -73,7 +73,7 @@ export async function notifyConsultantsForSnapshot(snapshotId: string): Promise<
   if (campaign.consultant_notification_attach_pdf) {
     const { data: pdfState } = await db
       .from('report_snapshots')
-      .select('pdf_url, pdf_status')
+      .select('pdf_url, pdf_status').is("deleted_at", null)
       .eq('id', snapshotId)
       .maybeSingle()
     if (!pdfState?.pdf_url || pdfState.pdf_status !== 'ready') return
@@ -89,10 +89,7 @@ export async function notifyConsultantsForSnapshot(snapshotId: string): Promise<
     .select('id')
 
   if (claim.error) {
-    console.error(
-      `[notifications] Consultant claim failed for snapshot ${snapshotId}:`,
-      claim.error,
-    )
+    console.error("[notifications] Consultant claim failed for snapshot")
     return
   }
   if (!claim.data || claim.data.length === 0) return

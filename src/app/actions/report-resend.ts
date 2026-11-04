@@ -42,7 +42,7 @@ export async function requestNewReportLink(input: {
       .from("report_snapshots")
       .select(
         "id, campaign_id, audience_type, sent_to_participant_at, participant_sessions!inner(campaign_participant_id, campaign_participants!inner(id, email, first_name)), campaigns(id, title, client_id, partner_id)",
-      )
+      ).is("deleted_at", null)
       .eq("id", snapshotId)
       .eq("status", "released")
       .maybeSingle();

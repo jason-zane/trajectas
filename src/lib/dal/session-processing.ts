@@ -160,7 +160,7 @@ async function ensureReportSnapshotsForSession(input: {
 
   const { data: existingRows, error: existingError } = await db
     .from('report_snapshots')
-    .select('id, template_id, status')
+    .select('id, template_id, status').is("deleted_at", null)
     .eq('participant_session_id', input.sessionId)
 
   if (existingError) {
@@ -281,7 +281,7 @@ export async function getExistingCompletedSessionOutcome(
   }
   const { data, error } = await db
     .from('report_snapshots')
-    .select('status')
+    .select('status').is("deleted_at", null)
     .eq('participant_session_id', sessionId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -456,8 +456,8 @@ export async function finalizeCompletedSessionProcessing(input: {
           allRequiredAssessmentsCompleted: allDone,
           completedAt: input.completedAt,
         })
-      } catch (eventError) {
-        console.error('[integrations] Failed to enqueue assessment.completed event:', eventError)
+      } catch  {
+        console.error("[integrations] Failed to enqueue assessment.completed event:")
       }
     }
   }
@@ -600,7 +600,7 @@ async function triggerReportGeneration(
 
   const apiKey = process.env.INTERNAL_API_KEY
   if (!apiKey) {
-    console.warn('[reports] INTERNAL_API_KEY not set — skipping auto-generation')
+    console.warn("[reports] INTERNAL_API_KEY not set — skipping auto-generation")
     return { ok: false, error: 'Report generation is not configured right now' }
   }
 
@@ -625,7 +625,7 @@ async function triggerReportGeneration(
     }
     return { ok: true }
   } catch (error) {
-    console.error('[reports] Auto-generation trigger failed:', error)
+    console.error("[reports] Auto-generation trigger failed:")
     return {
       ok: false,
       error:

@@ -36,7 +36,7 @@ export default async function ReportByTokenPage({
   const db = createAdminClient();
   const { data, error } = await db
     .from("report_snapshots")
-    .select("*, participant_sessions!inner(campaign_participant_id)")
+    .select("*, participant_sessions!inner(campaign_participant_id)").is("deleted_at", null)
     .eq("id", snapshotId)
     .eq("status", "released")
     .maybeSingle();

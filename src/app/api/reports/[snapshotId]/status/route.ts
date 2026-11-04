@@ -28,7 +28,7 @@ export async function GET(
     const db = createAdminClient()
     const { data: validSnapshot } = await db
       .from('report_snapshots')
-      .select('id, participant_sessions!inner(campaign_participant_id)')
+      .select('id, participant_sessions!inner(campaign_participant_id)').is("deleted_at", null)
       .eq('id', snapshotId)
       .eq('status', 'released')
       .maybeSingle()
