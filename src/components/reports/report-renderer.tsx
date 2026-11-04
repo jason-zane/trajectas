@@ -23,6 +23,7 @@ import { ContentsBlock } from './blocks/contents'
 import { ClosingPageBlock } from './blocks/closing-page'
 import { ModeWrapper } from './modes/mode-wrapper'
 import { sanitizeBlockData } from '@/lib/reports/sanitize-block-data'
+import { resolveReportStorageAssets } from '@/lib/reports/storage-assets'
 import { CUSTOM_REPORTS, type CustomReportRenderContext } from '@/lib/reports/custom'
 import type { ResolvedBlockData, BlockType } from '@/lib/reports/types'
 import type { PresentationMode, ChartType, ReportTheme } from '@/lib/reports/presentation'
@@ -73,7 +74,8 @@ interface ReportRendererProps {
   selectedBlockId?: string | null
 }
 
-export function ReportRenderer({ blocks, className, onBlockSelect, selectedBlockId }: ReportRendererProps) {
+export function ReportRenderer({ blocks: snapshotBlocks, className, onBlockSelect, selectedBlockId }: ReportRendererProps) {
+  const blocks = resolveReportStorageAssets(snapshotBlocks, process.env.NEXT_PUBLIC_SUPABASE_URL)
   const searchParams = useSearchParams()
   const isPrint = searchParams.get('format') === 'print'
 
