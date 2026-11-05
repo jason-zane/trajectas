@@ -8,12 +8,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { saveConsent } from "@/app/actions/experience";
 import type { ConsentContent } from "@/lib/experience/types";
 import type { ConfidentialityMode } from "@/types/database";
+import { PrivacyAcknowledgement } from "@/components/assess/privacy-acknowledgement";
+import type { ParticipantPrivacyNotice } from "@/lib/privacy/notice";
 
 interface ConsentScreenProps {
   token: string;
   participantId: string;
-  noticeVersionId?: string;
-  researchLabel?: string;
+  privacyNotice?: ParticipantPrivacyNotice;
   content: ConsentContent;
   /** URL to navigate after consent. Determined server-side from flow config. */
   nextUrl: string;
@@ -33,8 +34,7 @@ interface ConsentScreenProps {
 export function ConsentScreen({
   token,
   participantId,
-  noticeVersionId,
-  researchLabel,
+  privacyNotice,
   content,
   nextUrl,
   isPreview = false,
@@ -52,8 +52,8 @@ export function ConsentScreen({
     setSaveError(null);
     try {
       // Continue only after the server acknowledges consent persistence.
-      const result = noticeVersionId
-        ? await saveConsent(token, participantId, noticeVersionId, researchLabel ? researchConsent : undefined)
+      const result = privacyNotice
+        ? await saveConsent(token, participantId, privacyNotice.id, privacyNotice.researchChoiceEnabled ? researchConsent : undefined)
         : await saveConsent(token, participantId);
       if (result.error) throw new Error('Consent was not saved');
       window.location.href = nextUrl;
@@ -103,7 +103,7 @@ export function ConsentScreen({
           </div>
 
           {/* Body content: hairline-divided rows with check icons */}
-          <div className="space-y-0">
+          {!privacyNotice && <div className="space-y-0">
             {bodyLines.map((line, idx) => {
               if (line.startsWith("- ")) {
                 // List item → hairline row with check icon
@@ -150,10 +150,19 @@ export function ConsentScreen({
                 </p>
               );
             })}
-          </div>
+          </div>}
 
           {/* Consent checkbox row — hairline above and below */}
-          <div
+          {privacyNotice ? (
+            <PrivacyAcknowledgement
+              notice={privacyNotice}
+              checked={agreed}
+              onCheckedChange={setAgreed}
+              researchConsent={researchConsent}
+              onResearchChange={setResearchConsent}
+              disabled={submitting}
+            />
+          ) : <div
             className="flex items-start gap-3 py-4 border-t border-b"
             style={{
               borderColor: "var(--runner-hairline)",
@@ -180,11 +189,6 @@ export function ConsentScreen({
             >
               {content.consentCheckboxLabel}
             </label>
-          </div>
-
-          {researchLabel && <div className="flex items-start gap-3 py-4">
-            <Checkbox id="research-consent" checked={researchConsent} onCheckedChange={value => setResearchConsent(value === true)} />
-            <label htmlFor="research-consent" className="text-sm leading-relaxed">{researchLabel}</label>
           </div>}
 
           {saveError && (

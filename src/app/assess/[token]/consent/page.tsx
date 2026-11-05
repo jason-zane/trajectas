@@ -70,7 +70,7 @@ export default async function ConsentPage({
   const content = {
     ...interpolated,
     footerText: interpolated.footerText ?? rawRunnerContent.footerText,
-    ...(privacy ? { heading: privacy.notice.title, consentCheckboxLabel: privacy.notice.acknowledgementLabel } : {}),
+    ...(privacy ? { eyebrow: "Assessment privacy", heading: "Before you begin", consentCheckboxLabel: privacy.notice.acknowledgementLabel } : {}),
   };
 
   // Brand CSS + Google Fonts <link> are injected by the token layout
@@ -78,10 +78,10 @@ export default async function ConsentPage({
 
   return (
     <ConsentScreen
+      key={privacy?.notice.id ?? "legacy"}
       token={token}
       participantId={participant.id}
-      noticeVersionId={privacy?.notice.id}
-      researchLabel={privacy?.notice.researchChoiceEnabled ? privacy.notice.researchLabel : undefined}
+      privacyNotice={privacy?.notice}
       brandLogoUrl={brandConfig.logoUrl}
       brandName={brandConfig.name}
       isCustomBrand={isCustomBrand}
