@@ -35,6 +35,9 @@ export async function replayPrivacyLedger(options: {
       accounts++;continue
     }
     if(entry.kind!=='deletion')continue
+    // A legacy entry cannot locate a surviving observer rater after its
+    // participant/session has disappeared. Require a reviewed ledger upgrade.
+    if(!entry.raterIds){blocked++;continue}
     const before=await db.rpc('privacy_replay_remaining',{p_entry:entry})
     if(before.error)throw new Error('recovery_inventory_failed')
     if(!options.execute){if(Object.values(before.data as Record<string,number>).some(count=>count>0))blocked++;continue}

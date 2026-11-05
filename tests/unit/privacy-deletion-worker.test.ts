@@ -9,7 +9,7 @@ function fixture() {
   const history: string[] = []
   const participantId = randomUUID(), requestId = randomUUID(), leaseId = randomUUID(), campaignId = randomUUID()
   let objectPresent = true
-  const manifest = { version: 1, participantIds: [participantId], sessionIds: [], snapshotIds: [], objects: [{ bucket: 'reports', path: 'reports/synthetic/claim.pdf' }], blockers: [] as Array<{ kind: string; id: string }>, counts: { participants: 1, sessions: 0, snapshots: 0 } }
+  const manifest = { version: 1, participantIds: [participantId], raterIds: [randomUUID()], sessionIds: [], snapshotIds: [], objects: [{ bucket: 'reports', path: 'reports/synthetic/claim.pdf' }], blockers: [] as Array<{ kind: string; id: string }>, counts: { participants: 1, sessions: 0, snapshots: 0 } }
   const rpc = vi.fn(async (name: string) => {
     history.push(name)
     if (name === 'privacy_claim_deletion') return { data: [{ id: requestId, participant_id:participantId,lease_id: leaseId, policy_id: randomUUID(), campaign_id: campaignId, approved_at: new Date().toISOString() }], error: null }
@@ -42,6 +42,7 @@ describe('participant deletion worker', () => {
     expect(f.history.indexOf('privacy_confirm_external_ledger')).toBeLessThan(f.history.indexOf('storage.remove'))
     expect(f.history.lastIndexOf('privacy_pending_storage_objects')).toBeGreaterThan(f.history.indexOf('storage.remove'))
     expect(f.history.at(-1)).toBe('privacy_finish_active_deletion')
+    expect(f.ledger.put).toHaveBeenCalledWith(expect.objectContaining({raterIds:f.manifest.raterIds}))
   })
   it('keeps shared copies in review without deleting objects', async () => {
     const f = fixture(); f.manifest.blockers.push({ kind: 'shared_outcome_import', id: randomUUID() })

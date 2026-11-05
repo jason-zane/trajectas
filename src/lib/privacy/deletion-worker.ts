@@ -46,7 +46,7 @@ export async function drainPrivacyDeletionJobs(options: {
       && (!entry.participantId || manifest.participantIds.includes(entry.participantId)))) throw new PrivacyWorkerFailure('external_legal_hold')
     const expiresAt = new Date(Date.now() + (policy.data.backup_days + 1) * 86400_000).toISOString()
     const digest = await ledger.put({ kind: 'deletion', id: request.id, participantId:request.participant_id, participantIds: manifest.participantIds,
-      sessionIds: manifest.sessionIds, snapshotIds: manifest.snapshotIds, objects: manifest.objects,
+      raterIds: manifest.raterIds, sessionIds: manifest.sessionIds, snapshotIds: manifest.snapshotIds, objects: manifest.objects,
       campaignId: request.campaign_id, approvedAt: request.approved_at, policyVersion: policy.data.version,
       backupDays: policy.data.backup_days, expiresAt }).catch(() => { throw new PrivacyWorkerFailure('external_ledger_write_failed') })
     const acknowledged = await db.rpc('privacy_confirm_external_ledger', { ...args, p_digest: digest, p_expires: expiresAt })

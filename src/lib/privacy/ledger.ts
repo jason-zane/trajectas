@@ -11,6 +11,8 @@ const deletionEntry = z.object({
   id: postgresUuid(),
   participantId: postgresUuid(),
   participantIds: z.array(postgresUuid()).min(1),
+  // Older encrypted entries remain readable, but cannot prove rater erasure.
+  raterIds: z.array(postgresUuid()).optional(),
   sessionIds: z.array(postgresUuid()),
   snapshotIds: z.array(postgresUuid()),
   objects: z.array(objectReferenceSchema),
@@ -44,6 +46,9 @@ export interface PrivacyLedger {
 
 const envelopeSchema = z.object({ version: z.literal(1), iv: z.string(), tag: z.string(), ciphertext: z.string() })
 export type LedgerEnvelope = z.infer<typeof envelopeSchema>
+
+const PRUNE_EXPIRED_ABSENT = "local n=0; for i=2,#KEYS do local score=redis.call('ZSCORE',KEYS[1],ARGV[i]); if score and tonumber(score)<=tonumber(ARGV[1]) and redis.call('EXISTS',KEYS[i])==0 then n=n+redis.call('ZREM',KEYS[1],ARGV[i]) end end; return n"
+const validMember = (member: string) => /^(deletion|hold|account):[0-9a-f-]{36}$/i.test(member)
 
 /** Encryption binds each record to its environment, type and request ID. */
 export function sealLedgerEntry(entry: PrivacyLedgerEntry, key: Buffer, namespace: string): LedgerEnvelope {
@@ -104,14 +109,31 @@ export class RedisPrivacyLedger implements PrivacyLedger {
   async read(): Promise<PrivacyLedgerEntry[]> {
     if(await this.redis.get(this.prefix+':initialized')!=='privacy-ledger-v1')throw new Error('privacy_ledger_not_initialized')
     const index = this.prefix + ':index'
+    const started = Date.now()
+    // Record TTLs do not remove sorted-set members. Clean expired, absent
+    // records before capacity enforcement; recheck score and existence inside
+    // Redis so a concurrent renewal cannot lose its recovery index entry.
+    let offset = 0
+    for (;;) {
+      if (Date.now() - started > 20000) throw new Error('privacy_ledger_read_budget')
+      const expired = await this.redis.zrange<string[]>(index, Number.MIN_SAFE_INTEGER, started, { byScore: true, offset, count: 1000 })
+      if (!expired.length) break
+      if (expired.some(member => !validMember(member))) throw new Error('privacy_ledger_index_invalid')
+      const removed = await this.redis.eval<Array<string|number>,number>(PRUNE_EXPIRED_ABSENT,
+        [index, ...expired.map(member => this.prefix + ':' + member)], [started, ...expired])
+      if (!Number.isInteger(removed) || removed < 0 || removed > expired.length) throw new Error('privacy_ledger_prune_unconfirmed')
+      // Existing ciphertext may live for the final fraction of its TTL. Skip
+      // those retained members rather than repeatedly reading the same page.
+      offset += expired.length - removed
+      if (expired.length < 1000) break
+    }
     if (await this.redis.zcard(index) > 10000) throw new Error('privacy_ledger_review_capacity')
     const members = await this.redis.zrange<string[]>(index, 0, -1)
     const result: PrivacyLedgerEntry[] = []
-    const started = Date.now()
     for (let offset = 0; offset < members.length; offset += 50) {
       if (Date.now() - started > 20000) throw new Error('privacy_ledger_read_budget')
       const batch = members.slice(offset, offset + 50)
-      if (batch.some(member => !/^(deletion|hold|account):[0-9a-f-]{36}$/i.test(member))) throw new Error('privacy_ledger_index_invalid')
+      if (batch.some(member => !validMember(member))) throw new Error('privacy_ledger_index_invalid')
       const envelopes = await this.redis.mget<(LedgerEnvelope | null)[]>(...batch.map(member => this.prefix + ':' + member))
       const missing: string[] = []
       for (let i = 0; i < batch.length; i++) {
@@ -125,7 +147,7 @@ export class RedisPrivacyLedger implements PrivacyLedger {
       }
       if (missing.length) {
         // Prune only if still absent: a concurrent successful write wins.
-        await this.redis.eval("local n=0; for i=2,#KEYS do if redis.call('EXISTS',KEYS[i])==0 then n=n+redis.call('ZREM',KEYS[1],ARGV[i-1]) end end; return n", [index, ...missing.map(member => this.prefix + ':' + member)], missing)
+        await this.redis.eval(PRUNE_EXPIRED_ABSENT, [index, ...missing.map(member => this.prefix + ':' + member)], [Date.now(), ...missing])
       }
     }
     return result
