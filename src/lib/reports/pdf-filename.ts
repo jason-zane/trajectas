@@ -109,7 +109,7 @@ export async function getReportPdfFilename(snapshotId: string): Promise<string> 
         assessments(title)
       )
     `,
-    )
+    ).is("deleted_at", null)
     .eq('id', snapshotId)
     .maybeSingle()
 

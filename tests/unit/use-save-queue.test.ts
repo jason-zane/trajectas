@@ -292,7 +292,8 @@ describe('useSaveQueue (IndexedDB-backed)', () => {
 
     // The value that survived end-to-end is 5, confirmed by a second POST.
     const row = await getResponseDb().responses.get([raceCfg.sessionId, 'item-1'])
-    expect(row?.value).toBe(5)
+    // Acknowledged answers are no longer retained in IndexedDB.
+    expect(row?.value).toBe(0)
     expect(row?.synced).toBe(1)
     expect(mockFetch.mock.calls.length).toBeGreaterThanOrEqual(2)
     const lastBody = JSON.parse(

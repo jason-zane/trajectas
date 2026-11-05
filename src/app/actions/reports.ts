@@ -750,7 +750,7 @@ export async function getReportSnapshotsForCampaign(
   const db = await createClient()
   const { data, error } = await db
     .from('report_snapshots')
-    .select('*')
+    .select('*').is("deleted_at", null)
     .eq('campaign_id', campaignId)
     .order('created_at', { ascending: false })
 
@@ -803,7 +803,7 @@ export async function getReportSnapshot(id: string): Promise<ReportSnapshot | nu
   const db = await createClient()
   const { data, error } = await db
     .from('report_snapshots')
-    .select('*')
+    .select('*').is("deleted_at", null)
     .eq('id', id)
     .maybeSingle()
   if (error) {
@@ -861,7 +861,7 @@ async function markSnapshotReleased(snapshotId: string) {
   const db = createAdminClient()
   const { data: snapshot, error: snapshotError } = await db
     .from('report_snapshots')
-    .select('id, status, released_at, campaign_id, participant_session_id')
+    .select('id, status, released_at, campaign_id, participant_session_id').is("deleted_at", null)
     .eq('id', snapshotId)
     .single()
 
@@ -960,7 +960,7 @@ export async function getCampaignSessionReportRows(
       .from('report_snapshots')
       .select(
         'id, template_id, status, generated_at, sent_to_participant_at, error_message, report_templates(name)'
-      )
+      ).is("deleted_at", null)
       .eq('participant_session_id', sessionId)
       .order('created_at', { ascending: false }),
     db
@@ -1165,7 +1165,7 @@ async function getSnapshotRecipientContext(
     .from('report_snapshots')
     .select(
       'id, status, released_at, campaign_id, participant_session_id, campaigns(title, client_id, partner_id), participant_sessions(campaign_participant_id)'
-    )
+    ).is("deleted_at", null)
     .eq('id', snapshotId)
     .maybeSingle()
 
@@ -1481,7 +1481,7 @@ export async function getAllReadySnapshots(
     .from('report_snapshots')
     .select(
       '*, participant_sessions(campaign_participant_id, campaign_participants(first_name, last_name, email))'
-    )
+    ).is("deleted_at", null)
     .in('status', ['ready', 'released', 'failed'])
     .order('created_at', { ascending: false })
     .limit(limit)
@@ -1544,7 +1544,7 @@ export async function getReportSnapshotsForParticipant(
   if (sessionIds.length === 0) return []
   const { data: snapshots, error } = await reportDb
     .from('report_snapshots')
-    .select('*')
+    .select('*').is("deleted_at", null)
     .in('participant_session_id', sessionIds)
     .order('created_at', { ascending: false })
   if (error) {

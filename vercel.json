@@ -5,6 +5,10 @@
   ],
   "crons": [
     {
+      "path": "/api/cron/privacy-retention-sweep",
+      "schedule": "15 * * * *"
+    },
+    {
       "path": "/api/cron/account-deletion-sweep",
       "schedule": "0 17 * * *"
     },

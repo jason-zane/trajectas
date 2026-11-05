@@ -75,7 +75,7 @@ beforeEach(() => {
       clients: { partner_id: "partner-new", deleted_at: null },
     }],
     report_snapshots: [{
-      id: "report", campaign_id: "campaign", participant_session_id: "session",
+      id: "report", campaign_id: "campaign", participant_session_id: "session", deleted_at:null,
       campaigns: { client_id: transferred, partner_id: "partner-old", confidentiality_mode: "standard", clients: { partner_id: "partner-new", deleted_at: null } },
       participant_sessions: { campaign_participant_id: "participant" },
     }],

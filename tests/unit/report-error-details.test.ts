@@ -14,14 +14,14 @@ describe('plain SDK error diagnostics', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
-  it('retains the PostgREST message and recognised code in logs, persistence and alerts', async () => {
+  it('classifies a PostgREST failure and retains its recognised code in logs, persistence and alerts', async () => {
     await reportError({ message: 'canceling statement due to statement timeout', code: '57014', details: 'RPC save was cancelled', hint: 'Inspect query duration' }, {
       source: 'apiAssessSaveBatch.rpc', severity: 'fatal', context: { request_kind: 'save' },
     })
     const event = insert.mock.calls[0][0]
     expect(event).toMatchObject({
-      message: 'canceling statement due to statement timeout', stack: null,
-      fingerprint: 'apiAssessSaveBatch.rpc:canceling statement due to statement timeout',
+      message: 'Database statement timed out or was cancelled', stack: null,
+      fingerprint: 'apiAssessSaveBatch.rpc:Database statement timed out or was cancelled:57014',
       context: { request_kind: 'save', errorDetails: { code: '57014' } },
       alerted: true,
     })
@@ -43,7 +43,7 @@ describe('plain SDK error diagnostics', () => {
     for (const secret of ['private-participant-token', 'private.jwt.code', 'private-pdf-token', 'private-proof', 'private-campaign-token', 'private-payload']) {
       expect(allOutput).not.toContain(secret)
     }
-    expect(allOutput).toContain('[redacted]')
+    expect(insert.mock.calls[0][0].message).toBe('Operation failed')
     expect(insert.mock.calls[0][0].context).toEqual({})
     expect(allOutput).not.toContain('customer@example.invalid')
     expect(allOutput).not.toContain('Failing row contains')
@@ -60,9 +60,9 @@ describe('plain SDK error diagnostics', () => {
     input.self = input
     await reportError(input, { source: 'sdk' })
     expect(getter).not.toHaveBeenCalled(); expect(coercion).not.toHaveBeenCalled()
-    expect(insert.mock.calls[0][0]).toMatchObject({ message: '[object Object]', stack: null, context: {} })
+    expect(insert.mock.calls[0][0]).toMatchObject({ message: 'Operation failed', stack: null, context: {} })
     await reportError({ message: 7, code: 57014, details: { token: 'do-not-dump' }, hint: ['do-not-dump'] }, { source: 'sdk' })
-    expect(insert.mock.calls[1][0]).toMatchObject({ message: '[object Object]', context: {} })
+    expect(insert.mock.calls[1][0]).toMatchObject({ message: 'Operation failed', context: {} })
     expect(JSON.stringify(insert.mock.calls)).not.toContain('do-not-dump')
   })
 
@@ -79,7 +79,7 @@ describe('plain SDK error diagnostics', () => {
   it('accepts a null-prototype message without invoking coercion', async () => {
     const input = Object.assign(Object.create(null), { message: 'connection failed', code: '08006' })
     await expect(reportError(input, { source: 'sdk' })).resolves.toBeUndefined()
-    expect(insert.mock.calls[0][0]).toMatchObject({ message: 'connection failed', context: { errorDetails: { code: '08006' } } })
+    expect(insert.mock.calls[0][0]).toMatchObject({ message: 'Database operation failed', context: { errorDetails: { code: '08006' } } })
   })
 
   it('does not invoke Proxy traps while normalizing an unknown error', async () => {
@@ -87,7 +87,7 @@ describe('plain SDK error diagnostics', () => {
     const input = new Proxy({}, { get: trap, getPrototypeOf: trap, getOwnPropertyDescriptor: trap })
     await expect(reportError(input, { source: 'sdk' })).resolves.toBeUndefined()
     expect(trap).not.toHaveBeenCalled()
-    expect(insert.mock.calls[0][0].message).toBe('[object Object]')
+    expect(insert.mock.calls[0][0].message).toBe('Operation failed')
   })
 
   it('preserves Error message and stack handling with redaction', async () => {
@@ -95,13 +95,13 @@ describe('plain SDK error diagnostics', () => {
     error.stack = 'Error: Failed /assess/private-token/report\n at handler'
     await reportError(error, { source: 'native' })
     expect(insert.mock.calls[0][0]).toMatchObject({
-      message: 'Failed /assess/[redacted]/report', stack: 'Error: Failed /assess/[redacted]/report\n at handler', context: {},
+      message: 'Operation failed', stack: null, context: {},
     })
   })
 
-  it.each([[null, 'null'], [undefined, 'undefined'], [42, '42'], [false, 'false'], ['plain failure', 'plain failure']])('preserves primitive fallback %s', async (error, message) => {
+  it.each([null,undefined,42,false,'plain failure'])('classifies primitive fallback %s', async (error) => {
     await reportError(error, { source: 'primitive' })
-    expect(insert.mock.calls[0][0]).toMatchObject({ message, stack: null })
+    expect(insert.mock.calls[0][0]).toMatchObject({ message:'Operation failed', stack: null })
   })
 
   it.each(['returned', 'thrown'])('normalizes and redacts a %s persistence failure without recursively reporting it', async failureMode => {
@@ -111,7 +111,7 @@ describe('plain SDK error diagnostics', () => {
     await expect(reportError({ message: 'original failure' }, { source: 'sdk' })).resolves.toBeUndefined()
     expect(insert).toHaveBeenCalledTimes(1)
     expect(console.error).toHaveBeenLastCalledWith('[report-error] failed to persist error_event', {
-      message: 'Cannot persist /assess/[redacted]/report', stack: null, errorDetails: { code: '42501' },
+      message: 'Database operation failed', stack: null, errorDetails: { code: '42501' },
     })
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('private-')
   })

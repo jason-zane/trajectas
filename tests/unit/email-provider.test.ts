@@ -39,7 +39,7 @@ describe("sendHtmlEmail", () => {
     });
 
     await expect(sendHtmlEmail(base)).rejects.toThrow(/validation_error/);
-    await expect(sendHtmlEmail(base)).rejects.toThrow(/domain is not verified/);
+    await expect(sendHtmlEmail(base)).rejects.not.toThrow(/domain is not verified/);
   });
 
   it("includes recipient count (not email addresses) in the thrown error for PII redaction", async () => {

@@ -2,6 +2,8 @@ import { validateAccessToken } from "@/app/actions/assess";
 import { getCachedEffectiveBrand } from "@/lib/dal/brand";
 import { generateCSSTokens } from "@/lib/brand/tokens";
 import { generateRunnerTokens } from "@/lib/brand/runner-tokens";
+import { getParticipantPrivacyState } from '@/lib/dal/participant-privacy';
+import { ParticipantPrivacyGate } from '@/components/assess/privacy-gate';
 
 /**
  * Token-scoped layout.
@@ -27,6 +29,8 @@ export default async function TokenLayout({
 
   let brandCss = "";
   let runnerCss = "";
+  const validation = await validateAccessToken(token);
+  const privacy = validation.data ? await getParticipantPrivacyState(validation.data.participant.id, validation.data.campaign.id) : null;
 
   try {
     const result = await validateAccessToken(token);
@@ -47,7 +51,7 @@ export default async function TokenLayout({
     <>
       {brandCss && <style dangerouslySetInnerHTML={{ __html: brandCss }} />}
       {runnerCss && <style dangerouslySetInnerHTML={{ __html: runnerCss }} />}
-      {children}
+      <ParticipantPrivacyGate required={Boolean(privacy && !privacy.acknowledged)} token={token}>{children}</ParticipantPrivacyGate>
     </>
   );
 }

@@ -10,7 +10,7 @@ describe("next config integration", () => {
     });
 
     expect(response.headers.get("referrer-policy")).toBe(
-      "strict-origin-when-cross-origin"
+      "strict-origin"
     );
     expect(response.headers.get("strict-transport-security")).toBe(
       "max-age=31536000; includeSubDomains"

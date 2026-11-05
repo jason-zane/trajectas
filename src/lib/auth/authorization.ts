@@ -800,7 +800,7 @@ export async function requireReportSnapshotAccess(snapshotId: string) {
     .from("report_snapshots")
     .select(
       "id, campaign_id, participant_session_id, campaigns(client_id, partner_id, confidentiality_mode, clients(partner_id, deleted_at)), participant_sessions(campaign_participant_id)"
-    )
+    ).is("deleted_at", null)
     .eq("id", snapshotId)
     .maybeSingle();
 
@@ -856,7 +856,7 @@ export async function requireReportSnapshotReadAccess(snapshotId: string) {
   const db = await createServerSupabaseClient();
   const { data, error } = await db
     .from("report_snapshots")
-    .select("id")
+    .select("id").is("deleted_at", null)
     .eq("id", snapshotId)
     .eq("status", "released")
     .not("released_at", "is", null)

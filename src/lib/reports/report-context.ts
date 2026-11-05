@@ -92,7 +92,7 @@ export async function buildReportContext(
 ): Promise<ReportContext> {
   const snapshotResult = await db
     .from('report_snapshots')
-    .select('*')
+    .select('*').is("deleted_at", null)
     .eq('id', snapshotId)
     .single()
   if (snapshotResult.error || !snapshotResult.data) {

@@ -471,11 +471,22 @@ export async function resetExperienceToDefault(
 export async function saveConsent(
   token: string,
   participantId: string,
+  noticeVersionId?: string,
+  researchConsent?: boolean,
 ): Promise<{ error?: string }> {
-  const parsed = saveConsentSchema.safeParse({ token, participantId })
+  const parsed = saveConsentSchema.safeParse({ token, participantId, noticeVersionId, researchConsent })
   if (!parsed.success) return { error: 'Invalid input' }
   try {
-    await requireParticipantRuntimeParticipantAccess(token, participantId)
+    const access = await requireParticipantRuntimeParticipantAccess(token, participantId)
+    const { getParticipantPrivacyState } = await import('@/lib/dal/participant-privacy')
+    const privacy = await getParticipantPrivacyState(participantId, access.campaignId)
+    if (privacy) {
+      if (noticeVersionId !== privacy.notice.id) return { error: 'Please refresh the assessment information.' }
+      const { error } = await createAdminClient().rpc('privacy_record_receipt', {
+        p_participant: participantId, p_notice: noticeVersionId, p_research: researchConsent ?? null,
+      })
+      return error ? { error: 'Your acknowledgement could not be saved.' } : {}
+    }
   } catch (error) {
     if (error instanceof ParticipantRuntimeAccessError) {
       return { error: error.message }

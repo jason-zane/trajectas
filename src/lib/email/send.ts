@@ -72,14 +72,11 @@ export async function sendEmail(params: {
     })
     html = rendered.html
     text = rendered.text
-  } catch (err) {
+  } catch  {
     // ── Tier 1 fallback: retry with platform default if resolved template is
     //    not already a platform template ──────────────────────────────────────
     if (template.scope_type !== 'platform') {
-      console.warn(
-        `[email] Render failed for template ${template.id}: ${err instanceof Error ? err.message : String(err)} — retrying with platform default`,
-        err,
-      )
+      console.warn("[email] Render failed for template")
 
       const platformTemplate = await resolveTemplate(type, {})
 
@@ -93,28 +90,19 @@ export async function sendEmail(params: {
           })
           html = rendered.html
           text = rendered.text
-        } catch (platformErr) {
+        } catch  {
           // ── Tier 2 fallback: plain-text ──────────────────────────────────
-          console.error(
-            `[email] Platform template render also failed: ${platformErr instanceof Error ? platformErr.message : String(platformErr)} — sending plain-text fallback`,
-            platformErr,
-          )
+          console.error("[email] Platform template render also failed:")
           ;({ html, text } = buildPlainTextFallback(subject, variables))
         }
       } else {
         // No platform template found; still use tier-2 plain-text fallback
-        console.error(
-          `[email] No platform template available: ${err instanceof Error ? err.message : String(err)} — sending plain-text fallback`,
-          err,
-        )
+        console.error("[email] No platform template available:")
         ;({ html, text } = buildPlainTextFallback(subject, variables))
       }
     } else {
       // Already tried the platform template; use tier-2 plain-text fallback
-      console.error(
-        `[email] Platform template render failed: ${err instanceof Error ? err.message : String(err)} — sending plain-text fallback`,
-        err,
-      )
+      console.error("[email] Platform template render failed:")
       ;({ html, text } = buildPlainTextFallback(subject, variables))
     }
   }

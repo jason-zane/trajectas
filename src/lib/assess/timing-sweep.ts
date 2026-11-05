@@ -73,7 +73,7 @@ export async function sweepAssessmentTiming(
     .lt('deadline_at', cutoffIso)
 
   if (error) {
-    console.error('[assess] timing sweep failed to list abandoned sections:', error)
+    console.error("[assess] timing sweep failed to list abandoned sections:")
     return { scanned: 0, finalised: 0 }
   }
 
@@ -98,7 +98,7 @@ export async function sweepAssessmentTiming(
       .is('finalised_at', null)
 
     if (updateError) {
-      console.error('[assess] timing sweep failed to finalise section:', row, updateError)
+      console.error("[assess] timing sweep failed to finalise section:")
       continue
     }
     finalised += count ?? 0

@@ -12,6 +12,8 @@ import type { ConfidentialityMode } from "@/types/database";
 interface ConsentScreenProps {
   token: string;
   participantId: string;
+  noticeVersionId?: string;
+  researchLabel?: string;
   content: ConsentContent;
   /** URL to navigate after consent. Determined server-side from flow config. */
   nextUrl: string;
@@ -31,11 +33,14 @@ interface ConsentScreenProps {
 export function ConsentScreen({
   token,
   participantId,
+  noticeVersionId,
+  researchLabel,
   content,
   nextUrl,
   isPreview = false,
 }: ConsentScreenProps) {
   const [agreed, setAgreed] = useState(false);
+  const [researchConsent, setResearchConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const saving = useRef(false);
@@ -47,7 +52,9 @@ export function ConsentScreen({
     setSaveError(null);
     try {
       // Continue only after the server acknowledges consent persistence.
-      const result = await saveConsent(token, participantId);
+      const result = noticeVersionId
+        ? await saveConsent(token, participantId, noticeVersionId, researchLabel ? researchConsent : undefined)
+        : await saveConsent(token, participantId);
       if (result.error) throw new Error('Consent was not saved');
       window.location.href = nextUrl;
     } catch {
@@ -174,6 +181,11 @@ export function ConsentScreen({
               {content.consentCheckboxLabel}
             </label>
           </div>
+
+          {researchLabel && <div className="flex items-start gap-3 py-4">
+            <Checkbox id="research-consent" checked={researchConsent} onCheckedChange={value => setResearchConsent(value === true)} />
+            <label htmlFor="research-consent" className="text-sm leading-relaxed">{researchLabel}</label>
+          </div>}
 
           {saveError && (
             <Alert variant="destructive">

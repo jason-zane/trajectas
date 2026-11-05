@@ -58,6 +58,8 @@ export type ResetExperienceToDefaultInput = z.infer<typeof resetExperienceToDefa
 export const saveConsentSchema = z.object({
   token: z.string().min(1),
   participantId: postgresUuid(),
+  noticeVersionId: postgresUuid().optional(),
+  researchConsent: z.boolean().optional(),
 })
 export type SaveConsentInput = z.infer<typeof saveConsentSchema>
 

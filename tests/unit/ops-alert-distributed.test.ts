@@ -25,7 +25,7 @@ describe('distributed operational alert throttle', () => {
     const second = (await import('@/lib/observability/ops-alert')).sendOpsAlert
     expect(await Promise.all([first(input), second(input)])).toEqual([true, false])
     expect(sendHtmlEmail).toHaveBeenCalledTimes(1)
-    expect(set.mock.calls[0]).toEqual([expect.stringMatching(/^trajectas:ops-alert:[a-f0-9]{64}$/), '1', { nx: true, px: 900000 }])
+    expect(set.mock.calls[0]).toEqual([expect.stringMatching(/^trajectas-v2:[a-f0-9]{24}:ops-alert:[a-f0-9]{64}$/), '1', { nx: true, px: 900000 }])
     expect(JSON.stringify(set.mock.calls)).not.toContain('ops@example.test')
     expect(JSON.stringify(set.mock.calls)).not.toContain(input.fingerprint)
   })

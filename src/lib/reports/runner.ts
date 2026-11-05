@@ -100,7 +100,7 @@ export function partitionScoreRows(
         cognitiveScores.push({ factorId, display })
       } catch (err) {
         if (err instanceof CognitiveClaimsViolation) {
-          console.error(`[runner] cognitive claims violation for factor ${factorId}, session score row dropped:`, err.message)
+          console.error("[runner] cognitive claims violation for factor")
           continue
         }
         throw err
@@ -135,7 +135,7 @@ export async function claimSnapshotForGeneration(
   })
 
   if (claim.error) {
-    console.error(`[runner] Failed to claim snapshot ${snapshotId}:`, claim.error)
+    console.error("[runner] Failed to claim snapshot")
     return false
   }
 
@@ -154,7 +154,7 @@ async function processSnapshotWithinBudget(snapshotId: string): Promise<void> {
   // snapshot as failed.
   const claimed = await claimSnapshotForGeneration(db, snapshotId)
   if (!claimed) {
-    console.warn(`[runner] Snapshot ${snapshotId} not claimable (not pending), skipping`)
+    console.warn("[runner] Snapshot")
     return
   }
 
@@ -165,7 +165,7 @@ async function processSnapshotWithinBudget(snapshotId: string): Promise<void> {
 
     const snapshotResult = await db
       .from('report_snapshots')
-      .select('*')
+      .select('*').is("deleted_at", null)
       .eq('id', snapshotId)
       .single()
     if (snapshotResult.error || !snapshotResult.data) {
@@ -451,8 +451,8 @@ async function processSnapshotWithinBudget(snapshotId: string): Promise<void> {
         generatedAt,
         releasedAt,
       })
-    } catch (eventError) {
-      console.error(`[integrations] Failed to enqueue report event for ${snapshotId}:`, eventError)
+    } catch {
+      console.error("[integrations] Failed to enqueue report event for")
     }
 
     if (template.autoRelease) {
@@ -473,11 +473,11 @@ async function processSnapshotWithinBudget(snapshotId: string): Promise<void> {
     }
 
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    console.error(`[runner] processSnapshot failed for ${snapshotId}:`, message)
+    const message = 'Report generation failed; review operational diagnostics.'
+    console.error("[runner] processSnapshot failed for")
     const { data: failedSnapshot } = await db
       .from('report_snapshots')
-      .select('participant_session_id')
+      .select('participant_session_id').is("deleted_at", null)
       .eq('id', snapshotId)
       .maybeSingle()
 
@@ -586,8 +586,8 @@ async function runCustomReport(
       generatedAt,
       releasedAt,
     })
-  } catch (eventError) {
-    console.error(`[integrations] Failed to enqueue report event for ${snapshotId}:`, eventError)
+  } catch {
+    console.error("[integrations] Failed to enqueue report event for")
   }
 
     if (template.autoRelease) {
@@ -1447,8 +1447,8 @@ async function resolveAiText(
 
     const generatedText = resolvePersonToken(text.trim(), personReference, session.firstName)
     return { generatedText, promptName, model: response.model }
-  } catch (err) {
-    console.error('[runner] AI Text generation failed:', err)
+  } catch {
+    console.error("[runner] AI Text generation failed:")
     const promptName = config.promptId ? 'Unknown' : 'None'
     return {
       generatedText: 'Unable to generate narrative. Please try again.',

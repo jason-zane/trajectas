@@ -1,9 +1,9 @@
 import 'server-only'
 
-import { createHash } from 'node:crypto'
 import { Redis } from '@upstash/redis'
 
 import { sendHtmlEmail } from '@/lib/email/provider'
+import { operationalIdentity, operationalNamespace } from '@/lib/security/operational-keys'
 
 /**
  * Email an operational alert to the address in OPS_ALERT_EMAIL.
@@ -53,13 +53,13 @@ export async function sendOpsAlert(input: {
     const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN
     if (url || token) {
       if (!url || !token) {
-        console.error('[ops-alert] incomplete Redis configuration; email suppressed')
+        console.error("[ops-alert] incomplete Redis configuration; email suppressed")
         return false
       }
       const redis = new Redis({ url, token, retry: false, signal: () => AbortSignal.timeout(2000) })
       // Store a digest only: errors and recipient addresses never enter Redis.
-      const digest = createHash('sha256').update(`${to}\n${key}`).digest('hex')
-      const claimed = await redis.set(`trajectas:ops-alert:${digest}`, '1', {
+      const digest = operationalIdentity(`${to}\n${key}`)
+      const claimed = await redis.set(`${operationalNamespace()}:ops-alert:${digest}`, '1', {
         nx: true, px: ALERT_THROTTLE_MS,
       })
       if (claimed !== 'OK') return false
@@ -73,14 +73,13 @@ export async function sendOpsAlert(input: {
     })
     // Resend resolves with { data, error } rather than rejecting on API errors.
     if (result && typeof result === 'object' && 'error' in result && result.error) {
-      console.error('[ops-alert] Resend returned an error', result.error)
+      console.error("[ops-alert] Resend returned an error")
       return false
     }
     return true
-  } catch (err) {
+  } catch {
     // Best-effort: alerting failures must not propagate.
-    console.error('[ops-alert] unable to claim or send alert; structured error remains in logs',
-      err instanceof Error ? err.name : 'UnknownError')
+    console.error("[ops-alert] unable to claim or send alert; structured error remains in logs")
     return false
   }
 }

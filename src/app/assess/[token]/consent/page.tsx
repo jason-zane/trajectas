@@ -9,6 +9,7 @@ import { getNextFlowUrl } from "@/lib/experience/flow-router";
 import { DEFAULT_PAGE_CONTENT } from "@/lib/experience/defaults";
 import { ConsentScreen } from "@/components/assess/consent-screen";
 import type { TemplateVariables } from "@/lib/experience/types";
+import { getParticipantPrivacyState } from '@/lib/dal/participant-privacy';
 
 export default async function ConsentPage({
   params,
@@ -23,19 +24,21 @@ export default async function ConsentPage({
   }
 
   const { campaign, participant } = result.data!;
+  const privacy = await getParticipantPrivacyState(participant.id, campaign.id);
 
-  const [experience, brandConfig] = await Promise.all([
+  const [baseExperience, brandConfig] = await Promise.all([
     getCachedEffectiveExperience(campaign.id),
     getCachedEffectiveBrand(campaign.clientId, campaign.id),
   ]);
 
-  const nextUrl = getNextFlowUrl(experience, "consent", token) ?? `/assess/${token}/section/0`;
+  const experience = privacy ? { ...baseExperience, flowConfig: { ...baseExperience.flowConfig, consent: { enabled: true, order: 30 } } } : baseExperience;
+  const nextUrl = getNextFlowUrl(experience, "consent", token) ?? `/assess/${token}/assessment-intro/0`;
 
   if (!isPageEnabled(experience, "consent")) {
     redirect(nextUrl);
   }
 
-  if (participant.consentGivenAt) {
+  if (privacy ? privacy.acknowledged : participant.consentGivenAt) {
     redirect(nextUrl);
   }
 
@@ -54,8 +57,8 @@ export default async function ConsentPage({
   // Use mode-aware default consent body if no override was explicitly set.
   // If the resolved content matches the hardcoded default, it means no campaign
   // or platform override was provided, so we use the mode-appropriate version.
-  let bodyText = rawContent.body;
-  if (bodyText === DEFAULT_PAGE_CONTENT.consent.body) {
+  let bodyText = privacy?.notice.body ?? rawContent.body;
+  if (!privacy && bodyText === DEFAULT_PAGE_CONTENT.consent.body) {
     // No custom override — use mode-aware default
     bodyText = getDefaultConsentBody(campaign.confidentialityMode);
   }
@@ -67,6 +70,7 @@ export default async function ConsentPage({
   const content = {
     ...interpolated,
     footerText: interpolated.footerText ?? rawRunnerContent.footerText,
+    ...(privacy ? { heading: privacy.notice.title, consentCheckboxLabel: privacy.notice.acknowledgementLabel } : {}),
   };
 
   // Brand CSS + Google Fonts <link> are injected by the token layout
@@ -76,6 +80,8 @@ export default async function ConsentPage({
     <ConsentScreen
       token={token}
       participantId={participant.id}
+      noticeVersionId={privacy?.notice.id}
+      researchLabel={privacy?.notice.researchChoiceEnabled ? privacy.notice.researchLabel : undefined}
       brandLogoUrl={brandConfig.logoUrl}
       brandName={brandConfig.name}
       isCustomBrand={isCustomBrand}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { TrajectasLogo } from "@/components/brand/trajectas-logo";
+import {PublicPrivacyLink} from './privacy-link';
 
 export function PublicHeader({ builder = false }: { builder?: boolean }) {
   return <header className="px-header">
@@ -13,5 +14,5 @@ export function PublicHeader({ builder = false }: { builder?: boolean }) {
 }
 
 export function PublicFooter() {
-  return <footer className="px-footer px-container"><span>© {new Date().getFullYear()} Trajectas</span><span>Capabilities, contextualised.</span><nav aria-label="Footer navigation"><Link href="/how-it-works">How it works</Link><Link href="/for-teams">For teams</Link><Link href="/capability-model">The model</Link><Link href="/role-builder">Role Builder</Link><Link href="/contact">Contact</Link></nav></footer>;
+  return <footer className="px-footer px-container"><span>© {new Date().getFullYear()} Trajectas</span><span>Capabilities, contextualised.</span><nav aria-label="Footer navigation"><Link href="/how-it-works">How it works</Link><Link href="/for-teams">For teams</Link><Link href="/capability-model">The model</Link><Link href="/role-builder">Role Builder</Link><Link href="/contact">Contact</Link><PublicPrivacyLink /></nav></footer>;
 }

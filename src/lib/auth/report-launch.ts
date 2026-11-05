@@ -87,7 +87,7 @@ async function findSnapshotForParticipant(
 
   const { data: snapshot } = await db
     .from("report_snapshots")
-    .select("id")
+    .select("id").is("deleted_at", null)
     .in("participant_session_id", sessionIds)
     .eq("status", "released")
     .order("created_at", { ascending: false })

@@ -18,7 +18,7 @@ const ready = { id: 'ready-report', status: 'ready', releasedAt: undefined }
 function query(data: unknown, error: unknown = null) {
   const result = { data, error }
   const chain = {
-    select: () => chain, eq: (key: string, value: unknown) => { mocks.predicates(key, value); return chain },
+    select: () => chain, is: (key:string,value:unknown)=>{mocks.predicates(key,value);return chain}, eq: (key: string, value: unknown) => { mocks.predicates(key, value); return chain },
     in: (key: string, value: unknown) => { mocks.predicates(key, value); return chain }, order: () => chain,
     then: (resolve: (value: typeof result) => unknown) => Promise.resolve(result).then(resolve),
   }
@@ -38,6 +38,7 @@ describe('participant report previews match session report previews', () => {
     expect(mocks.access).toHaveBeenCalledWith(participantId)
     expect(mocks.predicates).toHaveBeenCalledWith('campaign_participant_id', participantId)
     expect(mocks.predicates).toHaveBeenCalledWith('participant_session_id', ['session'])
+    expect(mocks.predicates).toHaveBeenCalledWith('deleted_at',null)
     expect(mocks.rlsFrom).not.toHaveBeenCalled()
   })
   it('keeps release and audience RLS filtering for ordinary members', async () => {

@@ -44,6 +44,7 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
+        is:vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
