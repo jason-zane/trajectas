@@ -32,8 +32,8 @@ export function PrivacyAcknowledgement({
           disabled={disabled}
           className="mt-1 size-5"
           style={{
-            background: checked ? "var(--runner-accent)" : "transparent",
-            borderColor: checked ? "var(--runner-accent)" : "var(--runner-input-border)",
+            background: checked ? "var(--runner-cta-fill)" : "transparent",
+            borderColor: checked ? "var(--runner-cta-fill)" : "var(--runner-input-border)",
             color: checked ? "var(--runner-cta-text)" : undefined,
           }}
         />
