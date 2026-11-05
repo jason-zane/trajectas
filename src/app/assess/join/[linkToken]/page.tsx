@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { mapCampaignRow } from "@/lib/supabase/mappers";
 import { JoinForm } from "@/components/assess/join-form";
 import type { Campaign } from "@/types/database";
+import { getEnrollmentPrivacyNotice } from "@/lib/dal/participant-privacy";
 
 export default async function JoinPage({
   params,
@@ -60,9 +61,10 @@ export default async function JoinPage({
     }
   }
 
-  const [experience, brandConfig] = await Promise.all([
+  const [experience, brandConfig, privacyNotice] = await Promise.all([
     getCachedEffectiveExperience(campaignId),
     getCachedEffectiveBrand(clientId, campaignId),
+    campaignId ? getEnrollmentPrivacyNotice(campaignId) : null,
   ]);
 
   const content = getPageContent(experience, "join");
@@ -86,12 +88,14 @@ export default async function JoinPage({
       <style dangerouslySetInnerHTML={{ __html: brandCss }} />
       <style dangerouslySetInnerHTML={{ __html: runnerCss }} />
       <JoinForm
+        key={privacyNotice?.id ?? "legacy"}
         linkToken={linkToken}
         content={content}
         brandLogoUrl={brandConfig.logoUrl}
         brandName={brandConfig.name}
         campaign={campaign}
         privacyUrl={experience.privacyUrl}
+        privacyNotice={privacyNotice ?? undefined}
       />
     </>
   );

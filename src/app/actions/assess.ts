@@ -3,6 +3,7 @@
 import { finalizeCompletedSessionProcessing, getExistingCompletedSessionOutcome } from '@/lib/dal/session-processing'
 import { markPublicBuildStarted } from '@/lib/dal/public-builds'
 import { restoreMissingSessionClient } from '@/lib/dal/participant-session-ownership'
+import { getEnrollmentPrivacyNotice } from '@/lib/dal/participant-privacy'
 import { createAssessSessionProof } from '@/lib/assess/session-proof'
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -1281,16 +1282,19 @@ export async function getParticipantReportSnapshot(
 
 export async function registerViaLink(
   linkToken: string,
-  { email, firstName, lastName, jobTitle, company, marketingConsent }: {
+  { email, firstName, lastName, jobTitle, company, marketingConsent, privacyNoticeVersionId, privacyAcknowledged, researchConsent }: {
     email: string
     firstName: string
     lastName: string
     jobTitle?: string
     company?: string
     marketingConsent?: boolean
+    privacyNoticeVersionId?: string
+    privacyAcknowledged?: boolean
+    researchConsent?: boolean
   },
 ) {
-  const parsed = registerViaLinkInputSchema.safeParse({ linkToken, email, firstName, lastName, jobTitle, company, marketingConsent })
+  const parsed = registerViaLinkInputSchema.safeParse({ linkToken, email, firstName, lastName, jobTitle, company, marketingConsent, privacyNoticeVersionId, privacyAcknowledged, researchConsent })
   if (!parsed.success) {
     return { error: 'Invalid input' }
   }
@@ -1357,6 +1361,16 @@ export async function registerViaLink(
 
   // Every link-based registration creates a fresh participant record.
   // Participants who need to resume use their unique access-token URL.
+
+  let privacyNotice: Awaited<ReturnType<typeof getEnrollmentPrivacyNotice>>
+  try {
+    privacyNotice = await getEnrollmentPrivacyNotice(link.campaign_id)
+  } catch {
+    return { error: 'Assessment privacy information is unavailable. Please try again.' }
+  }
+  if (privacyNotice && (privacyAcknowledged !== true || privacyNoticeVersionId !== privacyNotice.id)) {
+    return { error: 'Please refresh and acknowledge the assessment privacy information.' }
+  }
 
   // Quota check: only applies when campaign belongs to a client
   if (campaign.client_id) {
@@ -1426,6 +1440,24 @@ export async function registerViaLink(
     // Link is now full or was deactivated between our checks — roll back.
     await db.from('campaign_participants').delete().eq('id', newParticipant.id)
     return { error: 'This enrollment link has reached its maximum uses' }
+  }
+
+  if (privacyNotice) {
+    // Only a successfully registered participant receives a receipt. The RPC
+    // rechecks the current published assignment and saves its immutable hash.
+    try {
+      const { error: receiptError } = await db.rpc('privacy_record_receipt', {
+        p_participant: newParticipant.id,
+        p_notice: privacyNotice.id,
+        p_research: privacyNotice.researchChoiceEnabled ? researchConsent ?? false : null,
+      })
+      if (!receiptError) return { accessToken: newParticipant.access_token }
+    } catch {
+      // A transport failure must take the same safe retry route as an RPC error.
+    }
+    // Keep the existing participant/token and let the mandatory consent gate
+    // retry. Do not create another registration or imply the save succeeded.
+    return { accessToken: newParticipant.access_token, requiresPrivacyAcknowledgement: true }
   }
 
   return { accessToken: newParticipant.access_token }
