@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { render } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ReportRenderer } from '@/components/reports/report-renderer'
 import { DEFAULT_REPORT_THEME } from '@/lib/reports/presentation'
 import type { ResolvedBlockData } from '@/lib/reports/types'
@@ -9,6 +9,8 @@ import type { ResolvedBlockData } from '@/lib/reports/types'
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }))
+
+afterEach(() => vi.unstubAllEnvs())
 
 function makeBlocks(theme: typeof DEFAULT_REPORT_THEME): ResolvedBlockData[] {
   return [
@@ -29,6 +31,25 @@ function makeBlocks(theme: typeof DEFAULT_REPORT_THEME): ResolvedBlockData[] {
 }
 
 describe('ReportRenderer brand theme', () => {
+  it('loads a historical cover logo from the active project without mutating the snapshot', () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://sydney-fixture.supabase.co')
+    const legacy = 'https://rwpfwfcaxoevnvtkdmkx.supabase.co/storage/v1/object/public/brand-assets/client.svg'
+    const blocks: ResolvedBlockData[] = [{
+      blockId: 'cover', type: 'cover_page', order: 0,
+      data: { secondaryLogoUrl: legacy, participantName: 'Synthetic Participant' },
+    }]
+    const original = JSON.stringify(blocks)
+    Object.freeze(blocks[0].data)
+    Object.freeze(blocks[0])
+    Object.freeze(blocks)
+
+    const { getByRole, getByText } = render(<ReportRenderer blocks={blocks} />)
+    expect(getByRole('img', { name: 'Logo' })).toHaveAttribute('src',
+      'https://sydney-fixture.supabase.co/storage/v1/object/public/brand-assets/client.svg')
+    expect(getByText('Synthetic Participant')).toBeTruthy()
+    expect(JSON.stringify(blocks)).toBe(original)
+  })
+
   it('applies the resolved brand theme as CSS custom properties on the wrapper', () => {
     const customTheme = {
       ...DEFAULT_REPORT_THEME,

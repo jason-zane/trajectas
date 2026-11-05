@@ -23,6 +23,7 @@ import {
   type IntegrationEventType,
 } from '@/lib/integrations/events'
 import { encryptIntegrationSecret } from '@/lib/integrations/crypto'
+import { getWebhookUrlSafetyError, shouldAllowLocalWebhookUrls } from '@/lib/integrations/url-security'
 import { INTEGRATION_API_SCOPES, type IntegrationApiScope } from '@/lib/integrations/types'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -38,18 +39,10 @@ const endpointUrlSchema = z
   .string()
   .trim()
   .url('Webhook URL must be a valid URL.')
-  .refine((value) => {
-    try {
-      const parsed = new URL(value)
-      if (parsed.protocol === 'https:') return true
-      if (parsed.protocol !== 'http:') return false
-
-      const hostname = parsed.hostname.toLowerCase()
-      return hostname === 'localhost' || hostname === '127.0.0.1'
-    } catch {
-      return false
-    }
-  }, 'Webhook URL must use HTTPS unless it targets localhost.')
+  .superRefine((value, context) => {
+    const message = getWebhookUrlSafetyError(value, { allowLocalUrls: shouldAllowLocalWebhookUrls() })
+    if (message) context.addIssue({ code: 'custom', message })
+  })
 
 const createWebhookEndpointSchema = z.object({
   label: z.string().trim().min(1, 'Label is required.').max(120, 'Label must be 120 characters or fewer.'),

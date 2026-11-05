@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 type Row = Record<string, any>
 type Query = { table: string; operation: string; values: Row; filters: any[][]; single: boolean; limit?: number }
-const mocks = vi.hoisted(() => ({ execute: vi.fn(), decrypt: vi.fn() }))
+const mocks = vi.hoisted(() => ({ execute: vi.fn(), decrypt: vi.fn(), request: vi.fn() }))
+vi.mock('@/lib/integrations/webhook-request', () => ({ requestWebhook: (...args: unknown[]) => mocks.request(...args) }))
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({ from: (table: string) => {
   const query: Query = { table, operation: 'select', values: {}, filters: [], single: false }
   const chain: any = {}
@@ -68,13 +69,28 @@ beforeEach(() => {
     // PostgREST returns snapshots, not references to mutable database records.
     return { data: structuredClone(query.single ? selected[0] ?? null : selected), error: null }
   })
-  fetchMock = vi.fn(async () => new Response('ok'))
-  vi.stubGlobal('fetch', fetchMock)
+  fetchMock = mocks.request.mockImplementation(async () => new Response('ok'))
 })
 
 afterEach(() => vi.useRealTimers())
 
 describe('webhook outbox recovery', () => {
+  it('records a rejected destination as a failed delivery and retries without completing the event', async () => {
+    rows.integration_events_outbox = [event('first')]
+    fetchMock.mockRejectedValue(new Error('Webhook destination must resolve only to allowed network addresses.'))
+    expect(await dispatchPendingIntegrationEvents(1)).toEqual({ processed: 1, delivered: 0 })
+    expect(rows.integration_webhook_deliveries[0]).toMatchObject({ status: 'failed', response_status: null })
+    expect(rows.integration_events_outbox[0]).toMatchObject({ status: 'pending', attempts: 1, dispatched_at: null })
+  })
+
+  it('does not treat a redirect as a successful delivery', async () => {
+    rows.integration_events_outbox = [event('first')]
+    fetchMock.mockResolvedValue(new Response('', { status: 307 }))
+    expect(await dispatchPendingIntegrationEvents(1)).toEqual({ processed: 1, delivered: 0 })
+    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(rows.integration_webhook_deliveries[0]).toMatchObject({ status: 'failed', response_status: 307 })
+  })
+
   it('does not consume saved events or attempts when delivery is re-enabled without review', async () => {
     rows.integration_events_outbox = [event('first', { status:'failed', requires_review:true, held_at:iso(), attempts:2 })]
     const before = structuredClone(rows.integration_events_outbox)

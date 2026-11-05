@@ -7,7 +7,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createHash } from 'node:crypto'
 import type { IntegrationAuthContext } from '@/lib/integrations/types'
 
-const mocks = vi.hoisted(() => ({ resolve: vi.fn(), sendEmail: vi.fn(), event: vi.fn(), queries: [] as any[] }))
+const mocks = vi.hoisted(() => ({ resolve: vi.fn(), sendEmail: vi.fn(), event: vi.fn(), request: vi.fn(), queries: [] as any[] }))
+vi.mock('@/lib/integrations/webhook-request', () => ({ requestWebhook: (...args: unknown[]) => mocks.request(...args) }))
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({ from: (table: string) => {
   const query = { table, operation: 'select', values: null as any, filters: [] as any[] }
   const chain: any = {}
@@ -139,8 +140,7 @@ describe('aggregate-only integration confidentiality', () => {
   })
 
   it('redacts a pending legacy webhook using current campaign policy before signing and sending', async () => {
-    const fetch = vi.fn(async () => new Response('ok'))
-    vi.stubGlobal('fetch', fetch)
+    const fetch = mocks.request.mockImplementation(async () => new Response('ok'))
     mocks.resolve.mockImplementation((q: any) => {
       if (q.table === 'campaigns') return result(campaign)
       if (q.table === 'integration_events_outbox') {

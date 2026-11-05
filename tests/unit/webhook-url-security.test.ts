@@ -28,6 +28,15 @@ describe('webhook URL safety', () => {
       'https://[::1]/events',
       'https://[fd00::1]/events',
       'https://[fe80::1]/events',
+      'https://[::ffff:127.0.0.1]/events',
+      'https://[2002:7f00:1::]/events',
+      'https://[2001:db8::1]/events',
+      'https://[ff02::1]/events',
+      'https://224.0.0.1/events',
+      'https://255.255.255.255/events',
+      'https://192.0.2.1/events',
+      'https://198.51.100.1/events',
+      'https://203.0.113.1/events',
     ]
 
     for (const url of blocked) {

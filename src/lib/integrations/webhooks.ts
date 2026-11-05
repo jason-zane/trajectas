@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decryptIntegrationSecret } from '@/lib/integrations/crypto'
 import { protectIntegrationPayload } from '@/lib/integrations/confidentiality'
+import { requestWebhook } from '@/lib/integrations/webhook-request'
 import {
   readResponseTextWithLimit,
   RequestBodyTooLargeError,
@@ -170,7 +171,7 @@ export async function dispatchPendingIntegrationEvents(limit: number) {
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 10_000)
         try {
-          const response = await fetch(String(endpoint.url), {
+          const response = await requestWebhook(String(endpoint.url), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
