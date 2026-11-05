@@ -22,6 +22,9 @@ session or another campaign. Related subject holds pause observer disposal.
 Newly discovered rater IDs require another preparation and confirmed ledger
 write before erasure can finish.
 
+The runner validates the inventory protocol both before and after replay. An
+older schema that omits rater counts cannot silently produce a verified result.
+
 Quarantined recovery checks rater absence and can remove an orphaned rater
 restored without its participant. It verifies campaign, participant/session
 scope and related holds first. Peer and subject records are preserved for an
@@ -66,14 +69,17 @@ modified.
   passed after the fix.
 - Ledger/worker unit checks: 18 passed, including five new expiry/capacity,
   renewal, missing-record and active-hold cases.
+- Recovery inventory protocol: four additional unit cases reject an old schema
+  before mutation, reject incomplete final inventory, preserve future copy counts
+  and accept complete absence.
 - Observer integration: eight passed, covering individual and subject scope,
   peer preservation, rater-token absence, related holds, orphan restore, legacy
   entry refusal, foreign campaign/session rejection and manifest freshness.
 - Complete integration: 567 passed, 16 intentionally skipped external-provider
   or opt-in capacity checks. Existing lifecycle cases still pass.
 - Ordinary local validator passed release logic (8), lint, TypeScript, unit
-  (3,402), components (242), architecture (97), production build and smoke (7).
-  Two final integration cases were added afterwards; lint and types were rerun.
+  (3,406), components (242), architecture (97), production build and smoke (7).
+  The complete validator was rerun after adding the final inventory safeguard.
   An earlier validator pass caught an incorrect Redis generic signature; it was
   corrected and the whole validator rerun without bypassing checks.
 - The exact Lua also passed on an ephemeral real Redis 7.4 server with synthetic

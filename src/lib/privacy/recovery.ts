@@ -1,8 +1,15 @@
 import 'server-only'
+import {z} from 'zod'
 import type { createAdminClient } from '@/lib/supabase/admin'
 import { privacyLedgerEntrySchema, type PrivacyLedger } from './ledger'
 import { drainPrivacyDeletionJobs } from './deletion-worker'
 import { safeObjectPath } from './types'
+
+const replayInventorySchema=z.object({
+  participants:z.number().int().nonnegative(),sessions:z.number().int().nonnegative(),
+  snapshots:z.number().int().nonnegative(),objects:z.number().int().nonnegative(),
+  raters:z.number().int().nonnegative(),unverifiedRaterScope:z.literal(0),
+}).catchall(z.number().int().nonnegative())
 
 /** Run only against a quarantined restore. No notifications, billing or scoring. */
 export async function replayPrivacyLedger(options: {
@@ -39,8 +46,9 @@ export async function replayPrivacyLedger(options: {
     // participant/session has disappeared. Require a reviewed ledger upgrade.
     if(!entry.raterIds){blocked++;continue}
     const before=await db.rpc('privacy_replay_remaining',{p_entry:entry})
-    if(before.error)throw new Error('recovery_inventory_failed')
-    if(!options.execute){if(Object.values(before.data as Record<string,number>).some(count=>count>0))blocked++;continue}
+    const inventory=replayInventorySchema.safeParse(before.data)
+    if(before.error||!inventory.success)throw new Error('recovery_inventory_failed')
+    if(!options.execute){if(Object.values(inventory.data).some(count=>count>0))blocked++;continue}
     const currentHolds=await db.from('privacy_legal_holds').select('participant_id').eq('campaign_id',entry.campaignId).is('released_at',null)
     if(currentHolds.error)throw new Error('recovery_hold_check_failed')
     if(currentHolds.data?.some(hold=>!hold.participant_id||entry.participantIds.includes(hold.participant_id))){blocked++;continue}
@@ -61,7 +69,8 @@ export async function replayPrivacyLedger(options: {
       }
     }
     const after=await db.rpc('privacy_replay_remaining',{p_entry:entry})
-    if(after.error||Object.values(after.data as Record<string,number>).some(count=>count!==0))throw new Error('recovery_absence_verification_failed')
+    const remaining=replayInventorySchema.safeParse(after.data)
+    if(after.error||!remaining.success||Object.values(remaining.data).some(count=>count!==0))throw new Error('recovery_absence_verification_failed')
     replayed++
   }
   return {mode:options.execute?'execute':'plan',ledgerEntries:entries.length,holds:holds.length,accountEntries:accounts,replayed,blocked,privacyReplayVerified:Boolean(options.execute&&blocked===0)}
