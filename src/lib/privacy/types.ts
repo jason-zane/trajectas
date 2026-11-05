@@ -8,6 +8,8 @@ export const objectReferenceSchema = z.object({
 export const deletionManifestSchema = z.object({
   version: z.literal(1),
   participantIds: z.array(postgresUuid()),
+  raterIds: z.array(postgresUuid()),
+  holdParticipantIds: z.array(postgresUuid()),
   sessionIds: z.array(postgresUuid()),
   snapshotIds: z.array(postgresUuid()),
   objects: z.array(objectReferenceSchema),
