@@ -104,4 +104,7 @@ export const registerViaLinkInputSchema = z.object({
   jobTitle: z.string().optional(),
   company: z.string().optional(),
   marketingConsent: z.boolean().optional(),
+  privacyNoticeVersionId: postgresUuid().optional(),
+  privacyAcknowledged: z.boolean().optional(),
+  researchConsent: z.boolean().optional(),
 })

@@ -1,13 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { registerViaLink } from "@/app/actions/assess";
 import type { JoinContent } from "@/lib/experience/types";
 import type { Campaign } from "@/types/database";
+import { PrivacyAcknowledgement } from "@/components/assess/privacy-acknowledgement";
+import type { ParticipantPrivacyNotice } from "@/lib/privacy/notice";
 
 interface JoinFormProps {
   linkToken: string;
@@ -16,6 +18,7 @@ interface JoinFormProps {
   content: JoinContent;
   campaign?: Campaign;
   privacyUrl?: string;
+  privacyNotice?: ParticipantPrivacyNotice;
 }
 
 export function JoinForm({
@@ -25,6 +28,7 @@ export function JoinForm({
   content,
   campaign,
   privacyUrl: privacyUrlProp,
+  privacyNotice,
 }: JoinFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -33,11 +37,15 @@ export function JoinForm({
   const [jobTitle, setJobTitle] = useState("");
   const [company, setCompany] = useState("");
   const [marketingConsent, setMarketingConsent] = useState(false);
+  const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false);
+  const [researchConsent, setResearchConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const saving = useRef(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (saving.current) return;
     setError(null);
 
     const trimmedEmail = email.trim();
@@ -56,26 +64,42 @@ export function JoinForm({
       return;
     }
 
-    setSubmitting(true);
-
-    const result = await registerViaLink(linkToken, {
-      email: trimmedEmail,
-      firstName: trimmedFirstName,
-      lastName: trimmedLastName,
-      jobTitle: trimmedJobTitle || undefined,
-      company: trimmedCompany || undefined,
-      marketingConsent: content.marketingConsentEnabled ? marketingConsent : undefined,
-    });
-
-    setSubmitting(false);
-
-    if ("error" in result && result.error) {
-      setError(result.error);
+    if (privacyNotice && !privacyAcknowledged) {
+      setError("Please acknowledge the assessment privacy information to continue.");
       return;
     }
 
-    if (result.accessToken) {
-      router.push(`/assess/${result.accessToken}`);
+    saving.current = true;
+    setSubmitting(true);
+
+    try {
+      const result = await registerViaLink(linkToken, {
+        email: trimmedEmail,
+        firstName: trimmedFirstName,
+        lastName: trimmedLastName,
+        jobTitle: trimmedJobTitle || undefined,
+        company: trimmedCompany || undefined,
+        marketingConsent: content.marketingConsentEnabled ? marketingConsent : undefined,
+        ...(privacyNotice ? {
+          privacyNoticeVersionId: privacyNotice.id,
+          privacyAcknowledged,
+          researchConsent: privacyNotice.researchChoiceEnabled ? researchConsent : undefined,
+        } : {}),
+      });
+
+      if ("error" in result && result.error) {
+        setError(result.error);
+        return;
+      }
+
+      if (result.accessToken) {
+        router.push(`/assess/${result.accessToken}${result.requiresPrivacyAcknowledgement ? "/consent" : ""}`);
+      }
+    } catch {
+      setError("We couldn’t complete your registration. Please try again.");
+    } finally {
+      saving.current = false;
+      setSubmitting(false);
     }
   }
 
@@ -513,6 +537,17 @@ export function JoinForm({
               </div>
             </div>
 
+            {privacyNotice && (
+              <PrivacyAcknowledgement
+                notice={privacyNotice}
+                checked={privacyAcknowledged}
+                onCheckedChange={setPrivacyAcknowledged}
+                researchConsent={researchConsent}
+                onResearchChange={setResearchConsent}
+                disabled={submitting}
+              />
+            )}
+
             {/* Marketing consent */}
             {content.marketingConsentEnabled && (
               <div className="flex items-start gap-3">
@@ -561,8 +596,8 @@ export function JoinForm({
             {/* CTA Button */}
             <button
               type="submit"
-              disabled={submitting}
-              className="w-full px-7 py-3 rounded-[10px] font-semibold text-sm sm:text-[15px] tracking-wide transition-all duration-200"
+              disabled={submitting || Boolean(privacyNotice && !privacyAcknowledged)}
+              className="w-full px-7 py-3 rounded-[10px] font-semibold text-sm sm:text-[15px] tracking-wide transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
               style={{
                 background: "var(--runner-cta-fill)",
                 color: "var(--runner-cta-text)",
@@ -580,7 +615,7 @@ export function JoinForm({
             </button>
 
             {/* Privacy notice */}
-            <p
+            {!privacyNotice && <p
               className="text-xs text-center leading-relaxed"
               style={{
                 color: "var(--runner-text-faint)",
@@ -607,7 +642,7 @@ export function JoinForm({
                   . Your answers are reported in aggregate only.
                 </>
               )}
-            </p>
+            </p>}
           </form>
         </div>
       </div>

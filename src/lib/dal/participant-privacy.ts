@@ -2,10 +2,27 @@ import 'server-only'
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { postgresUuid } from '@/lib/validations/uuid'
+import type { ParticipantPrivacyNotice } from '@/lib/privacy/notice'
 
 export type ParticipantPrivacyState = {
-  notice: { id: string; title: string; body: string; version: string; hash: string; acknowledgementLabel: string; researchLabel: string; researchChoiceEnabled: boolean }
+  notice: ParticipantPrivacyNotice & { version: string; hash: string }
   acknowledged: boolean
+}
+
+/** Internal to enrollment routes/actions after validating the campaign access link. */
+export async function getEnrollmentPrivacyNotice(campaignId: string): Promise<ParticipantPrivacyNotice | null> {
+  postgresUuid().parse(campaignId)
+  const db = createAdminClient()
+  const { data: settings, error } = await db.from('campaign_privacy_settings')
+    .select('notice_version_id,notice_effective_at').eq('campaign_id', campaignId).maybeSingle()
+  if (error) throw new Error('Assessment privacy information is unavailable.')
+  if (!settings?.notice_version_id || new Date(settings.notice_effective_at) > new Date()) return null
+  const { data: notice, error: noticeError } = await db.from('privacy_notice_versions')
+    .select('id,title,body,acknowledgement_label,research_label,research_choice_enabled')
+    .eq('id', settings.notice_version_id).eq('status', 'published').eq('audience', 'participant').single()
+  if (noticeError || !notice) throw new Error('Assessment privacy information is unavailable.')
+  return { id: notice.id, title: notice.title, body: notice.body, acknowledgementLabel: notice.acknowledgement_label,
+    researchLabel: notice.research_label, researchChoiceEnabled: notice.research_choice_enabled }
 }
 
 /** Internal to token-validated participant routes; no user identifiers are returned. */

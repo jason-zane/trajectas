@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DISABLED_WORKSPACE_FEATURES } from '@/lib/features/workspace-features'
 const state=vi.hoisted(()=>({features:vi.fn(),insert:vi.fn(),rpc:vi.fn(),active:true,participantStatus:'in_progress'}))
 vi.mock('@/lib/dal/workspace-features',()=>({getEffectiveWorkspaceFeatures:state.features}))
+vi.mock('@/lib/dal/participant-privacy',()=>({getEnrollmentPrivacyNotice:async()=>null}))
 vi.mock('@/lib/supabase/admin',()=>({createAdminClient:()=>({rpc:state.rpc,from:(table:string)=>{
  const query:Record<string,unknown>={}
  for(const method of ['select','eq','is','order'])query[method]=()=>query
