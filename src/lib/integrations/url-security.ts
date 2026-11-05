@@ -1,7 +1,13 @@
-import { isIP } from 'net'
+import { BlockList, isIP } from 'node:net'
 
 const LOCAL_HOSTNAMES = new Set(['localhost', 'localhost.localdomain'])
 const METADATA_HOSTNAMES = new Set(['metadata.google.internal'])
+const GLOBAL_IPV6 = new BlockList()
+GLOBAL_IPV6.addSubnet('2000::', 3, 'ipv6')
+const SPECIAL_IPV6 = new BlockList()
+for (const [address, prefix] of [['2001::', 23], ['2001:db8::', 32], ['2002::', 16], ['3fff::', 20]] as const) {
+  SPECIAL_IPV6.addSubnet(address, prefix, 'ipv6')
+}
 
 type WebhookUrlSafetyOptions = {
   allowLocalUrls?: boolean
@@ -35,7 +41,10 @@ function isPrivateIpv4(hostname: string) {
     a === 172 && b >= 16 && b <= 31 ||
     a === 192 && b === 168 ||
     a === 100 && b >= 64 && b <= 127 ||
-    a === 198 && (b === 18 || b === 19)
+    a === 192 && (b === 0 && (parts[2] === 0 || parts[2] === 2) || b === 88 && parts[2] === 99) ||
+    a === 198 && (b === 18 || b === 19 || b === 51 && parts[2] === 100) ||
+    a === 203 && b === 0 && parts[2] === 113 ||
+    a >= 224
   )
 }
 
@@ -84,16 +93,8 @@ function isPrivateIpv6(hostname: string) {
     return isPrivateIpv4(mappedIpv4)
   }
 
-  const firstSegment = hostname.split(':')[0]
-  const firstWord = Number.parseInt(firstSegment, 16)
-  if (Number.isNaN(firstWord)) {
-    return false
-  }
-
-  return (
-    (firstWord & 0xfe00) === 0xfc00 ||
-    (firstWord & 0xffc0) === 0xfe80
-  )
+  // Only globally routed unicast, excluding documentation/transition ranges.
+  return !GLOBAL_IPV6.check(hostname, 'ipv6') || SPECIAL_IPV6.check(hostname, 'ipv6')
 }
 
 function isLocalOrPrivateHost(hostname: string) {
@@ -112,7 +113,8 @@ function isLocalOrPrivateHost(hostname: string) {
   return false
 }
 
-function isLoopbackOrLocalhost(hostname: string) {
+export function isLoopbackWebhookHost(value: string) {
+  const hostname = normalizeHostname(value)
   if (isLocalHostname(hostname)) {
     return true
   }
@@ -144,7 +146,7 @@ export function getWebhookUrlSafetyError(
   }
 
   const hostname = normalizeHostname(parsed.hostname)
-  const localAllowed = Boolean(options.allowLocalUrls) && isLoopbackOrLocalhost(hostname)
+  const localAllowed = Boolean(options.allowLocalUrls) && isLoopbackWebhookHost(hostname)
 
   if (isLocalOrPrivateHost(hostname) && !localAllowed) {
     return 'Webhook URL must not target localhost, private network, or cloud metadata hosts.'
