@@ -64,6 +64,8 @@ describe.skipIf(!canRun)('privacy deletion of 360 observers',()=>{
     expect((await db.from('audit_events').select('id').eq('id',raterAudit)).data).toEqual([])
     expect((await db.from('audit_events').select('id').eq('id',peerAudit)).data).toHaveLength(1)
     expect(prepared.data).toMatchObject({raterIds:[f.target.rater],participantIds:[f.target.id],sessionIds:[f.target.session]})
+    expect(prepared.data.holdParticipantIds).toEqual(expect.arrayContaining([f.target.id,f.subject.id]))
+    expect((await db.from('campaign_participants').select('privacy_pending_at').eq('id',f.subject.id).single()).data?.privacy_pending_at).toBeNull()
     expect((await db.from('campaign_raters').select('id').eq('id',f.peer.rater)).data).toHaveLength(1)
     expect((await db.from('participant_sessions').select('id').in('id',[f.subject.session,f.peer.session])).data).toHaveLength(2)
     expect((await db.from('privacy_deletion_requests').select('status').eq('id',id).single()).data?.status).toBe('backup_pending')
@@ -80,6 +82,7 @@ describe.skipIf(!canRun)('privacy deletion of 360 observers',()=>{
   it('records rater scope externally and erases an orphan rater restored without its participant',async()=>{
     const f=await fixture(),entry=await erase(f)
     expect(entry.raterIds).toEqual([f.target.rater])
+    expect(entry.holdParticipantIds).toEqual(expect.arrayContaining([f.target.id,f.subject.id]))
     await restoreRater(f)
     const source:PrivacyLedger={read:async()=>[entry],put:ledger.put}
     const plan=await replayPrivacyLedger({client:db,ledger:source,targetUrl:process.env.NEXT_PUBLIC_SUPABASE_URL!})
@@ -99,6 +102,19 @@ describe.skipIf(!canRun)('privacy deletion of 360 observers',()=>{
       expect((await db.from('campaign_raters').select('id').eq('id',f.target.rater)).data).toHaveLength(1)
       expect((await db.from('campaign_participants').select('deleted_at').eq('id',f.target.id).single()).data?.deleted_at).toBeNull()
     } finally {expect((await db.from('privacy_legal_holds').update({released_at:new Date().toISOString()}).eq('id',hold)).error).toBeNull()}
+  })
+  it('preserves an observer when its subject hold exists only in the external ledger',async()=>{
+    const f=await fixture(),hold=randomUUID(),id=await request(f.campaign,f.target.id)
+    entries.set(hold,{kind:'hold',id:hold,campaignId:f.campaign,participantId:f.subject.id,status:'active',reviewAt:new Date().toISOString(),expiresAt:null})
+    try {
+      expect((await db.from('privacy_legal_holds').select('id').eq('id',hold)).data).toEqual([])
+      const result=await drainPrivacyDeletionJobs({client:db,ledger,mode:'execute',requestId:id})
+      expect(result.failed).toBe(1);expect(result.processed).toBe(0)
+      expect(entries.has(id)).toBe(false)
+      expect((await db.from('campaign_raters').select('id').eq('id',f.target.rater)).data).toHaveLength(1)
+      expect((await db.from('campaign_participants').select('id').in('id',[f.target.id,f.subject.id])).data).toHaveLength(2)
+      expect((await db.from('privacy_deletion_requests').select('active_deleted_at').eq('id',id).single()).data?.active_deleted_at).toBeNull()
+    } finally {entries.delete(hold)}
   })
   it('does not claim verified recovery for a legacy entry with unknown rater scope',async()=>{
     const f=await fixture(),entry=await erase(f),legacy={...entry}
@@ -136,5 +152,17 @@ describe.skipIf(!canRun)('privacy deletion of 360 observers',()=>{
     expect((await db.rpc('privacy_finish_active_deletion',args)).error?.code).toBe('55000')
     expect((await db.from('campaign_raters').select('id').eq('campaign_id',f.campaign)).data).toHaveLength(3)
     expect((await db.from('campaign_participants').select('id').eq('id',f.subject.id)).data).toHaveLength(1)
+  })
+  it('requires changed governing hold scope to be prepared before erasure',async()=>{
+    const f=await fixture(),otherSubject=await person(f.campaign),id=await request(f.campaign,f.target.id)
+    const claim=await db.rpc('privacy_claim_deletion',{p_request:id})
+    expect(claim.error).toBeNull()
+    const args={p_request:id,p_lease:claim.data[0].lease_id}
+    expect((await db.rpc('privacy_prepare_deletion',args)).error).toBeNull()
+    expect((await db.rpc('privacy_confirm_external_ledger',{...args,p_digest:'d'.repeat(64),p_expires:new Date(Date.now()+8*86400000).toISOString()})).error).toBeNull()
+    expect((await db.from('campaign_raters').update({subject_participant_id:otherSubject.id}).eq('id',f.target.rater)).error).toBeNull()
+    expect((await db.rpc('privacy_finish_active_deletion',args)).error?.code).toBe('55000')
+    expect((await db.from('campaign_raters').select('id').eq('id',f.target.rater)).data).toHaveLength(1)
+    expect((await db.from('participant_sessions').select('id').eq('id',f.target.session)).data).toHaveLength(1)
   })
 })

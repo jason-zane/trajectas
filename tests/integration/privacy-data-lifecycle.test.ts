@@ -163,7 +163,7 @@ describe.skipIf(!canRun)('privacy lifecycle database boundaries', () => {
 
   it('replays an external hold before attempting restored deletion',async()=>{
     const target=await person(),requestId=await request(target.participantId)
-    const entry:DeletionLedgerEntry={kind:'deletion',id:requestId,participantId:target.participantId,participantIds:[target.participantId],raterIds:[],sessionIds:[target.sessionId],snapshotIds:[],objects:[],campaignId:ids.campaign,approvedAt:new Date().toISOString(),policyVersion:'synthetic-recovery',backupDays:7,expiresAt:new Date(Date.now()+8*86400000).toISOString()}
+    const entry:DeletionLedgerEntry={kind:'deletion',id:requestId,participantId:target.participantId,participantIds:[target.participantId],raterIds:[],holdParticipantIds:[target.participantId],sessionIds:[target.sessionId],snapshotIds:[],objects:[],campaignId:ids.campaign,approvedAt:new Date().toISOString(),policyVersion:'synthetic-recovery',backupDays:7,expiresAt:new Date(Date.now()+8*86400000).toISOString()}
     const holdId=randomUUID()
     const recoveryLedger:PrivacyLedger={read:async()=>[entry,{kind:'hold',id:holdId,campaignId:ids.campaign,participantId:target.participantId,status:'active',reviewAt:new Date().toISOString(),expiresAt:null}],put:ledger.put}
     const result=await replayPrivacyLedger({client:db,ledger:recoveryLedger,targetUrl:process.env.NEXT_PUBLIC_SUPABASE_URL!,execute:true,quarantined:true})

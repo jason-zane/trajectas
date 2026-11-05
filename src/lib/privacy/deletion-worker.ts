@@ -42,11 +42,12 @@ export async function drainPrivacyDeletionJobs(options: {
     const policy = await db.from('privacy_retention_policies').select('version,backup_days').eq('id', request.policy_id).eq('status', 'active').single()
     if (policy.error || !policy.data) throw new PrivacyWorkerFailure('policy_unavailable')
     const external = await ledger.read().catch(() => { throw new PrivacyWorkerFailure('external_ledger_unavailable') })
+    const holdScope=new Set([...manifest.participantIds,...manifest.holdParticipantIds])
     if (external.some(entry => entry.kind === 'hold' && entry.status === 'active' && entry.campaignId === request.campaign_id
-      && (!entry.participantId || manifest.participantIds.includes(entry.participantId)))) throw new PrivacyWorkerFailure('external_legal_hold')
+      && (!entry.participantId || holdScope.has(entry.participantId)))) throw new PrivacyWorkerFailure('external_legal_hold')
     const expiresAt = new Date(Date.now() + (policy.data.backup_days + 1) * 86400_000).toISOString()
     const digest = await ledger.put({ kind: 'deletion', id: request.id, participantId:request.participant_id, participantIds: manifest.participantIds,
-      raterIds: manifest.raterIds, sessionIds: manifest.sessionIds, snapshotIds: manifest.snapshotIds, objects: manifest.objects,
+      raterIds: manifest.raterIds, holdParticipantIds:manifest.holdParticipantIds, sessionIds: manifest.sessionIds, snapshotIds: manifest.snapshotIds, objects: manifest.objects,
       campaignId: request.campaign_id, approvedAt: request.approved_at, policyVersion: policy.data.version,
       backupDays: policy.data.backup_days, expiresAt }).catch(() => { throw new PrivacyWorkerFailure('external_ledger_write_failed') })
     const acknowledged = await db.rpc('privacy_confirm_external_ledger', { ...args, p_digest: digest, p_expires: expiresAt })

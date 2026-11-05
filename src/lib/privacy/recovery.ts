@@ -42,16 +42,17 @@ export async function replayPrivacyLedger(options: {
       accounts++;continue
     }
     if(entry.kind!=='deletion')continue
-    // A legacy entry cannot locate a surviving observer rater after its
-    // participant/session has disappeared. Require a reviewed ledger upgrade.
-    if(!entry.raterIds){blocked++;continue}
+    // Legacy entries cannot prove all rater identities and governing holds.
+    // Require a reviewed ledger upgrade before claiming verified recovery.
+    if(!entry.raterIds||!entry.holdParticipantIds){blocked++;continue}
     const before=await db.rpc('privacy_replay_remaining',{p_entry:entry})
     const inventory=replayInventorySchema.safeParse(before.data)
     if(before.error||!inventory.success)throw new Error('recovery_inventory_failed')
     if(!options.execute){if(Object.values(inventory.data).some(count=>count>0))blocked++;continue}
     const currentHolds=await db.from('privacy_legal_holds').select('participant_id').eq('campaign_id',entry.campaignId).is('released_at',null)
     if(currentHolds.error)throw new Error('recovery_hold_check_failed')
-    if(currentHolds.data?.some(hold=>!hold.participant_id||entry.participantIds.includes(hold.participant_id))){blocked++;continue}
+    const holdScope=new Set([...entry.participantIds,...entry.holdParticipantIds])
+    if(currentHolds.data?.some(hold=>!hold.participant_id||holdScope.has(hold.participant_id))){blocked++;continue}
     const queued=await db.rpc('privacy_replay_deletion',{p_entry:entry})
     if(queued.error)throw new Error('recovery_deletion_queue_failed')
     if(queued.data) {

@@ -13,6 +13,7 @@ const deletionEntry = z.object({
   participantIds: z.array(postgresUuid()).min(1),
   // Older encrypted entries remain readable, but cannot prove rater erasure.
   raterIds: z.array(postgresUuid()).optional(),
+  holdParticipantIds: z.array(postgresUuid()).optional(),
   sessionIds: z.array(postgresUuid()),
   snapshotIds: z.array(postgresUuid()),
   objects: z.array(objectReferenceSchema),

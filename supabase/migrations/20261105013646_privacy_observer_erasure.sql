@@ -64,7 +64,11 @@ BEGIN
     WHERE r.import_id=ANY(imports) OR private.privacy_json_matches(r.input,markers)
       OR private.privacy_json_matches(coalesce(r.result,'{}'),markers);
   SELECT jsonb_build_object(
-    'version',1,'participantIds',to_jsonb(ids),'raterIds',to_jsonb(raters),'sessionIds',to_jsonb(sessions),'snapshotIds',to_jsonb(snapshots),
+    'version',1,'participantIds',to_jsonb(ids),'raterIds',to_jsonb(raters),
+    -- Governing subjects belong only to hold scope, never to erasure scope.
+    'holdParticipantIds',to_jsonb(ARRAY(SELECT x FROM unnest(ids) x UNION
+      SELECT subject_participant_id FROM public.campaign_raters WHERE id=ANY(raters))),
+    'sessionIds',to_jsonb(sessions),'snapshotIds',to_jsonb(snapshots),
     'objects',coalesce((SELECT jsonb_agg(jsonb_build_object('bucket','reports','path',o.name))
       FROM storage.objects o WHERE o.bucket_id='reports' AND EXISTS
         (SELECT 1 FROM unnest(snapshots) s WHERE starts_with(o.name,'reports/'||s::text||'/'))),'[]'::jsonb)
@@ -109,10 +113,14 @@ BEGIN
   -- Keep object paths already discovered across partial failures and review.
   m := jsonb_set(m,'{objects}',coalesce((SELECT jsonb_agg(DISTINCT x) FROM jsonb_array_elements(
     (m->'objects')||coalesce(r.manifest->'objects','[]')) x),'[]'));
-  FOREACH manifest_key IN ARRAY ARRAY['participantIds','raterIds','sessionIds','snapshotIds'] LOOP
+  FOREACH manifest_key IN ARRAY ARRAY['participantIds','raterIds','holdParticipantIds','sessionIds','snapshotIds'] LOOP
     m := jsonb_set(m,ARRAY[manifest_key],coalesce((SELECT jsonb_agg(DISTINCT x) FROM jsonb_array_elements(
       (m->manifest_key)||coalesce(r.manifest->manifest_key,'[]')) x),'[]'));
   END LOOP;
+  IF EXISTS(SELECT 1 FROM jsonb_array_elements_text(m->'holdParticipantIds') p
+    WHERE private.privacy_has_hold(r.campaign_id,p.value::uuid)) THEN
+    RAISE EXCEPTION 'Related rater records are on hold.' USING ERRCODE='55000';
+  END IF;
   UPDATE public.privacy_deletion_requests SET manifest=m,
     status=CASE WHEN jsonb_array_length(m->'blockers')>0 THEN 'review_required' ELSE 'purging' END,
     lease_id=CASE WHEN jsonb_array_length(m->'blockers')>0 THEN NULL ELSE lease_id END,
@@ -138,10 +146,17 @@ BEGIN
   SELECT coalesce(array_agg(value::uuid),'{}') INTO sessions FROM jsonb_array_elements_text(r.manifest->'sessionIds');
   SELECT coalesce(array_agg(value::uuid),'{}') INTO snapshots FROM jsonb_array_elements_text(r.manifest->'snapshotIds');
   SELECT coalesce(array_agg(value::uuid),'{}') INTO raters FROM jsonb_array_elements_text(r.manifest->'raterIds');
-  IF NOT r.manifest ? 'raterIds' OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(m->'raterIds') x WHERE NOT x.value::uuid=ANY(raters)) THEN
+  IF NOT r.manifest ? 'raterIds' OR NOT r.manifest ? 'holdParticipantIds'
+    OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(m->'raterIds') x WHERE NOT x.value::uuid=ANY(raters))
+    OR EXISTS(SELECT 1 FROM jsonb_array_elements_text(m->'holdParticipantIds') x
+      WHERE NOT (r.manifest->'holdParticipantIds') ? x.value) THEN
     RAISE EXCEPTION 'Rater manifest must be prepared and confirmed before erasure.' USING ERRCODE='55000';
   END IF;
   PERFORM private.privacy_check_rater_scope(r.campaign_id,raters,ids,sessions);
+  IF EXISTS(SELECT 1 FROM jsonb_array_elements_text(r.manifest->'holdParticipantIds') p
+    WHERE private.privacy_has_hold(r.campaign_id,p.value::uuid)) THEN
+    RAISE EXCEPTION 'Related rater records are on hold.' USING ERRCODE='55000';
+  END IF;
   IF ids IS NULL OR NOT (r.participant_id=ANY(ids)) THEN
     RAISE EXCEPTION 'Deletion manifest is not prepared.' USING ERRCODE='55000';
   END IF;
@@ -200,7 +215,7 @@ END $$;
 CREATE OR REPLACE FUNCTION public.privacy_replay_remaining(p_entry jsonb) RETURNS jsonb
 LANGUAGE sql STABLE SET search_path='' AS $$
   SELECT jsonb_build_object(
-    'unverifiedRaterScope',CASE WHEN p_entry ? 'raterIds' THEN 0 ELSE 1 END,
+    'unverifiedRaterScope',CASE WHEN p_entry ? 'raterIds' AND p_entry ? 'holdParticipantIds' THEN 0 ELSE 1 END,
     'raters',(SELECT count(*) FROM public.campaign_raters WHERE id IN (SELECT value::uuid FROM jsonb_array_elements_text(coalesce(p_entry->'raterIds','[]'::jsonb)))),
     'participants',(SELECT count(*) FROM public.campaign_participants WHERE id IN (SELECT value::uuid FROM jsonb_array_elements_text(p_entry->'participantIds'))),
     'sessions',(SELECT count(*) FROM public.participant_sessions WHERE id IN (SELECT value::uuid FROM jsonb_array_elements_text(p_entry->'sessionIds'))),
@@ -212,9 +227,13 @@ CREATE OR REPLACE FUNCTION public.privacy_replay_deletion(p_entry jsonb) RETURNS
 LANGUAGE plpgsql SET search_path='' AS $$
 DECLARE person public.campaign_participants; policy_id uuid; owner_id uuid; recovery_version text; raters uuid[]; participants uuid[]; sessions uuid[];
 BEGIN
-  IF NOT p_entry ? 'raterIds' THEN RAISE EXCEPTION 'Legacy rater scope requires review.' USING ERRCODE='55000'; END IF;
+  IF NOT p_entry ? 'raterIds' OR NOT p_entry ? 'holdParticipantIds' THEN RAISE EXCEPTION 'Legacy rater scope requires review.' USING ERRCODE='55000'; END IF;
   IF p_entry->>'kind'<>'deletion' OR (p_entry->>'expiresAt')::timestamptz<=now() THEN
     RAISE EXCEPTION 'A current deletion entry is required.';
+  END IF;
+  IF EXISTS(SELECT 1 FROM jsonb_array_elements_text(p_entry->'holdParticipantIds') p
+    WHERE private.privacy_has_hold((p_entry->>'campaignId')::uuid,p.value::uuid)) THEN
+    RAISE EXCEPTION 'Related rater records are on hold.' USING ERRCODE='55000';
   END IF;
   SELECT * INTO person FROM public.campaign_participants WHERE id=(p_entry->>'participantId')::uuid FOR UPDATE;
   IF person.id IS NULL THEN
@@ -236,7 +255,7 @@ BEGIN
   SELECT id INTO policy_id FROM public.privacy_retention_policies WHERE version=recovery_version;
   INSERT INTO public.privacy_deletion_requests(id,participant_id,campaign_id,client_id,reason,policy_id,status,approved_at,manifest)
     VALUES((p_entry->>'id')::uuid,person.id,person.campaign_id,owner_id,'individual_request',policy_id,'approved',
-      (p_entry->>'approvedAt')::timestamptz,jsonb_build_object('participantIds',p_entry->'participantIds','raterIds',p_entry->'raterIds',
+      (p_entry->>'approvedAt')::timestamptz,jsonb_build_object('participantIds',p_entry->'participantIds','raterIds',p_entry->'raterIds','holdParticipantIds',p_entry->'holdParticipantIds',
         'sessionIds',p_entry->'sessionIds','snapshotIds',p_entry->'snapshotIds','objects',p_entry->'objects'))
     ON CONFLICT(id) DO UPDATE SET status='approved',participant_id=EXCLUDED.participant_id,campaign_id=EXCLUDED.campaign_id,
       client_id=EXCLUDED.client_id,policy_id=EXCLUDED.policy_id,approved_at=EXCLUDED.approved_at,manifest=EXCLUDED.manifest,
