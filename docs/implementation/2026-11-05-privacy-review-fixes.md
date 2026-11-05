@@ -1,7 +1,7 @@
 # Follow-up to the PR 443 automated review
 
 Both findings in [review 5777776463](https://github.com/jason-zane/trajectas/pull/443#pullrequestreview-5777776463)
-apply to the tested source `65d2861` and deployed squash `622bdb0` (identical trees).
+apply to the source `65d2861` and baseline squash `622bdb0` (identical trees).
 This branch fixes the implementation; it does not apply a hosted migration,
 activate disposal or establish that existing external copies have been erased.
 
@@ -102,22 +102,22 @@ journey. No production erasure or authenticated production write test ran.
 
 ## Release order and limitations
 
-Keep production `DATA_LIFECYCLE_MODE=plan` throughout schema and app rollout.
-The production-only value was read back as `plan`; the public Supabase URL still
-identified active Singapore `rwpfwfcaxoevnvtkdmkx`. This follow-up changed neither.
-Reverify the active mapping at release time; Sydney cutover remains separate.
+Keep disposal disabled throughout schema and app rollout. Exact production
+target mappings, configuration readbacks and provider history are retained in
+the private release evidence. Reverify the active mapping at release time;
+database cutover remains a separate decision. This follow-up changes neither
+the production application nor its configuration.
 
-Approve the exact follow-up migration, target and order under `docs/runbook.md`.
+Approve the exact follow-up migration, privately verified target and order under `docs/runbook.md`.
 Apply `20261105013646_privacy_observer_erasure.sql` after the original lifecycle
 migration, verify grants/schema, then deploy the reviewed app head. New workers
 require explicit rater scope; old workers must not execute during a mixed-version
 rollout because they cannot put rater IDs in the external ledger. Rollback must
 preserve plan mode. Recovery uses the updated schema and runner together.
 
-The original migration exists on active production under Supabase-assigned
-history version `20261104235915`; its reviewed source filename/hash remain
-unchanged. Do not blindly push or repair unrelated hosted migration history.
-Before a future Sydney cutover, apply and verify both privacy migrations in
-order, reconcile its lagging data/configuration, and follow the separate cutover
-approval. Customer privacy wording, provider recovery and execute activation
+The original reviewed source filename/hash remain unchanged. Provider-assigned
+history mapping is recorded privately; do not blindly push or repair unrelated
+hosted migration history. Before a database cutover, apply and verify both privacy
+migrations in order, reconcile data/configuration and follow the separate cutover
+approval. Customer privacy wording, provider recovery and disposal activation
 remain outside this fix release.
