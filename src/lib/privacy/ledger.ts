@@ -157,8 +157,13 @@ export class RedisPrivacyLedger implements PrivacyLedger {
 
 export function createPrivacyLedger(): RedisPrivacyLedger {
   const encoded = process.env.PRIVACY_LEDGER_ENCRYPTION_KEY
-  const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN
+  const dedicatedUrl = process.env.PRIVACY_LEDGER_REDIS_REST_URL
+  const dedicatedToken = process.env.PRIVACY_LEDGER_REDIS_REST_TOKEN
+  // A partially configured dedicated store must never fall back to shared cache
+  // credentials or mix a URL and token from different databases.
+  const dedicated = dedicatedUrl !== undefined || dedicatedToken !== undefined
+  const url = dedicated ? dedicatedUrl : process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL
+  const token = dedicated ? dedicatedToken : process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN
   if (!encoded || !url || !token || !/^[A-Za-z0-9+/]{43}=$/.test(encoded)) throw new Error('privacy_ledger_not_configured')
   return new RedisPrivacyLedger(new Redis({ url, token, retry: false, signal: () => AbortSignal.timeout(3000) }), Buffer.from(encoded, 'base64'), operationalNamespace())
 }

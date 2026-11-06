@@ -139,6 +139,10 @@ repository's exact-commit release process after the concrete changes are ready.
    secret store, independently in each environment. Do not reuse a signing key.
    Keep its recovery copy and the source environment/project namespace. Review
    Upstash access, region, persistence and independent backup arrangements.
+   A dedicated store can use `PRIVACY_LEDGER_REDIS_REST_URL` and
+   `PRIVACY_LEDGER_REDIS_REST_TOKEN` without moving rate-limit or alert state.
+   Both must be configured together; an incomplete pair fails closed. When
+   neither is present, existing Upstash/KV deployments remain compatible.
    Production credential creation and paid encryption/backup changes require
    the applicable owner decision; none are performed by this branch.
 5. Initialize a **new** ledger once with the recovery tool, then export an
@@ -151,7 +155,11 @@ repository's exact-commit release process after the concrete changes are ready.
    The existing account-deletion confirmation's broad “associated data” wording
    also needs review against the narrower account operation before activation.
 7. Complete and approve draft policies using the verified longest backup window,
-   then publish reviewed notice versions and assign them to campaigns. Record
+   then assign reviewed retention policies to campaigns. A participant notice is
+   optional for this configuration action: omitting it preserves the existing
+   notice and enrollment boundary, or leaves notices unassigned. Publish and
+   assign new notice versions only after their separate review and approval;
+   retention configuration alone does not approve customer-facing terms. Record
    real past closure dates deliberately. Historic research needs separately
    evidenced permissions and compatible frozen scoring evidence.
 8. Rehearse database **and bytes** restoration in quarantine. Disable outgoing
