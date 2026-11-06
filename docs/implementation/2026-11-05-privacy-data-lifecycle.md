@@ -139,6 +139,10 @@ repository's exact-commit release process after the concrete changes are ready.
    secret store, independently in each environment. Do not reuse a signing key.
    Keep its recovery copy and the source environment/project namespace. Review
    Upstash access, region, persistence and independent backup arrangements.
+   A dedicated store can use `PRIVACY_LEDGER_REDIS_REST_URL` and
+   `PRIVACY_LEDGER_REDIS_REST_TOKEN` without moving rate-limit or alert state.
+   Both must be configured together; an incomplete pair fails closed. When
+   neither is present, existing Upstash/KV deployments remain compatible.
    Production credential creation and paid encryption/backup changes require
    the applicable owner decision; none are performed by this branch.
 5. Initialize a **new** ledger once with the recovery tool, then export an

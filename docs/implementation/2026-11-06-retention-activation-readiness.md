@@ -16,6 +16,20 @@ notice. It does not enable disposal, approve a live policy or modify campaign da
 - New participant notices remain off. Retention-only changes preserve an existing
   notice, its enrollment boundary and any recorded closure. An explicitly chosen
   replacement must still be a published participant notice.
+- Jason subsequently requested ledger/key setup and a first deletion list before
+  activation. After the actual provider quote, he chose preparation without a
+  new paid service. No paid database, hosted key or initialized ledger is implied
+  by the prepared code. An isolated Production backend and approved recovery key
+  custody remain required before activation.
+
+## Dedicated ledger connection
+
+`PRIVACY_LEDGER_REDIS_REST_URL` and `PRIVACY_LEDGER_REDIS_REST_TOKEN` select a
+separate ledger backend without changing the Redis connection used by rate limits
+or alerts. Configure both or neither. A missing half never falls back to a shared
+connection. The existing Upstash/KV fallback remains for compatible deployments.
+Keep the dedicated connection and encryption key scoped to Production. This
+follow-up remains separate from the approved two-PR Sydney cutover.
 
 ## Read-only current-state check
 
