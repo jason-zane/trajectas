@@ -30,7 +30,8 @@ export type PrivacyNoticeInput = z.infer<typeof privacyNoticeInput>
 export const campaignPrivacyInput = z.object({
   campaignId: postgresUuid(),
   policyId: postgresUuid(),
-  noticeId: postgresUuid(),
+  // Omission preserves the current notice; it never withdraws an assigned one.
+  noticeId: postgresUuid().optional(),
   closedAt: z.iso.datetime({ offset: true }).nullable(),
 }).strict()
 export const privacyHoldInput = z.object({

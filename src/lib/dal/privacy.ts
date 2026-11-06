@@ -189,14 +189,43 @@ export async function setCampaignPrivacy(input: unknown) {
   const db = createAdminClient()
   const [policy, notice, current] = await Promise.all([
     db.from('privacy_retention_policies').select('id').eq('id', value.policyId).eq('status', 'active').eq('scope', 'assessment').eq('recovery_only',false).single(),
-    db.from('privacy_notice_versions').select('id').eq('id', value.noticeId).eq('status', 'published').eq('audience', 'participant').single(),
-    db.from('campaign_privacy_settings').select('notice_version_id,notice_effective_at,closed_at').eq('campaign_id', value.campaignId).maybeSingle(),
+    value.noticeId
+      ? db.from('privacy_notice_versions').select('id').eq('id', value.noticeId).eq('status', 'published').eq('audience', 'participant').single()
+      : Promise.resolve({ data: null, error: null }),
+    value.noticeId
+      ? db.from('campaign_privacy_settings').select('notice_version_id,notice_effective_at,closed_at').eq('campaign_id', value.campaignId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ])
-  if (policy.error || notice.error || current.error) fail(policy.error ?? notice.error ?? current.error)
+  if (policy.error || !policy.data || notice.error || (value.noticeId && !notice.data) || current.error) fail(policy.error ?? notice.error ?? current.error)
+  const now = new Date().toISOString()
+  const metadata = { updated_at: now, updated_by: scope.actor!.id }
+  if (!value.noticeId) {
+    // Never write notice columns from a stale read. A concurrent notice assignment
+    // must survive both the insert-if-absent and the partial retention update.
+    const inserted = await db.from('campaign_privacy_settings').upsert({
+      campaign_id: value.campaignId, retention_policy_id: value.policyId,
+      closed_at: value.closedAt, ...metadata,
+    }, { onConflict: 'campaign_id', ignoreDuplicates: true })
+    if (inserted.error) fail(inserted.error)
+    const updated = await db.from('campaign_privacy_settings').update({
+      retention_policy_id: value.policyId, ...metadata,
+    }).eq('campaign_id', value.campaignId).select('campaign_id').single()
+    if (updated.error || !updated.data) fail(updated.error)
+    if (value.closedAt) {
+      // The first recorded actual closure is immutable, including concurrent saves.
+      const closed = await db.from('campaign_privacy_settings').update({
+        closed_at: value.closedAt, ...metadata,
+      }).eq('campaign_id', value.campaignId).is('closed_at', null)
+      if (closed.error) fail(closed.error)
+    }
+    return
+  }
+  const noticeEffectiveAt = value.noticeId && value.noticeId !== current.data?.notice_version_id
+    ? now : current.data?.notice_effective_at ?? now
   const { error } = await db.from('campaign_privacy_settings').upsert({
     campaign_id: value.campaignId, retention_policy_id: value.policyId, notice_version_id: value.noticeId,
-    notice_effective_at: current.data?.notice_version_id === value.noticeId ? current.data.notice_effective_at : new Date().toISOString(),
-    closed_at: current.data?.closed_at ?? value.closedAt, updated_at: new Date().toISOString(),updated_by:scope.actor!.id,
+    notice_effective_at: noticeEffectiveAt,
+    closed_at: current.data?.closed_at ?? value.closedAt, ...metadata,
   }, { onConflict: 'campaign_id' })
   if (error) fail(error)
 }

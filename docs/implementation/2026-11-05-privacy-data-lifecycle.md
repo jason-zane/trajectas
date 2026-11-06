@@ -151,7 +151,11 @@ repository's exact-commit release process after the concrete changes are ready.
    The existing account-deletion confirmation's broad “associated data” wording
    also needs review against the narrower account operation before activation.
 7. Complete and approve draft policies using the verified longest backup window,
-   then publish reviewed notice versions and assign them to campaigns. Record
+   then assign reviewed retention policies to campaigns. A participant notice is
+   optional for this configuration action: omitting it preserves the existing
+   notice and enrollment boundary, or leaves notices unassigned. Publish and
+   assign new notice versions only after their separate review and approval;
+   retention configuration alone does not approve customer-facing terms. Record
    real past closure dates deliberately. Historic research needs separately
    evidenced permissions and compatible frozen scoring evidence.
 8. Rehearse database **and bytes** restoration in quarantine. Disable outgoing

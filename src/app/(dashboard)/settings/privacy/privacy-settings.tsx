@@ -26,8 +26,8 @@ const date = (value: string | null) => value ? new Date(value).toLocaleDateStrin
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="grid gap-2 text-sm font-medium">{label}{children}</label>
 }
-function Select({ name, children, required = true }: { name: string; children: ReactNode; required?: boolean }) {
-  return <select name={name} required={required} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="">Choose…</option>{children}</select>
+function Select({ name, children, required = true, placeholder = 'Choose…' }: { name: string; children: ReactNode; required?: boolean; placeholder?: string }) {
+  return <select name={name} required={required} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="">{placeholder}</option>{children}</select>
 }
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return <section className="space-y-5 border-t border-border pt-6"><h2 className="text-section">{title}</h2>{children}</section>
@@ -131,11 +131,11 @@ export function PrivacySettings({ dashboard, campaigns, research, mode }: Props)
       </Section>
     </>}
 
-    {tab==='campaigns' && <Section title="Assign an approved policy and notice"><p className="text-sm text-muted-foreground">Notice acknowledgement applies to participants created after assignment. Previously delivered forms keep their original behaviour. Closure starts the retention clock and cannot be reset here.</p>
-      <form className="grid gap-4 sm:grid-cols-2" onChange={()=>setDirty(true)} onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);const input={campaignId:text(f,'campaign'),policyId:text(f,'policy'),noticeId:text(f,'notice'),closedAt:text(f,'closed')?new Date(text(f,'closed')).toISOString():null};const policy=activePolicies.find(row=>row.id===input.policyId);setConfirmation({title:`Apply privacy settings to ${campaigns.find(row=>row.id===input.campaignId)?.title??'this campaign'}?`,description:`Apply ${policy?.name??'the selected policy'}. A past closure can make existing records due for permanent disposal. A recorded closure cannot be reset here. Confirm the customer terms and retention schedule; the notice applies to new participants.`,work:()=>actions.setCampaignPrivacyAction(input)})}}>
+    {tab==='campaigns' && <Section title="Assign an approved retention policy"><p className="text-sm text-muted-foreground">Retention can be assigned without a new participant notice. Leave the notice unchanged or select a published replacement, which applies only to participants created after assignment. Closure starts the retention clock and cannot be reset here.</p>
+      <form className="grid gap-4 sm:grid-cols-2" onChange={()=>setDirty(true)} onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);const input={campaignId:text(f,'campaign'),policyId:text(f,'policy'),noticeId:text(f,'notice')||undefined,closedAt:text(f,'closed')?new Date(text(f,'closed')).toISOString():null};const policy=activePolicies.find(row=>row.id===input.policyId);setConfirmation({title:`Apply privacy settings to ${campaigns.find(row=>row.id===input.campaignId)?.title??'this campaign'}?`,description:`Apply ${policy?.name??'the selected policy'}. When permanent disposal is enabled, a past closure can make existing records due immediately. A recorded closure cannot be reset here. Confirm the customer terms and retention schedule. ${input.noticeId?'The selected published notice applies to new participants.':'The participant notice stays unchanged.'}`,work:()=>actions.setCampaignPrivacyAction(input)})}}>
         <Field label="Campaign"><Select name="campaign">{campaigns.map(c=><option key={c.id} value={c.id}>{c.title} · {c.status}</option>)}</Select></Field>
         <Field label="Approved assessment policy"><Select name="policy">{activePolicies.map(p=><option key={p.id} value={p.id}>{p.name} · {p.version}</option>)}</Select></Field>
-        <Field label="Published participant notice"><Select name="notice">{publishedNotices.map(n=><option key={n.id} value={n.id}>{n.title} · {n.version}</option>)}</Select></Field>
+        <Field label="Published participant notice (optional)"><Select name="notice" required={false} placeholder="Keep current notice (or none)">{publishedNotices.map(n=><option key={n.id} value={n.id}>{n.title} · {n.version}</option>)}</Select></Field>
         <Field label="Actual closure date, if already closed"><Input name="closed" type="date" /></Field><Button type="submit" disabled={busy} className="w-fit">Save assignment</Button>
       </form>
     </Section>}
